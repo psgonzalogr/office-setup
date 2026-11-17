@@ -32,6 +32,11 @@ if ($env:SAFETECH_OFFICE_URL) {
 }
 
 $StMode = if ($env:SAFETECH_OFFICE_MODE) { $env:SAFETECH_OFFICE_MODE } else { 'app' }
+if ($StMode -eq 'probe') {
+    # Usado por las pruebas del lanzador .cmd: confirma que el script se descargo y se ejecuto.
+    Write-Output 'SAFETECH-PROBE-OK'
+    return
+}
 
 # ------------------------------------------------------------------------------
 #  Arranque: pedir permisos de administrador y abrir el instalador en una

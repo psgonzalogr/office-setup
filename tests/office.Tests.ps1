@@ -351,3 +351,41 @@ Last 5 characters of installed product key: MP4Y9
         $r.Res.Ok | Should -BeTrue
     }
 }
+
+Describe 'Lanzador Instalar-Office-SafeTech.cmd (Windows real, solo en CI)' {
+    BeforeAll {
+        $script:sha = $env:GITHUB_SHA
+        function Invoke-StLauncher([string]$CmdPath) {
+            $old = @{ Mode = $env:SAFETECH_OFFICE_MODE; Url = $env:SAFETECH_OFFICE_URL }
+            try {
+                $env:SAFETECH_OFFICE_MODE = 'probe'
+                $env:SAFETECH_OFFICE_URL = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$script:sha/office.ps1"
+                $out = & cmd.exe /c "`"$CmdPath`" < NUL" 2>&1 | Out-String
+                return @{ Out = $out; Code = $LASTEXITCODE }
+            } finally {
+                $env:SAFETECH_OFFICE_MODE = $old.Mode
+                $env:SAFETECH_OFFICE_URL = $old.Url
+            }
+        }
+    }
+    It 'El .cmd del repositorio usa saltos de línea de Windows' {
+        $bytes = [IO.File]::ReadAllBytes((Join-Path $PSScriptRoot '..\Instalar-Office-SafeTech.cmd'))
+        $lf = @($bytes | Where-Object { $_ -eq 10 }).Count
+        $crlf = ([Text.Encoding]::ASCII.GetString($bytes) -split "`r`n").Count - 1
+        $crlf | Should -Be $lf
+    }
+    It 'El .cmd local descarga y ejecuta el instalador' -Skip:(-not $env:GITHUB_SHA) {
+        $r = Invoke-StLauncher (Join-Path $PSScriptRoot '..\Instalar-Office-SafeTech.cmd')
+        Write-Host $r.Out
+        $r.Out | Should -Match 'SAFETECH-PROBE-OK'
+        $r.Code | Should -Be 0
+    }
+    It 'El .cmd tal como lo entrega GitHub también funciona' -Skip:(-not $env:GITHUB_SHA) {
+        $dest = Join-Path $TestDrive 'Instalar-Office-SafeTech.cmd'
+        Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/psgonzalogr/office-setup/$script:sha/Instalar-Office-SafeTech.cmd" -OutFile $dest
+        $bytes = [IO.File]::ReadAllBytes($dest)
+        ([Text.Encoding]::ASCII.GetString($bytes)) | Should -Match "`r`n"
+        $r = Invoke-StLauncher $dest
+        $r.Out | Should -Match 'SAFETECH-PROBE-OK'
+    }
+}
