@@ -12,7 +12,7 @@
 # ==============================================================================
 
 $StConfig = @{
-    Version     = '1.0.0'
+    Version     = '1.0.1'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1'
     RawBase     = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main'
@@ -1501,6 +1501,12 @@ $StWindowXaml = @'
                   <TextBlock x:Name="TxtChipInstall" FontSize="11.5" FontWeight="Bold" Foreground="#FCD34D" Text="Office instalándose"/>
                 </Border>
                 <Button x:Name="BtnTutProgress" Style="{StaticResource BtnLink}" FontSize="12.5" Margin="-8,6,0,0" HorizontalAlignment="Left" Visibility="Collapsed" Content="Ver el avance de la instalación"/>
+                <Button x:Name="BtnTutHome" Style="{StaticResource BtnLink}" FontSize="12.5" Margin="-8,6,0,0" HorizontalAlignment="Left">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE72B;" FontFamily="{StaticResource Icons}" FontSize="11" VerticalAlignment="Center" Margin="0,1,8,0"/>
+                    <TextBlock Text="Volver al inicio"/>
+                  </StackPanel>
+                </Button>
               </StackPanel>
               <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel x:Name="StackTutSteps"/>
@@ -2188,6 +2194,7 @@ function Start-StInstallFlow {
             Set-StUiStep 'account' 'running' 'Microsoft 365 quedó instalado. Ahora conecta tu cuenta con el tutorial.'
             $St.UI.TxtChipInstall.Text = 'Office instalado'
             $St.UI.BtnTutProgress.Visibility = 'Collapsed'
+            $St.UI.BtnTutHome.Visibility = 'Visible'
             $conv = New-Object System.Windows.Media.BrushConverter
             $St.UI.ChipInstall.Background = $conv.ConvertFromString('#1F059669')
             $St.UI.ChipInstall.BorderBrush = $conv.ConvertFromString('#66059669')
@@ -2542,10 +2549,15 @@ function Show-StTutorial {
     param([int]$Index = 0)
     if (-not $St.TutRows) { Initialize-StTutorialNav }
     $St.Tut.Started = $true
-    $installing = ($St.Mode -eq 'install' -and $St.Product -and $St.Product.Id -eq '365' -and $St.Busy)
+    $installing = Test-StInstalling365
     $St.UI.BtnTutProgress.Visibility = $(if ($installing) { 'Visible' } else { 'Collapsed' })
+    $St.UI.BtnTutHome.Visibility = $(if ($installing) { 'Collapsed' } else { 'Visible' })
     Show-StPage 'Tutorial'
     Set-StTutorialStep -Index $Index
+}
+
+function Test-StInstalling365 {
+    return [bool]($St.Mode -eq 'install' -and $St.Product -and $St.Product.Id -eq '365' -and $St.Busy)
 }
 
 function Test-StTutorialBlocked {
@@ -2640,7 +2652,8 @@ function Set-StTutorialStep {
             if (Test-StTutorialBlocked $i) { $lbl.Foreground = $conv.ConvertFromString('#5D7391') }
         }
     }
-    $ui.BtnTutBack.IsEnabled = ($Index -gt 0)
+    # En el primer paso, «Atrás» vuelve a la pantalla principal (salvo mientras se instala Microsoft 365).
+    $ui.BtnTutBack.IsEnabled = ($Index -gt 0 -or -not (Test-StInstalling365))
     $ui.TxtTutNext.Text = $(if ($Index -eq $n - 1) { 'Terminar' } else { 'Siguiente' })
     $ui.TxtTutProgress.Text = "Paso $($Index + 1) de $n · $([Math]::Round((($Index + 1) / $n) * 100))%"
     $trackWidth = $ui.TutProgFill.Parent.ActualWidth
@@ -2787,7 +2800,11 @@ $ui.BtnConfirmStart.Add_Click({
 
 $ui.BtnTutorialEarly.Add_Click({ Show-StTutorial -Index $St.Tut.Index })
 $ui.BtnTutProgress.Add_Click({ Show-StPage 'Progress' })
-$ui.BtnTutBack.Add_Click({ Set-StTutorialStep -Index ($St.Tut.Index - 1) })
+$ui.BtnTutBack.Add_Click({
+    if ($St.Tut.Index -le 0) { if (-not (Test-StInstalling365)) { Show-StPage 'Home' } }
+    else { Set-StTutorialStep -Index ($St.Tut.Index - 1) }
+})
+$ui.BtnTutHome.Add_Click({ if (-not (Test-StInstalling365)) { Show-StPage 'Home' } })
 $ui.BtnTutNext.Add_Click({
     if ($St.Tut.Index -ge $StTutorial.Count - 1) { Complete-StTutorial } else { Set-StTutorialStep -Index ($St.Tut.Index + 1) }
 })
