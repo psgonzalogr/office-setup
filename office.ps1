@@ -486,7 +486,7 @@ function ConvertFrom-StOsppStatus {
         }
     }
     if ($cur.Name) { $items.Add([pscustomobject]$cur) }
-    return , $items.ToArray()
+    return $items.ToArray()
 }
 
 function ConvertFrom-StOsppIid {
@@ -500,7 +500,7 @@ function ConvertFrom-StOsppIid {
             $items.Add([pscustomobject]@{ Name = ''; Iid = $m.Value })
         }
     }
-    return , $items.ToArray()
+    return $items.ToArray()
 }
 
 function Get-StOsppMessage {
@@ -786,7 +786,7 @@ function Get-StSignInIssues {
             $issues.Add("Falta el componente de Windows $pkg.")
         }
     }
-    return , $issues.ToArray()
+    return $issues.ToArray()
 }
 
 # ----- Diagnostico ----------------------------------------------------------------------------

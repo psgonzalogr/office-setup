@@ -108,12 +108,15 @@ Installation ID for: Office 24, Office24ProPlus2024VL_MAK_AE edition: 1234567123
 '@
     }
     It 'Separa cada licencia con su estado y clave' {
-        $l = ConvertFrom-StOsppStatus $dstatus
+        $l = @(ConvertFrom-StOsppStatus $dstatus)
         $l.Count | Should -Be 2
         $l[0].Name | Should -BeExactly 'Office 24, Office24ProPlus2024VL_MAK_AE edition'
         $l[0].Status | Should -BeExactly 'NOTIFICATIONS'
         $l[0].Last5 | Should -BeExactly 'KLMNO'
         $l[1].Status | Should -BeExactly 'LICENSED'
+    }
+    It 'Devuelve una lista con dos licencias sin anidarla' {
+        @(ConvertFrom-StOsppStatus ($dstatus + "`n" + $dstatus)).Count | Should -Be 4
     }
     It 'Devuelve una lista vacía si no hay licencias' {
         @(ConvertFrom-StOsppStatus "---Processing---`n---Exiting---").Count | Should -Be 0
@@ -126,13 +129,13 @@ Installation ID for: Office 24, Office24ProPlus2024VL_MAK_AE edition: 1234567123
         Test-StLicensedStatus '' | Should -BeFalse
     }
     It 'Lee el ID de instalación y su licencia' {
-        $i = ConvertFrom-StOsppIid $dinstid
+        $i = @(ConvertFrom-StOsppIid $dinstid)
         $i.Count | Should -Be 1
         $i[0].Name | Should -BeExactly 'Office 24, Office24ProPlus2024VL_MAK_AE edition'
         $i[0].Iid.Length | Should -Be 63
     }
     It 'Encuentra un ID de instalación aunque cambie el formato' {
-        $i = ConvertFrom-StOsppIid ('ID: ' + ('9' * 54))
+        $i = @(ConvertFrom-StOsppIid ('ID: ' + ('9' * 54)))
         $i[0].Iid | Should -BeExactly ('9' * 54)
     }
     It 'Extrae el código de error' {
