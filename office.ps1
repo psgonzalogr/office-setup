@@ -12,7 +12,7 @@
 # ==============================================================================
 
 $StConfig = @{
-    Version     = '1.0.7'
+    Version     = '1.0.8'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1'
     RawBase     = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main'
@@ -112,6 +112,7 @@ try {
     $__out = & {
 '@ + "`n" + $WorkText + "`n" + @'
     }
+    Write-StLog 'Tarea terminada.'
     @{ Ok = $true; Result = $__out; Error = $null }
 } catch {
     Write-StLog ("ERROR: " + $_.Exception.Message)
@@ -1867,7 +1868,7 @@ function Invoke-StJobPump {
             $diag.Add("Objetos devueltos: $($out.Count)")
             $res = Get-StAsyncResult -Output $out
             if (-not ($res -is [hashtable])) {
-                foreach ($item in $out) { if ($null -ne $item) { $diag.Add("Objeto: $($item.GetType().FullName)") } }
+                foreach ($item in $out) { if ($null -ne $item) { $diag.Add("Objeto: $($item.GetType().FullName)") } else { $diag.Add('Objeto: nulo') } }
             }
         } catch {
             $res = @{ Ok = $false; Result = $null; Error = $_.Exception.Message }
@@ -1885,7 +1886,11 @@ function Invoke-StJobPump {
             $tail = ''
             try {
                 if ($St.Sync.LogFile -and (Test-Path -LiteralPath $St.Sync.LogFile)) {
-                    $tail = (@(Get-Content -LiteralPath $St.Sync.LogFile -Encoding UTF8 -Tail 25) -join "`n")
+                    $lines = @(Get-Content -LiteralPath $St.Sync.LogFile -Encoding UTF8 -Tail 300)
+                    $heads = @($lines | Where-Object { $_ -match '^\[\d{4}-\d\d-\d\d ' })
+                    if ($heads.Count -gt 20) { $heads = $heads[($heads.Count - 20)..($heads.Count - 1)] }
+                    if ($lines.Count -gt 60) { $lines = $lines[($lines.Count - 60)..($lines.Count - 1)] }
+                    $tail = "Pasos:`n" + ($heads -join "`n") + "`n`nDetalle:`n" + ($lines -join "`n")
                 }
             } catch { }
             $detail = "La tarea en segundo plano se detuvo sin entregar un resultado.`n`nDIAGNÓSTICO (v$($StConfig.Version))`n" + ($diag -join "`n") + "`n`nÚLTIMAS LÍNEAS DEL REGISTRO`n" + $tail
