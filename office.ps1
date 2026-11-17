@@ -12,7 +12,7 @@
 # ==============================================================================
 
 $StConfig = @{
-    Version     = '1.1.0'
+    Version     = '1.1.1'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1'
     RawBase     = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main'
@@ -2020,12 +2020,17 @@ function Update-StGuide {
     }
 }
 
+function Get-StScale([double]$Width, [double]$Height) {
+    # Diseñado para 1280x760 con letra de 17 px. En pantallas chicas se achica un poco;
+    # en las grandes NO se agranda (a 1920x1080 la letra quedaba excesivamente grande).
+    $scale = [Math]::Min($Width / 1280, $Height / 760)
+    return [Math]::Max(0.8, [Math]::Min(1.0, $scale))
+}
+
 function Update-StScale {
-    # Diseñado para 1280x720; en pantallas más grandes todo crece para leerse mejor.
     $w = $St.Window.ActualWidth; $h = $St.Window.ActualHeight
     if ($w -le 0 -or $h -le 0) { return }
-    $scale = [Math]::Min($w / 1280, $h / 760)
-    $scale = [Math]::Max(0.8, [Math]::Min(1.4, $scale))
+    $scale = Get-StScale $w $h
     $St.UI.RootScale.ScaleX = $scale
     $St.UI.RootScale.ScaleY = $scale
 }
@@ -3648,7 +3653,7 @@ if ($StMode -eq 'selftest') {
         [System.Windows.Media.TextOptions]::SetTextFormattingMode($holder, 'Ideal')
         $holder.Child = $root
         $St.UI.RootBorder.Margin = '0'; $St.UI.RootBorder.BorderThickness = '0'
-        $scale = [Math]::Max(0.8, [Math]::Min(1.4, [Math]::Min($W / 1280, $H / 760)))
+        $scale = Get-StScale $W $H
         $St.UI.RootScale.ScaleX = $scale; $St.UI.RootScale.ScaleY = $scale
         try {
             $holder.Measure((New-Object System.Windows.Size $W, $H))

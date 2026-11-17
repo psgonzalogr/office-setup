@@ -408,3 +408,14 @@ Describe 'Pegar datos desde el correo' {
         (Find-StPurchaseData 'ABCDE-12345-FGHIJ-67890-KLMNOP').Key | Should -BeNullOrEmpty
     }
 }
+
+Describe 'Escala de la ventana' {
+    It 'No agranda la letra en pantallas grandes' {
+        Get-StScale 1920 1040 | Should -Be 1.0
+        Get-StScale 2560 1400 | Should -Be 1.0
+    }
+    It 'Achica un poco en pantallas chicas, con un mínimo' {
+        Get-StScale 1366 728 | Should -BeLessThan 1.0
+        Get-StScale 800 500 | Should -Be 0.8
+    }
+}

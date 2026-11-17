@@ -256,7 +256,7 @@ Una noche azul pizarra en capas, con un rojo de marca que reservamos para actuar
 
 ## Layout
 
-Ventana sin marco de Windows, abierta maximizada, diseñada en 1280×760 y escalada entera con una transformación de diseño: escala = mín(ancho/1280, alto/760), limitada entre 0,8 y 1,4. Las ventanas emergentes heredan esa escala cuando es mayor que 1.
+Ventana sin marco de Windows, abierta maximizada, diseñada en 1280×760 y escalada entera con una transformación de diseño: escala = mín(ancho/1280, alto/760), limitada entre 0,8 y 1,0: en pantallas chicas se achica, en las grandes no se agranda (a 1,37 en Full HD la letra se veía excesivamente grande; corregido en 1.1.1). El contenido queda centrado con su ancho máximo.
 
 La ventana tiene cuatro franjas fijas: barra superior de 64 px (logo, «¿Cómo funciona?», botones de ventana), franja de guía (SafeBOT de 66 px de alto + globo de hasta 660 px + tres etapas), área de página y pie de 64 px (WhatsApp, Centro de Ayuda, versión). En el tutorial la franja de guía se oculta para ganar alto.
 
