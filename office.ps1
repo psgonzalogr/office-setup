@@ -12,7 +12,7 @@
 # ==============================================================================
 
 $StConfig = @{
-    Version     = '1.0.4'
+    Version     = '1.0.5'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1'
     RawBase     = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main'
@@ -95,6 +95,14 @@ try {
 $StEngine = {
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+
+function Get-StFirst {
+    # Primer elemento de una lista, o $null. No usar "Select-Object -First" en el motor: en Windows
+    # PowerShell 5.1, dentro de una tarea en segundo plano, detiene la tarea completa sin avisar.
+    param($Items)
+    foreach ($item in @($Items)) { return $item }
+    return $null
+}
 
 function Write-StLog {
     param([string]$Message)
@@ -380,8 +388,15 @@ $excl
 function Invoke-StOdt {
     param([string]$Setup, [string]$Xml, [string]$Label)
     Write-StLog "ODT: $Label ($Xml)"
-    $proc = Start-Process -FilePath $Setup -ArgumentList @('/configure', "`"$Xml`"") `
-        -WorkingDirectory (Split-Path -Parent $Setup) -Wait -PassThru
+    # Sin ventana de consola: la ventana de avance de Microsoft se sigue mostrando.
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $Setup
+    $psi.Arguments = "/configure `"$Xml`""
+    $psi.WorkingDirectory = (Split-Path -Parent $Setup)
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    $proc.WaitForExit()
     Write-StLog "ODT: $Label termino con codigo $($proc.ExitCode)"
     return $proc.ExitCode
 }
@@ -531,7 +546,7 @@ function Get-StMyLicense {
     param([string]$Key)
     $last5 = Get-StKeyLast5 $Key
     $status = ConvertFrom-StOsppStatus (Invoke-StOspp -Arguments @('/dstatus'))
-    return (@($status | Where-Object { $_.Last5 -eq $last5 }) | Select-Object -First 1)
+    return (Get-StFirst @($status | Where-Object { $_.Last5 -eq $last5 }))
 }
 
 function Install-StLicenseFiles {
@@ -699,12 +714,12 @@ function Get-StInstallationId {
         throw 'Office no entregó el ID de instalación. Cierra Word y Excel y vuelve a intentarlo.'
     }
     $pick = $null
-    if ($mine -and $mine.Name) { $pick = $entries | Where-Object { $_.Name -eq $mine.Name } | Select-Object -First 1 }
+    if ($mine -and $mine.Name) { $pick = Get-StFirst @($entries | Where-Object { $_.Name -eq $mine.Name }) }
     if (-not $pick) {
         $yy = $prod.Year.Substring(2)
-        $pick = $entries | Where-Object { $_.Name -match "($($prod.Year)|Office $yy)" -and $_.Name -notmatch 'KMS' } | Select-Object -First 1
+        $pick = Get-StFirst @($entries | Where-Object { $_.Name -match "($($prod.Year)|Office $yy)" -and $_.Name -notmatch 'KMS' })
     }
-    if (-not $pick) { $pick = $entries | Select-Object -First 1 }
+    if (-not $pick) { $pick = Get-StFirst $entries }
     Write-StLog "ID de instalacion obtenido para: $($pick.Name)"
     return $pick.Iid
 }
@@ -848,7 +863,9 @@ function New-StDiagnosticZip {
     }
     $desktop = [Environment]::GetFolderPath('Desktop')
     $zip = Join-Path $desktop ("SafeTech-Diagnostico-Office-{0}.zip" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
-    Compress-Archive -Path (Join-Path $LogDir '*') -DestinationPath $zip -Force
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
+    [System.IO.Compression.ZipFile]::CreateFromDirectory($LogDir, $zip)
     return $zip
 }
 
@@ -1833,7 +1850,7 @@ function Invoke-StJobPump {
         } finally {
             $job.PS.Dispose()
         }
-        if (-not ($res -is [hashtable])) { $res = @{ Ok = $false; Result = $null; Error = 'La tarea terminó sin respuesta.' } }
+        if (-not ($res -is [hashtable])) { $res = @{ Ok = $false; Result = $null; Error = 'La tarea en segundo plano se detuvo sin informar el motivo. Revisa el registro o crea el ZIP de diagnóstico.' } }
         if ($job.OnDone) {
             try { & $job.OnDone $res.Ok $res.Result $res.Error }
             catch { Write-StLog "Error de interfaz: $($_.Exception.Message)"; Show-StError -Title 'Ocurrió un error inesperado' -Detail $_.Exception.Message }

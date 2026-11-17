@@ -237,3 +237,39 @@ Describe 'Detección en este equipo' {
         $s.PSObject.Properties.Name | Should -Contain 'Has365'
     }
 }
+
+Describe 'Motor dentro de una tarea en segundo plano (como en la app)' {
+    BeforeAll {
+        $script:fakeOspp = @'
+function Invoke-StOspp {
+    param([string[]]$Arguments, [string]$OsppPath)
+    if ($Arguments -contains '/dinstid') {
+        return "Installation ID for: Office 24, Office24ProPlus2024VL_KMS_Client_AE edition: " + ('1' * 63) + "`nInstallation ID for: Office 24, Office24ProPlus2024VL_MAK_AE edition: " + ('2' * 63)
+    }
+    return "---------------------------------------`nLICENSE NAME: Office 24, Office24ProPlus2024VL_KMS_Client_AE edition`nLICENSE STATUS:  ---OOB_GRACE---`nLast 5 characters of installed product key: 2YT43`n---------------------------------------`nLICENSE NAME: Office 24, Office24ProPlus2024VL_MAK_AE edition`nLICENSE STATUS:  ---NOTIFICATIONS---`nLast 5 characters of installed product key: KLMNO`n---------------------------------------"
+}
+'@
+        function Invoke-InRunspace([string]$Body) {
+            $script = "param(`$sync, `$StConfig)`n" + $StEngine.ToString() + "`n" + $script:fakeOspp + "`n" + $Body
+            $ps = [powershell]::Create()
+            [void]$ps.AddScript($script).AddArgument($null).AddArgument($StConfig)
+            $h = $ps.BeginInvoke()
+            $out = $ps.EndInvoke($h)
+            $ps.Dispose()
+            return , @($out)
+        }
+    }
+    It 'El motor no usa Select-Object -First (detiene la tarea en PowerShell 5.1)' {
+        @($StEngine.ToString() -split "`n" | Where-Object { $_ -notmatch '^\s*#' -and $_ -match 'Select-Object\s+-First' }).Count | Should -Be 0
+    }
+    It 'Get-StMyLicense termina y devuelve la licencia de la clave' {
+        $out = Invoke-InRunspace "`$l = Get-StMyLicense -Key 'ABCDE-12345-FGHIJ-67890-KLMNO'; 'nombre=' + `$l.Name; 'fin'"
+        $out | Should -Contain 'fin'
+        $out | Should -Contain 'nombre=Office 24, Office24ProPlus2024VL_MAK_AE edition'
+    }
+    It 'Get-StInstallationId termina y elige el ID correcto' {
+        $out = Invoke-InRunspace "'iid=' + (Get-StInstallationId -ProductId '2024' -Key 'ABCDE-12345-FGHIJ-67890-KLMNO'); 'fin'"
+        $out | Should -Contain 'fin'
+        $out | Should -Contain ('iid=' + ('2' * 63))
+    }
+}
