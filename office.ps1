@@ -12,7 +12,7 @@
 # ==============================================================================
 
 $StConfig = @{
-    Version     = '1.1.1'
+    Version     = '1.1.2'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1'
     RawBase     = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main'
@@ -942,6 +942,75 @@ function Save-StAssets {
 # Carga el motor en esta sesion.
 . $StEngine
 $ErrorActionPreference = 'Continue'
+
+# ----- Maximizar sin tapar la barra de tareas ----------------------------------------------------
+# La ventana no usa el marco de Windows (WindowStyle None + WindowChrome). Asi, al maximizar,
+# Windows le da el monitor completo y la barra de tareas queda tapada. Este gancho responde a
+# WM_GETMINMAXINFO con el area de trabajo del monitor donde esta la ventana.
+$StMaximizeFixCode = @'
+using System;
+using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Interop;
+
+public static class SafeTechMaximizeFix {
+    [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X; public int Y; }
+    [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+    [StructLayout(LayoutKind.Sequential)] public struct MINMAXINFO {
+        public POINT Reserved; public POINT MaxSize; public POINT MaxPosition; public POINT MinTrackSize; public POINT MaxTrackSize;
+    }
+    [StructLayout(LayoutKind.Sequential)] public struct MONITORINFO {
+        public int Size; public RECT Monitor; public RECT Work; public int Flags;
+    }
+    [DllImport("user32.dll")] static extern IntPtr MonitorFromWindow(IntPtr hwnd, int flags);
+    [DllImport("user32.dll")] static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+
+    public static RECT GetWorkArea(IntPtr hwnd) {
+        MONITORINFO mi = new MONITORINFO();
+        mi.Size = Marshal.SizeOf(typeof(MONITORINFO));
+        GetMonitorInfo(MonitorFromWindow(hwnd, 2), ref mi);
+        return mi.Work;
+    }
+
+    static IntPtr Hook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) {
+        if (msg != 0x0024) { return IntPtr.Zero; }
+        MONITORINFO mi = new MONITORINFO();
+        mi.Size = Marshal.SizeOf(typeof(MONITORINFO));
+        if (!GetMonitorInfo(MonitorFromWindow(hwnd, 2), ref mi)) { return IntPtr.Zero; }
+        MINMAXINFO mmi = (MINMAXINFO)Marshal.PtrToStructure(lParam, typeof(MINMAXINFO));
+        mmi.MaxPosition.X = mi.Work.Left - mi.Monitor.Left;
+        mmi.MaxPosition.Y = mi.Work.Top - mi.Monitor.Top;
+        mmi.MaxSize.X = mi.Work.Right - mi.Work.Left;
+        mmi.MaxSize.Y = mi.Work.Bottom - mi.Work.Top;
+        Marshal.StructureToPtr(mmi, lParam, true);
+        handled = true;
+        return IntPtr.Zero;
+    }
+
+    public static void Attach(Window window) {
+        IntPtr hwnd = new WindowInteropHelper(window).EnsureHandle();
+        HwndSource source = HwndSource.FromHwnd(hwnd);
+        if (source != null) { source.AddHook(Hook); }
+    }
+}
+'@
+
+function Enable-StMaximizeFix {
+    # Devuelve $true si el gancho quedo puesto. Si falla (por ejemplo, sin compilador), la app sigue igual.
+    param([Parameter(Mandatory)]$Window)
+    try {
+        if (-not ('SafeTechMaximizeFix' -as [type])) {
+            Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+            Add-Type -TypeDefinition $StMaximizeFixCode -ReferencedAssemblies PresentationFramework, PresentationCore, WindowsBase, System.Xaml -ErrorAction Stop
+        }
+        [SafeTechMaximizeFix]::Attach($Window)
+        return $true
+    } catch {
+        Write-StLog "No se pudo ajustar el maximizado: $($_.Exception.Message)"
+        return $false
+    }
+}
 
 if ($StMode -eq 'lib') { return }
 
@@ -2036,9 +2105,10 @@ function Update-StScale {
 }
 
 function Update-StWindowFrame {
-    # Con WindowChrome la ventana maximizada sobresale unos pixeles de la pantalla: se compensa con un margen.
+    # Sin el gancho de maximizado, la ventana maximizada sobresale unos pixeles de la pantalla: se compensa con un margen.
+    # Con el gancho ocupa justo el area de trabajo y no hace falta.
     if ($St.Window.WindowState -eq 'Maximized') {
-        $St.UI.RootBorder.Margin = '7'
+        $St.UI.RootBorder.Margin = $(if ($St.MaximizeFix) { '0' } else { '7' })
         $St.UI.RootBorder.BorderThickness = '0'
         $St.UI.BtnMax.Content = [string][char]0xE923
         $St.UI.BtnMax.ToolTip = 'Restaurar'
@@ -3741,6 +3811,7 @@ try {
 } catch { }
 
 Show-StPage 'Home'
+$St.MaximizeFix = Enable-StMaximizeFix -Window $St.Window
 $St.Window.WindowState = 'Maximized'
 Update-StWindowFrame
 [void]$St.Window.ShowDialog()

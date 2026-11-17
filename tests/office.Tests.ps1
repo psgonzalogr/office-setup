@@ -419,3 +419,28 @@ Describe 'Escala de la ventana' {
         Get-StScale 800 500 | Should -Be 0.8
     }
 }
+
+Describe 'Ventana maximizada (Windows real, solo en CI)' {
+    It 'Al maximizar ocupa el área de trabajo y no tapa la barra de tareas' -Skip:(-not $env:GITHUB_SHA) {
+        Add-Type -AssemblyName PresentationFramework
+        $xaml = '<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" WindowStyle="None" ResizeMode="CanResize" Width="800" Height="600" ShowInTaskbar="False"><WindowChrome.WindowChrome><WindowChrome CaptionHeight="64" ResizeBorderThickness="7" GlassFrameThickness="0"/></WindowChrome.WindowChrome><Grid/></Window>'
+        $w = [Windows.Markup.XamlReader]::Parse($xaml)
+        try {
+            Enable-StMaximizeFix -Window $w | Should -BeTrue
+            $w.Show()
+            $w.WindowState = 'Maximized'
+            $w.Dispatcher.Invoke([Action] { }, [Windows.Threading.DispatcherPriority]::Background)
+            $hwnd = (New-Object System.Windows.Interop.WindowInteropHelper $w).Handle
+            $r = New-Object SafeTechMaximizeFix+RECT
+            [void][SafeTechMaximizeFix]::GetWindowRect($hwnd, [ref]$r)
+            $wa = [SafeTechMaximizeFix]::GetWorkArea($hwnd)
+            Write-Host ("Ventana {0},{1},{2},{3} / área de trabajo {4},{5},{6},{7}" -f $r.Left, $r.Top, $r.Right, $r.Bottom, $wa.Left, $wa.Top, $wa.Right, $wa.Bottom)
+            $r.Left | Should -Be $wa.Left
+            $r.Top | Should -Be $wa.Top
+            $r.Right | Should -Be $wa.Right
+            $r.Bottom | Should -Be $wa.Bottom
+        } finally {
+            $w.Close()
+        }
+    }
+}
