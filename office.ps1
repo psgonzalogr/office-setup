@@ -2184,9 +2184,13 @@ function Start-StBotIdle {
     # Respira (sube y baja muy poco) y pestañea de vez en cuando.
     param($Bot)
     if (-not $Bot -or $St.NoAnim) { return }
-    $Bot.BotBob.BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, (New-StKeyAnim @('0=0', '1700=-16', '3400=0') -Forever))
-    $Bot.BotEyesScale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty,
-        (New-StKeyAnim @('0=1', '3600=1', '3680=0.1', '3760=1', '6900=1', '6980=0.1', '7060=1', '7140=1', '7220=0.1', '7300=1', '9000=1') -Forever))
+    try {
+        $Bot.BotBob.BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, (New-StKeyAnim @('0=0', '1700=-16', '3400=0') -Forever))
+        $Bot.BotEyesScale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty,
+            (New-StKeyAnim @('0=1', '3600=1', '3680=0.1', '3760=1', '6900=1', '6980=0.1', '7060=1', '7140=1', '7220=0.1', '7300=1', '9000=1') -Forever))
+    } catch {
+        if ($St.SelfTest) { throw }
+    }
 }
 
 function Invoke-StBotAction {
@@ -2213,7 +2217,9 @@ function Invoke-StBotAction {
                 if ($Action -eq 'celebrate') { $Bot.BotArmRot.BeginAnimation($angle, (New-StKeyAnim $wave -BeginMs ($BeginMs + 700))) }
             }
         }
-    } catch { }
+    } catch {
+        if ($St.SelfTest) { throw }
+    }
 }
 
 function New-StBotForDialog {
@@ -4110,6 +4116,47 @@ if ($StMode -eq 'selftest') {
     $dlg.Show(); Save-StShot $dlg '11-ventana-codigo'; $dlg.Close()
     $dlg = Show-StAbout -Welcome
     $dlg.Show(); Save-StShot $dlg '12-bienvenida'; $dlg.Close()
+
+    # SafeBOT: las animaciones deben correr sin errores.
+    $St.NoAnim = $false
+    $b = New-StBot
+    Start-StBotIdle $b
+    foreach ($a in @('wave', 'jump', 'celebrate', 'nod', 'shake', 'happy', 'normal')) { Invoke-StBotAction -Bot $b -Action $a }
+    foreach ($n in @('BotBob', 'BotEyesScale', 'BotArmRot', 'BotHeadRot', 'BotJump', 'BotSquash')) {
+        if (-not $b[$n].HasAnimatedProperties) { throw "SafeBOT: $n no quedó animado." }
+    }
+    $St.NoAnim = $true
+    Write-Host 'SafeBOT: animaciones correctas.'
+    # Sonidos: los WAV deben cargarse y el reproductor de voz debe existir.
+    foreach ($snd in @('aviso', 'exito', 'logro', 'error')) {
+        $w = Get-StAssetFile "assets/sonidos/$snd.wav"
+        if (-not $w) { throw "Falta el sonido $snd." }
+        $sp = New-Object System.Media.SoundPlayer $w; $sp.Load(); $sp.Dispose()
+    }
+    $null = New-Object System.Windows.Media.MediaPlayer
+    Write-Host 'Sonidos: cargan bien.'
+    # Hoja de poses para revisar el dibujo: normal, pestañeo, saludo, salto feliz, cabeza inclinada.
+    $row = New-Object System.Windows.Controls.StackPanel
+    $row.Orientation = 'Horizontal'; $row.Background = $St.Window.Background
+    $poses = @(
+        @{ }, @{ Blink = 0.1 }, @{ Arm = -130 }, @{ Arm = -112; Happy = $true; Jump = -80 }, @{ Head = -6 }
+    )
+    foreach ($pose in $poses) {
+        $pb = New-StBot
+        $pb.View.Width = 200; $pb.View.Height = 260; $pb.View.Margin = '20'
+        if ($pose.Blink) { $pb.BotEyesScale.ScaleY = $pose.Blink }
+        if ($pose.Arm) { $pb.BotArmRot.Angle = $pose.Arm }
+        if ($pose.Head) { $pb.BotHeadRot.Angle = $pose.Head }
+        if ($pose.Jump) { $pb.BotJump.Y = $pose.Jump }
+        if ($pose.Happy) { $pb.BotEyes.Opacity = 0; $pb.BotEyesHappy.Opacity = 1 }
+        [void]$row.Children.Add($pb.View)
+    }
+    $row.Measure((New-Object System.Windows.Size 1200, 320)); $row.Arrange((New-Object System.Windows.Rect 0, 0, 1200, 320)); $row.UpdateLayout()
+    $rtb = New-Object System.Windows.Media.Imaging.RenderTargetBitmap 1200, 320, 96, 96, ([System.Windows.Media.PixelFormats]::Pbgra32)
+    $rtb.Render($row)
+    $enc = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
+    $enc.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($rtb))
+    $fs = [IO.File]::Create((Join-Path $out '13-safebot-poses.png')); $enc.Save($fs); $fs.Close()
     $St.Window.Close()
     Write-Host "Autoprueba completa: $out"
     return
