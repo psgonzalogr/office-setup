@@ -49,7 +49,14 @@ if ($StMode -eq 'app') {
     $stIsAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
         [Security.Principal.WindowsBuiltInRole]::Administrator)
 
-    if ($env:SAFETECH_OFFICE_CHILD -ne '1' -or -not $stIsAdmin -or $PSVersionTable.PSEdition -ne 'Desktop') {
+    $stPsOk = ($PSVersionTable.PSVersion.Major -eq 5 -and $PSVersionTable.PSVersion.Minor -ge 1)
+    if ($env:SAFETECH_OFFICE_CHILD -eq '1' -and (-not $stIsAdmin -or -not $stPsOk -or [Environment]::OSVersion.Version.Major -lt 10)) {
+        # Ya es la ventana relanzada y aun asi no cumple: avisar en vez de relanzar otra vez.
+        Add-Type -AssemblyName PresentationFramework
+        [System.Windows.MessageBox]::Show('Este instalador necesita Windows 10 u 11 con Windows PowerShell 5.1 y permisos de administrador.', 'SafeTech', 'OK', 'Warning') | Out-Null
+        return
+    }
+    if ($env:SAFETECH_OFFICE_CHILD -ne '1' -or -not $stIsAdmin -or -not $stPsOk) {
         $stInner = @"
 `$env:SAFETECH_OFFICE_CHILD = '1'
 `$env:SAFETECH_OFFICE_URL = '$($StConfig.ScriptUrl)'
@@ -531,9 +538,15 @@ function Install-StLicenseFiles {
     param([string]$Family)
     $ospp = Get-StOsppPath
     if (-not $ospp) { return 0 }
+    # Click-to-Run: OSPP.VBS en ...\Microsoft Office\Office16 y licencias en ...\Microsoft Office\root\Licenses16
     $officeDir = Split-Path -Parent $ospp
-    $licDir = Join-Path (Split-Path -Parent $officeDir) 'Licenses16'
-    if (-not (Test-Path -LiteralPath $licDir)) { Write-StLog "No existe $licDir"; return 0 }
+    $baseDir = Split-Path -Parent $officeDir
+    $licDir = $null
+    foreach ($c in @((Join-Path $baseDir 'root\Licenses16'), (Join-Path $baseDir 'Licenses16'),
+                     (Join-Path (Split-Path -Parent $baseDir) 'root\Licenses16'))) {
+        if (Test-Path -LiteralPath $c) { $licDir = $c; break }
+    }
+    if (-not $licDir) { Write-StLog "No se encontró la carpeta Licenses16 junto a $ospp"; return 0 }
     $files = @(Get-ChildItem -LiteralPath $licDir -Filter "$Family*.xrm-ms" -File -ErrorAction SilentlyContinue)
     foreach ($f in $files) {
         [void](Invoke-StOspp -Arguments @("/inslic:$($f.FullName)") -OsppPath $ospp)
@@ -721,6 +734,10 @@ function Request-StCid {
             if (-not $resp) {
                 $last = $_.Exception.Message
                 Write-StLog "Intento $i de conexion con getcid.safe-tech.cl fallo: $last"
+                # Solo se reintenta si la solicitud no llego al servidor; asi nunca se cobra dos veces el mismo crédito.
+                $status = ''
+                if ($_.Exception.PSObject.Properties['Status']) { $status = [string]$_.Exception.Status }
+                if ($status -notin @('ConnectFailure', 'NameResolutionFailure', 'ProxyNameResolutionFailure', 'SecureChannelFailure', 'TrustFailure')) { break }
                 Start-Sleep -Seconds (3 * $i)
                 continue
             }
@@ -742,7 +759,14 @@ function Request-StCid {
 
 function Test-StCodeOnline {
     param([Parameter(Mandatory)][string]$Code)
-    $r = Invoke-RestMethod -Uri ("$($StConfig.ApiBase)/check-code?code=" + [Uri]::EscapeDataString($Code)) -UseBasicParsing -TimeoutSec 20
+    try {
+        $r = Invoke-RestMethod -Uri ("$($StConfig.ApiBase)/check-code?code=" + [Uri]::EscapeDataString($Code)) -UseBasicParsing -TimeoutSec 20
+    } catch {
+        # Si el servidor responde con error HTTP y un JSON {valid:false}, se usa esa respuesta.
+        $r = $null
+        if ($_.ErrorDetails -and $_.ErrorDetails.Message) { try { $r = $_.ErrorDetails.Message | ConvertFrom-Json } catch { $r = $null } }
+        if (-not $r -or -not $r.PSObject.Properties['valid']) { throw }
+    }
     $remaining = $null
     if ($r.PSObject.Properties['remaining']) { $remaining = $r.remaining }
     return [pscustomobject]@{ Valid = [bool]$r.valid; Remaining = $remaining }
@@ -1157,14 +1181,14 @@ $StWindowXaml = @'
       <!-- INICIO -->
       <Grid x:Name="PageHome">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel Margin="48,34,48,28">
-            <Border HorizontalAlignment="Left" CornerRadius="999" Background="#26DC2626" Padding="12,4" Margin="0,0,0,14">
+          <StackPanel Margin="48,24,48,20">
+            <Border HorizontalAlignment="Left" CornerRadius="999" Background="#26DC2626" Padding="12,4" Margin="0,0,0,12">
               <TextBlock Text="INSTALADOR OFICIAL SAFETECH" Foreground="#FCA5A5" FontSize="11" FontWeight="Black"/>
             </Border>
             <TextBlock Style="{StaticResource H1}" FontSize="38" Text="Instala Office en pocos pasos"/>
             <TextBlock Style="{StaticResource Lead}" MaxWidth="760" HorizontalAlignment="Left"
                        Text="Elige el producto que compraste. Descargamos Office directamente desde Microsoft, lo instalamos y te ayudamos a activarlo. No necesitas escribir comandos."/>
-            <UniformGrid Columns="3" Margin="0,30,0,0">
+            <UniformGrid Columns="3" Margin="0,24,0,0">
               <Button x:Name="BtnPick2024" Style="{StaticResource Card}" Margin="0,0,9,0">
                 <StackPanel>
                   <Grid>
@@ -1218,7 +1242,7 @@ $StWindowXaml = @'
                 </StackPanel>
               </Button>
             </UniformGrid>
-            <Border Style="{StaticResource Panel}" Margin="0,22,0,0" Padding="20,14">
+            <Border Style="{StaticResource Panel}" Margin="0,18,0,0" Padding="20,14">
               <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
@@ -1692,7 +1716,7 @@ function Show-StDialog {
     $icon = $dlg.FindName('DlgIcon')
     $icon.Foreground = $conv.ConvertFromString($look[1])
     $icon.Text = [string]$look[2]
-    $dlg.FindName('DlgKicker').Text = $Kicker
+    $dlg.FindName('DlgKicker').Text = $Kicker.ToUpper()
     $dlg.FindName('DlgTitle').Text = $Title
     $msg = $dlg.FindName('DlgMessage')
     $msg.Text = $Message
@@ -2155,7 +2179,7 @@ function Start-StInstallFlow {
         }
         $St.InstallDone = $true
         if ($St.Product.NeedsKey) {
-            $choice = Show-StDialog -Kind 'success' -Kicker 'INSTALACIÓN LISTA' -Title "$($St.Product.Name) quedó instalado" `
+            $choice = Show-StDialog -Kind 'success' -Kicker 'Instalación lista' -Title "$($St.Product.Name) quedó instalado" `
                 -Message 'Ahora lo activaremos automáticamente con tu clave y tu código SafeTech. No necesitas abrir Word ni escribir números.' `
                 -Buttons @('Activar ahora')
             Start-StActivationFlow -KeepSteps
@@ -2170,7 +2194,7 @@ function Start-StInstallFlow {
             $St.UI.TxtChipInstall.Foreground = $conv.ConvertFromString('#6EE7B7')
             $msg = 'Ahora conecta la cuenta que te entregó SafeTech. Te mostraremos qué hacer en cada paso.'
             if ($St.Tut.Started) { $msg = 'Ya puedes continuar el tutorial: abre Word e inicia sesión con tu cuenta.' }
-            [void](Show-StDialog -Kind 'success' -Kicker 'INSTALACIÓN LISTA' -Title 'Microsoft 365 quedó instalado' -Message $msg -Buttons @('Continuar con el tutorial'))
+            [void](Show-StDialog -Kind 'success' -Kicker 'Instalación lista' -Title 'Microsoft 365 quedó instalado' -Message $msg -Buttons @('Continuar con el tutorial'))
             $target = $St.Tut.Index
             if ($St.Tut.Started -and $St.Tut.Index -ge 6) { $target = 7 }
             Show-StTutorial -Index $target
@@ -2259,15 +2283,16 @@ function Request-StCidFlow {
         $choice = Show-StDialog -Kind 'warn' -Title 'No pudimos generar el ID de confirmación' -Message $message -Buttons $buttons
         switch ($choice) {
             'Usar otro código' {
-                $f = New-StDialogField -Label 'Código de activación SafeTech' -Placeholder 'ST-XXXXXX' -MaxLength 12 -Hint 'Lo encuentras en el correo de tu compra.'
-                $f.Box.Style = $St.Window.FindResource('Field')
-                $again = Show-StDialog -Kind 'key' -Title 'Ingresa otro código' -Message '' -Extra $f.Panel -Buttons @('Usar este código', 'Cancelar')
-                $newCode = ConvertTo-StAccessCode $f.Box.Text
-                if ($again -eq 'Usar este código' -and $newCode) { $St.Act.Code = $newCode; Request-StCidFlow }
-                elseif ($again -eq 'Usar este código') {
-                    [void](Show-StDialog -Kind 'warn' -Title 'Código incompleto' -Message 'El código debe tener el formato ST-XXXXXX.' -Buttons @('Entendido'))
-                    Request-StCidFlow
-                } else { Stop-StActivationPending }
+                $newCode = $null
+                $hint = 'Lo encuentras en el correo de tu compra.'
+                while (-not $newCode) {
+                    $f = New-StDialogField -Label 'Código de activación SafeTech' -Placeholder 'ST-XXXXXX' -MaxLength 12 -Hint $hint
+                    $again = Show-StDialog -Kind 'key' -Title 'Ingresa otro código' -Message '' -Extra $f.Panel -Buttons @('Usar este código', 'Cancelar')
+                    if ($again -ne 'Usar este código') { break }
+                    $newCode = ConvertTo-StAccessCode $f.Box.Text
+                    $hint = 'Ese código está incompleto. Debe tener el formato ST-XXXXXX.'
+                }
+                if ($newCode) { $St.Act.Code = $newCode; Request-StCidFlow } else { Stop-StActivationPending }
             }
             'Reintentar' { Request-StCidFlow }
             'Activar manualmente' { Show-StManualActivation }
@@ -2303,7 +2328,7 @@ function Show-StManualActivation {
     $iidBox = New-StXamlElement @"
 <Border CornerRadius="14" Background="#0C1626" BorderBrush="#2A3C57" BorderThickness="1" Padding="16,12">
   <StackPanel>
-    <TextBlock Text="1. TU ID DE INSTALACIÓN" Foreground="#FCA5A5" FontSize="11" FontWeight="Black" Margin="0,0,0,6"/>
+    <TextBlock Text="1. TU ID DE INSTALACI&#xD3;N" Foreground="#FCA5A5" FontSize="11" FontWeight="Black" Margin="0,0,0,6"/>
     <TextBox x:Name="Iid" IsReadOnly="True" Background="#00000000" BorderThickness="0" Foreground="#F8FAFC" FontFamily="Consolas" FontSize="15.5" TextWrapping="Wrap"/>
   </StackPanel>
 </Border>
@@ -2333,7 +2358,7 @@ function Show-StManualActivation {
     [void]$panel.Children.Add($f.Panel)
     $msg = 'Si el código automático no funcionó, puedes obtener el ID de confirmación tú mismo en el portal de SafeTech.'
     if ($ErrorText) { $msg = $ErrorText }
-    $choice = Show-StDialog -Kind 'key' -Kicker 'ACTIVACIÓN MANUAL' -Title 'Activar con el portal de SafeTech' -Message $msg -Extra $panel -Buttons @('Activar', 'Cancelar')
+    $choice = Show-StDialog -Kind 'key' -Kicker 'Activación manual' -Title 'Activar con el portal de SafeTech' -Message $msg -Extra $panel -Buttons @('Activar', 'Cancelar')
     if ($choice -ne 'Activar') { Stop-StActivationPending; return }
     $digits = $f.Box.Text -replace '\D', ''
     if ($digits.Length -ne 48) {
@@ -2364,7 +2389,7 @@ function Complete-StActivation {
     $p = $St.Product
     Write-StLog "$($p.Name) activado correctamente."
     $sub = if ($Online) { 'La activación se completó en línea.' } else { 'La activación por teléfono se completó automáticamente.' }
-    [void](Show-StDialog -Kind 'success' -Kicker 'ACTIVACIÓN COMPLETA' -Title "¡$($p.Name) quedó activado!" -Message "$sub Ya puedes usar Word, Excel, PowerPoint y los demás programas." -Buttons @('Continuar'))
+    [void](Show-StDialog -Kind 'success' -Kicker 'Activación completa' -Title "¡$($p.Name) quedó activado!" -Message "$sub Ya puedes usar Word, Excel, PowerPoint y los demás programas." -Buttons @('Continuar'))
     $St.UI.TxtDoneTitle.Text = "¡$($p.Name) quedó listo!"
     $St.UI.TxtDoneText.Text = "Office está instalado y activado en este computador."
     Set-StDoneList @("$($p.FullName) instalado", 'Licencia activada con tu clave', 'Actualizaciones automáticas de Microsoft activadas')
@@ -2462,7 +2487,7 @@ $StTutorial = @(
     @{ Short = 'Abrir Word'; Title = 'Inicia sesión en Word'
        Body = @('Haz clic en «Abrir Word».',
                 'Si Word te pide iniciar sesión, escribe el correo entregado por SafeTech y tu contraseña nueva.',
-                'Si no lo pide, ve a Archivo → Cuenta → Iniciar sesión (o «Cambiar cuenta»).',
+                'Si no lo pide, ve a Archivo > Cuenta > Iniciar sesión (o «Cambiar cuenta»).',
                 'Si Microsoft lo solicita, aprueba el ingreso en Authenticator con el número que aparece.')
        Note = 'No es necesario cerrar tu cuenta personal de OneDrive o Teams.'; NoteKind = 'info'
        Image = 'assets/tutorial/08-iniciar-sesion-word.jpg'; Actions = @('word'); NeedsOffice = $true },
@@ -2472,7 +2497,7 @@ $StTutorial = @(
        Note = 'Si eliges «Sí», la cuenta quedaría ligada al computador como cuenta de empresa y cambiaría su configuración. Esta cuenta solo debe usarse para activar Office.'; NoteKind = 'warn'
        Image = 'assets/tutorial/09-solo-esta-aplicacion.jpg'; Actions = @(); NeedsOffice = $true },
     @{ Short = 'Comprobar'; Title = 'Comprueba que Office quedó activado'
-       Body = @('En Word ve a Archivo → Cuenta.',
+       Body = @('En Word ve a Archivo > Cuenta.',
                 'Debe decir «Producto de suscripción» y «Aplicaciones de Microsoft 365».',
                 'Si aparece «Producto sin licencia», cierra todos los programas de Office, vuelve a abrir Word y revisa otra vez.')
        Note = 'No guardes archivos importantes en el OneDrive de esta cuenta: Microsoft puede reducir o eliminar ese espacio sin aviso. Usa tu OneDrive personal.'; NoteKind = 'warn'
@@ -2646,9 +2671,9 @@ function Invoke-StTutorialAction {
             if (-not (Test-StProductInstalled -ProductId '365')) {
                 [void](Show-StDialog -Kind 'warn' -Title 'No encontramos Microsoft 365' -Message 'Microsoft 365 no aparece instalado en este computador.' -Buttons @('Entendido'))
             } elseif (Test-StM365License) {
-                [void](Show-StDialog -Kind 'success' -Title 'Encontramos una licencia de Microsoft 365' -Message 'Word ya recibió una licencia en este equipo. Para confirmarlo, en Word ve a Archivo → Cuenta: debe decir «Producto de suscripción».' -Buttons @('Perfecto'))
+                [void](Show-StDialog -Kind 'success' -Title 'Encontramos una licencia de Microsoft 365' -Message 'Word ya recibió una licencia en este equipo. Para confirmarlo, en Word ve a Archivo > Cuenta: debe decir «Producto de suscripción».' -Buttons @('Perfecto'))
             } else {
-                [void](Show-StDialog -Kind 'warn' -Title 'Todavía no vemos la licencia' -Message 'Asegúrate de haber iniciado sesión en Word con la cuenta de SafeTech. Luego cierra Word, vuelve a abrirlo y revisa Archivo → Cuenta.' -Buttons @('Entendido'))
+                [void](Show-StDialog -Kind 'warn' -Title 'Todavía no vemos la licencia' -Message 'Asegúrate de haber iniciado sesión en Word con la cuenta de SafeTech. Luego cierra Word, vuelve a abrirlo y revisa Archivo > Cuenta.' -Buttons @('Entendido'))
             }
         }
     }
@@ -2866,7 +2891,7 @@ if ($StMode -eq 'selftest') {
     Show-StError -Title 'No pudimos instalar Office 2024' -Detail 'No pudimos conectarnos con los servidores de Microsoft. Revisa tu conexión a Internet.' -OnRetry { }
     Save-StShot $root '09-error'
     $St.Act = @{ Iid = '123456712345671234567123456712345671234567123456712345671234567' }
-    $dlg = Show-StDialog -Kind 'success' -Kicker 'INSTALACIÓN LISTA' -Title 'Office 2024 quedó instalado' -Message 'Ahora lo activaremos automáticamente con tu clave y tu código SafeTech. No necesitas abrir Word ni escribir números.' -Buttons @('Activar ahora')
+    $dlg = Show-StDialog -Kind 'success' -Kicker 'Instalación lista' -Title 'Office 2024 quedó instalado' -Message 'Ahora lo activaremos automáticamente con tu clave y tu código SafeTech. No necesitas abrir Word ni escribir números.' -Buttons @('Activar ahora')
     $dlg.Show(); Save-StShot $dlg '10-ventana-emergente'; $dlg.Close()
     $f = New-StDialogField -Label 'Código de activación SafeTech' -Placeholder 'ST-XXXXXX' -MaxLength 12 -Hint 'Lo encuentras en el correo de tu compra.'
     $f.Box.Style = $St.Window.FindResource('Field')

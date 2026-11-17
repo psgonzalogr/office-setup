@@ -152,6 +152,41 @@ Installation ID for: Office 24, Office24ProPlus2024VL_MAK_AE edition: 1234567123
     }
 }
 
+Describe 'Elegir el ID de instalación correcto' {
+    BeforeAll {
+        $script:fakeStatus = @'
+---------------------------------------
+LICENSE NAME: Office 24, Office24ProPlus2024VL_KMS_Client_AE edition
+LICENSE STATUS:  ---OOB_GRACE---
+Last 5 characters of installed product key: 2YT43
+---------------------------------------
+LICENSE NAME: Office 24, Office24ProPlus2024VL_MAK_AE edition
+LICENSE STATUS:  ---NOTIFICATIONS---
+Last 5 characters of installed product key: KLMNO
+---------------------------------------
+'@
+        $script:fakeIid = @'
+---------------------------------------
+Installation ID for: Office 24, Office24ProPlus2024VL_KMS_Client_AE edition: 111111111111111111111111111111111111111111111111111111111111111
+---------------------------------------
+Installation ID for: Office 24, Office24ProPlus2024VL_MAK_AE edition: 222222222222222222222222222222222222222222222222222222222222222
+---------------------------------------
+'@
+    }
+    It 'Devuelve solo el ID de la licencia de la clave del cliente' {
+        Mock Invoke-StOspp { $script:fakeStatus } -ParameterFilter { $Arguments -contains '/dstatus' }
+        Mock Invoke-StOspp { $script:fakeIid } -ParameterFilter { $Arguments -contains '/dinstid' }
+        $iid = Get-StInstallationId -ProductId '2024' -Key 'ABCDE-12345-FGHIJ-67890-KLMNO'
+        $iid | Should -BeOfType [string]
+        $iid | Should -BeExactly ('2' * 63)
+    }
+    It 'Falla con un mensaje claro si Office no entrega el ID' {
+        Mock Invoke-StOspp { $script:fakeStatus } -ParameterFilter { $Arguments -contains '/dstatus' }
+        Mock Invoke-StOspp { '---Exiting---' } -ParameterFilter { $Arguments -contains '/dinstid' }
+        { Get-StInstallationId -ProductId '2024' -Key 'ABCDE-12345-FGHIJ-67890-KLMNO' } | Should -Throw '*ID de instalaci*'
+    }
+}
+
 Describe 'Configuración de ODT' {
     It 'Genera un XML válido para cada producto' {
         foreach ($id in @('2024', '2021', '365')) {
