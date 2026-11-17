@@ -12,7 +12,7 @@
 # ==============================================================================
 
 $StConfig = @{
-    Version     = '1.0.2'
+    Version     = '1.0.3'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1'
     RawBase     = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main'
@@ -1132,16 +1132,16 @@ $StWindowXaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Instalador de Office | SafeTech" Width="1080" Height="740" MinWidth="960" MinHeight="620"
-        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanMinimize"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize"
         Background="#09111F" Foreground="#F8FAFC" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14"
         UseLayoutRounding="True" SnapsToDevicePixels="True" TextOptions.TextFormattingMode="Ideal">
   <WindowChrome.WindowChrome>
-    <WindowChrome CaptionHeight="58" ResizeBorderThickness="0" CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
+    <WindowChrome CaptionHeight="58" ResizeBorderThickness="7" CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
   </WindowChrome.WindowChrome>
   <Window.Resources>
     __RESOURCES__
   </Window.Resources>
-  <Border BorderBrush="#2A3C57" BorderThickness="1" Background="#09111F">
+  <Border x:Name="RootBorder" BorderBrush="#2A3C57" BorderThickness="1" Background="#09111F">
   <Grid x:Name="Root">
     <Grid.RowDefinitions>
       <RowDefinition Height="58"/>
@@ -1171,6 +1171,7 @@ $StWindowXaml = @'
             </StackPanel>
           </Border>
           <Button x:Name="BtnMin" Style="{StaticResource BtnChrome}" Content="&#xE921;" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Minimizar"/>
+          <Button x:Name="BtnMax" Style="{StaticResource BtnChrome}" Content="&#xE922;" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Maximizar"/>
           <Button x:Name="BtnClose" Style="{StaticResource BtnChrome}" Content="&#xE8BB;" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Cerrar"/>
         </StackPanel>
       </Grid>
@@ -1181,7 +1182,7 @@ $StWindowXaml = @'
       <!-- INICIO -->
       <Grid x:Name="PageHome">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel Margin="48,24,48,20">
+          <StackPanel Margin="48,24,48,20" MaxWidth="1240">
             <Border HorizontalAlignment="Left" CornerRadius="999" Background="#26DC2626" Padding="12,4" Margin="0,0,0,12">
               <TextBlock Text="INSTALADOR OFICIAL SAFETECH" Foreground="#FCA5A5" FontSize="11" FontWeight="Black"/>
             </Border>
@@ -1242,7 +1243,7 @@ $StWindowXaml = @'
                 </StackPanel>
               </Button>
             </UniformGrid>
-            <Border Style="{StaticResource Panel}" Margin="0,18,0,0" Padding="20,14">
+            <Border Style="{StaticResource Panel}" Margin="0,18,0,0" Padding="20,14" BorderBrush="#66DC2626" Background="#14DC2626">
               <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
@@ -1250,13 +1251,13 @@ $StWindowXaml = @'
                   <TextBlock Style="{StaticResource Small}" Text="Puedes activarlo o ver el tutorial de la cuenta sin volver a instalar." Margin="0,2,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                  <Button x:Name="BtnOnlyActivate" Style="{StaticResource BtnSoft}" Margin="0,0,10,0">
+                  <Button x:Name="BtnOnlyActivate" Style="{StaticResource BtnPrimary}" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
                       <TextBlock Text="&#xE8D7;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,0,9,0"/>
                       <TextBlock Text="Solo activar Office 2021 o 2024"/>
                     </StackPanel>
                   </Button>
-                  <Button x:Name="BtnOnlyTutorial" Style="{StaticResource BtnSoft}">
+                  <Button x:Name="BtnOnlyTutorial" Style="{StaticResource BtnPrimary}">
                     <StackPanel Orientation="Horizontal">
                       <TextBlock Text="&#xE77B;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,0,9,0"/>
                       <TextBlock Text="Tutorial de cuenta 365"/>
@@ -1272,7 +1273,7 @@ $StWindowXaml = @'
       <!-- DATOS DE LA COMPRA -->
       <Grid x:Name="PageData" Visibility="Collapsed">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <Grid Margin="48,30,48,28">
+          <Grid Margin="48,30,48,28" MaxWidth="1240">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="330"/></Grid.ColumnDefinitions>
             <StackPanel Margin="0,0,34,0">
               <TextBlock x:Name="TxtDataKicker" Style="{StaticResource Kicker}" Text="PASO 1 DE 3 · OFFICE 2024"/>
@@ -1323,7 +1324,7 @@ $StWindowXaml = @'
       <!-- CONFIRMACION -->
       <Grid x:Name="PageConfirm" Visibility="Collapsed">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <Grid Margin="48,30,48,28">
+          <Grid Margin="48,30,48,28" MaxWidth="1240">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="330"/></Grid.ColumnDefinitions>
             <StackPanel Margin="0,0,34,0">
               <TextBlock x:Name="TxtConfirmKicker" Style="{StaticResource Kicker}" Text="PASO 2 DE 3"/>
@@ -1368,7 +1369,7 @@ $StWindowXaml = @'
 
       <!-- PROGRESO -->
       <Grid x:Name="PageProgress" Visibility="Collapsed">
-        <Grid Margin="48,30,48,24">
+        <Grid Margin="48,30,48,24" MaxWidth="1240">
           <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="330"/></Grid.ColumnDefinitions>
           <Grid Margin="0,0,34,0">
             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
@@ -1489,7 +1490,7 @@ $StWindowXaml = @'
 
       <!-- TUTORIAL MICROSOFT 365 -->
       <Grid x:Name="PageTutorial" Visibility="Collapsed">
-        <Grid Margin="32,24,40,22">
+        <Grid Margin="32,24,40,22" MaxWidth="1380">
           <Grid.ColumnDefinitions><ColumnDefinition Width="268"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
           <Border Style="{StaticResource Panel}" Padding="14,18" Margin="0,0,28,0">
             <Grid>
@@ -1523,8 +1524,11 @@ $StWindowXaml = @'
                 <Border x:Name="TutNote" CornerRadius="14" BorderThickness="1" Padding="16,12" Margin="0,16,0,0">
                   <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                    <TextBlock x:Name="TutNoteIcon" FontFamily="{StaticResource Icons}" FontSize="16" Margin="0,2,12,0" Text="&#xE946;"/>
-                    <TextBlock x:Name="TxtTutNote" Grid.Column="1" Style="{StaticResource Body}" FontSize="13.5" Text=""/>
+                    <TextBlock x:Name="TutNoteIcon" FontFamily="{StaticResource Icons}" FontSize="18" Margin="0,1,12,0" Text="&#xE946;"/>
+                    <StackPanel Grid.Column="1">
+                      <TextBlock x:Name="TxtTutNoteLabel" FontSize="11" FontWeight="Black" Margin="0,2,0,4" Text="CONSEJO"/>
+                      <TextBlock x:Name="TxtTutNote" Style="{StaticResource Body}" FontSize="14" Text=""/>
+                    </StackPanel>
                   </Grid>
                 </Border>
                 <WrapPanel x:Name="StackTutActions" Margin="0,16,0,0"/>
@@ -2447,69 +2451,71 @@ function Start-StActivateOnly {
 
 # ----- Tutorial de Microsoft 365 -------------------------------------------------------------------
 $StTutorial = @(
+    # Marcado del texto: **negrita**; una línea que empieza con "!" es un paso que el cliente no se puede saltar.
+    # NoteKind: info (consejo), warn (importante), critical (muy importante).
     @{ Short = 'Prepárate'; Title = 'Ten a mano tu cuenta y tu celular'
-       Body = @('El correo y la contraseña de Microsoft 365 que te envió SafeTech.',
-                'Tu celular con Internet, por si Microsoft te pide instalar la app Microsoft Authenticator (algunas cuentas lo piden y otras no).',
-                'Papel o una nota para guardar la contraseña nueva que vas a crear.')
-       Note = 'Si este computador es de tu empresa, colegio o universidad, consulta antes con quien lo administra: la cuenta puede entrar en conflicto con sus políticas.'; NoteKind = 'warn'
+       Body = @('El **correo y la contraseña de Microsoft 365** que te envió SafeTech.',
+                'Tu **celular con Internet**, por si Microsoft te pide instalar la app Microsoft Authenticator (algunas cuentas lo piden y otras no).',
+                '!Papel o una nota para **guardar la contraseña nueva** que vas a crear.')
+       Note = 'Si este computador es de tu **empresa, colegio o universidad**, consulta antes con quien lo administra: la cuenta puede entrar en conflicto con sus políticas.'; NoteKind = 'warn'
        Image = $null; Actions = @(); NeedsOffice = $false },
     @{ Short = 'Iniciar sesión'; Title = 'Inicia sesión en el portal de Microsoft 365'
-       Body = @('Haz clic en «Abrir el portal». Se abrirá tu navegador.',
-                'Escribe el correo entregado por SafeTech y presiona Siguiente.',
-                'Escribe la contraseña temporal que te enviamos.',
-                'No uses tu correo personal en este paso.')
-       Note = 'Si en el navegador ya tienes abierta otra cuenta de Microsoft, abre una ventana privada (Ctrl + Mayús + N), pega el enlace y entra desde ahí.'; NoteKind = 'info'
+       Body = @('Haz clic en **«Abrir el portal»**. Se abrirá tu navegador.',
+                'Escribe el **correo entregado por SafeTech** y presiona **Siguiente**.',
+                'Escribe la **contraseña temporal** que te enviamos.',
+                '!**No uses tu correo personal** en este paso.')
+       Note = 'Si en el navegador ya tienes abierta otra cuenta de Microsoft, abre una **ventana privada (Ctrl + Mayús + N)**, pega el enlace y entra desde ahí.'; NoteKind = 'info'
        Image = 'assets/tutorial/02-portal-inicio-sesion.jpg'; Actions = @('portal', 'copyPortal'); NeedsOffice = $false },
     @{ Short = 'Nueva contraseña'; Title = 'Cambia la contraseña temporal'
-       Body = @('La primera vez, Microsoft te pedirá crear una contraseña nueva.',
-                'En el primer campo escribe la contraseña temporal; en los otros dos, tu contraseña nueva.',
-                'Usa mayúsculas, minúsculas, números y un símbolo. Ejemplo: MiClaveSegura123!')
-       Note = 'Guarda tu nueva contraseña. SafeTech no puede verla ni recuperarla después.'; NoteKind = 'warn'
+       Body = @('La primera vez, Microsoft te pedirá **crear una contraseña nueva**.',
+                'En el primer campo escribe la **contraseña temporal**; en los otros dos, **tu contraseña nueva**.',
+                'Usa mayúsculas, minúsculas, números y un símbolo. Ejemplo: **MiClaveSegura123!**')
+       Note = '**Anota y guarda tu nueva contraseña ahora.** SafeTech no puede verla ni recuperarla después; si la pierdes, pierdes el acceso a la cuenta.'; NoteKind = 'critical'
        Image = 'assets/tutorial/03-cambiar-contrasena.jpg'; Actions = @(); NeedsOffice = $false },
     @{ Short = '¿Te pidió seguridad?'; Title = '¿Te apareció este mensaje?'
-       Body = @('Después de cambiar la contraseña, algunas cuentas muestran «Vamos a garantizar la seguridad de la cuenta» y piden instalar Microsoft Authenticator.',
+       Body = @('Después de cambiar la contraseña, algunas cuentas muestran **«Vamos a garantizar la seguridad de la cuenta»** y piden instalar Microsoft Authenticator.',
                 'Otras cuentas no lo piden y entran directo. Depende de la cuenta que te entregamos.',
-                'Elige lo que te pasó a ti.')
-       Note = 'Las dos situaciones son normales. Si no te apareció, tu cuenta está bien y te saltas esta parte.'; NoteKind = 'info'
+                '!**Elige lo que te pasó a ti** con los botones de abajo.')
+       Note = 'Las dos situaciones son normales. Si no te apareció, **tu cuenta está bien** y te saltas esta parte.'; NoteKind = 'info'
        Image = 'assets/tutorial/04-garantizar-seguridad.jpg'; Actions = @('authYes', 'authNo'); NeedsOffice = $false },
     @{ Short = 'Authenticator'; Title = 'Instala Microsoft Authenticator en tu celular'
-       Body = @('En el mensaje «Vamos a garantizar la seguridad de la cuenta», haz clic en Siguiente. No elijas «Usar otra cuenta».',
-                'En tu celular abre Google Play (Android) o App Store (iPhone).',
-                'Busca «Microsoft Authenticator» e instálala. El desarrollador debe ser Microsoft Corporation.',
-                'Vuelve al computador y haz clic en Siguiente.')
-       Note = 'No uses la opción «Configurar una aplicación de autenticación diferente». Este tutorial es para Microsoft Authenticator.'; NoteKind = 'info'
+       Body = @('!En el mensaje «Vamos a garantizar la seguridad de la cuenta», haz clic en **Siguiente**. **No elijas «Usar otra cuenta».**',
+                'En tu celular abre **Google Play** (Android) o **App Store** (iPhone).',
+                'Busca **«Microsoft Authenticator»** e instálala. El desarrollador debe ser **Microsoft Corporation**.',
+                'Vuelve al computador y haz clic en **Siguiente**.')
+       Note = 'No uses la opción «Configurar una aplicación de autenticación diferente». Este tutorial es para **Microsoft Authenticator**.'; NoteKind = 'info'
        Image = 'assets/tutorial/05-instalar-authenticator.jpg'; Actions = @(); NeedsOffice = $false },
     @{ Short = 'Código QR'; Title = 'Agrega la cuenta y escanea el código QR'
-       Body = @('Abre Microsoft Authenticator y permite las notificaciones.',
-                'Toca «Agregar cuenta» (o el botón +) y elige «Cuenta profesional o educativa».',
-                'Elige «Escanear un código QR» y apunta la cámara al código que aparece en el computador.',
-                'Cuando la cuenta aparezca en tu celular, haz clic en Siguiente en el computador.')
-       Note = '¿No puedes escanearlo? Haz clic en «Can''t scan the QR code?» y escribe a mano el código y la URL que aparecen.'; NoteKind = 'info'
+       Body = @('Abre Microsoft Authenticator y **permite las notificaciones**.',
+                '!Toca **«Agregar cuenta»** (o el botón +) y elige **«Cuenta profesional o educativa»**, no «Cuenta personal».',
+                'Elige **«Escanear un código QR»** y apunta la cámara al código que aparece en el computador.',
+                'Cuando la cuenta aparezca en tu celular, haz clic en **Siguiente** en el computador.')
+       Note = '¿No puedes escanearlo? Haz clic en **«Can''t scan the QR code?»** y escribe a mano el código y la URL que aparecen.'; NoteKind = 'info'
        Image = 'assets/tutorial/06-codigo-qr.jpg'; Actions = @(); NeedsOffice = $false },
     @{ Short = 'Aprobar'; Title = 'Aprueba la notificación de prueba'
-       Body = @('En el computador aparecerá un número.',
-                'En tu celular abre la notificación de Authenticator, escribe ese número y toca «Sí» o «Aprobar».',
-                'Cuando el computador diga «Notificación aprobada», haz clic en Siguiente y luego en Listo.',
+       Body = @('En el computador aparecerá **un número**.',
+                '!En tu celular abre la notificación de Authenticator, **escribe ese número** y toca **«Sí»** o **«Aprobar»**.',
+                'Cuando el computador diga **«Notificación aprobada»**, haz clic en **Siguiente** y luego en **Listo**.',
                 'Si Microsoft pide otro método (por ejemplo, tu número de teléfono), complétalo con el código que te llegue por SMS.')
-       Note = 'No borres la app ni la cuenta de tu celular: Microsoft puede pedirte aprobar el ingreso otra vez. Si cambias de celular, avísanos antes por WhatsApp.'; NoteKind = 'warn'
+       Note = '**No borres la app ni la cuenta de tu celular**: Microsoft puede pedirte aprobar el ingreso otra vez. Si cambias de celular, **avísanos antes por WhatsApp**.'; NoteKind = 'critical'
        Image = $null; Actions = @(); NeedsOffice = $false },
     @{ Short = 'Abrir Word'; Title = 'Inicia sesión en Word'
-       Body = @('Haz clic en «Abrir Word».',
-                'Si Word te pide iniciar sesión, escribe el correo entregado por SafeTech y tu contraseña nueva.',
-                'Si no lo pide, ve a Archivo > Cuenta > Iniciar sesión (o «Cambiar cuenta»).',
+       Body = @('Haz clic en **«Abrir Word»**.',
+                '!Si Word te pide iniciar sesión, escribe el **correo entregado por SafeTech** y **tu contraseña nueva**.',
+                'Si no lo pide, ve a **Archivo > Cuenta > Iniciar sesión** (o «Cambiar cuenta»).',
                 'Si Microsoft lo solicita, aprueba el ingreso en Authenticator con el número que aparece.')
        Note = 'No es necesario cerrar tu cuenta personal de OneDrive o Teams.'; NoteKind = 'info'
        Image = 'assets/tutorial/08-iniciar-sesion-word.jpg'; Actions = @('word'); NeedsOffice = $true },
     @{ Short = 'Solo esta app'; Title = 'Elige «No, solo esta aplicación»'
-       Body = @('Puede aparecer una ventana que pregunta si quieres iniciar sesión en todas las aplicaciones del dispositivo.',
-                'Haz clic en «No, solo esta aplicación».')
-       Note = 'Si eliges «Sí», la cuenta quedaría ligada al computador como cuenta de empresa y cambiaría su configuración. Esta cuenta solo debe usarse para activar Office.'; NoteKind = 'warn'
+       Body = @('Puede aparecer una ventana que pregunta si quieres iniciar sesión en **todas las aplicaciones del dispositivo**.',
+                '!Haz clic en **«No, solo esta aplicación»**.')
+       Note = '**No elijas «Sí».** La cuenta quedaría ligada al computador como cuenta de empresa y cambiaría su configuración. Esta cuenta solo debe usarse para activar Office.'; NoteKind = 'critical'
        Image = 'assets/tutorial/09-solo-esta-aplicacion.jpg'; Actions = @(); NeedsOffice = $true },
     @{ Short = 'Comprobar'; Title = 'Comprueba que Office quedó activado'
-       Body = @('En Word ve a Archivo > Cuenta.',
-                'Debe decir «Producto de suscripción» y «Aplicaciones de Microsoft 365».',
-                'Si aparece «Producto sin licencia», cierra todos los programas de Office, vuelve a abrir Word y revisa otra vez.')
-       Note = 'No guardes archivos importantes en el OneDrive de esta cuenta: Microsoft puede reducir o eliminar ese espacio sin aviso. Usa tu OneDrive personal.'; NoteKind = 'warn'
+       Body = @('En Word ve a **Archivo > Cuenta**.',
+                '!Debe decir **«Producto de suscripción»** y **«Aplicaciones de Microsoft 365»**.',
+                'Si aparece «Producto sin licencia», **cierra todos los programas de Office**, vuelve a abrir Word y revisa otra vez.')
+       Note = '**No guardes archivos importantes en el OneDrive de esta cuenta**: Microsoft puede reducir o eliminar ese espacio sin aviso. Usa tu OneDrive personal.'; NoteKind = 'warn'
        Image = 'assets/tutorial/10-producto-activado.jpg'; Actions = @('check', 'word'); NeedsOffice = $true }
 )
 
@@ -2567,6 +2573,23 @@ function Test-StInstalling365 {
     return [bool]($St.Mode -eq 'install' -and $St.Product -and $St.Product.Id -eq '365' -and $St.Busy)
 }
 
+function Set-StRichText {
+    # Escribe el texto en un TextBlock; lo que va entre **dobles asteriscos** queda en negrita y blanco.
+    param($Target, [string]$Text)
+    $Target.Inlines.Clear()
+    if (-not $Text) { return }
+    $parts = [regex]::Split($Text, '\*\*')
+    for ($i = 0; $i -lt $parts.Count; $i++) {
+        if ($parts[$i] -eq '') { continue }
+        $run = New-Object System.Windows.Documents.Run($parts[$i])
+        if ($i % 2 -eq 1) {
+            $run.FontWeight = [System.Windows.FontWeights]::Bold
+            $run.Foreground = [System.Windows.Media.Brushes]::White
+        }
+        $Target.Inlines.Add($run)
+    }
+}
+
 function Test-StAuthSkipped {
     param([int]$Index)
     return ($St.Tut.Auth -eq $false -and $Index -ge 4 -and $Index -le 6)
@@ -2607,7 +2630,22 @@ function Set-StTutorialStep {
     $k = 0
     foreach ($line in $s.Body) {
         $k++
-        $row = New-StXamlElement @"
+        $must = $line.StartsWith('!')
+        $text = $line.TrimStart('!')
+        if ($must) {
+            $row = New-StXamlElement @"
+<Border CornerRadius="12" Background="#1FDC2626" BorderBrush="#66DC2626" BorderThickness="1" Padding="10,9" Margin="-10,0,0,10">
+  <Grid>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Border Width="24" Height="24" CornerRadius="8" Background="#DC2626" VerticalAlignment="Top">
+      <TextBlock Text="$k" FontSize="12" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Border>
+    <TextBlock Grid.Column="1" x:Name="T" Foreground="#F8FAFC" FontSize="15" TextWrapping="Wrap" LineHeight="23" Margin="0,1,0,0"/>
+  </Grid>
+</Border>
+"@
+        } else {
+            $row = New-StXamlElement @"
 <Grid Margin="0,0,0,10">
   <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
   <Border Width="24" Height="24" CornerRadius="8" Background="#20304A" VerticalAlignment="Top">
@@ -2616,22 +2654,31 @@ function Set-StTutorialStep {
   <TextBlock Grid.Column="1" x:Name="T" Foreground="#DBE5F1" FontSize="15" TextWrapping="Wrap" LineHeight="23" Margin="0,1,0,0"/>
 </Grid>
 "@
-        $row.FindName('T').Text = $line
+        }
+        Set-StRichText -Target $row.FindName('T') -Text $text
         [void]$ui.StackTutBody.Children.Add($row)
     }
+    $noteText = $s.Note
+    $noteKind = $s.NoteKind
     if ($Index -eq 0 -and $St.SignInIssues -and $St.SignInIssues.Count -gt 0) {
-        $warn = 'Revisamos tu Windows y encontramos algo que podría impedir el inicio de sesión: ' + ($St.SignInIssues -join ' ') + ' Si Word no te deja iniciar sesión, escríbenos.'
-        $ui.TxtTutNote.Text = $s.Note + "`n`n" + $warn
+        $noteText = $s.Note + "`n`n" + 'Revisamos tu Windows y encontramos algo que podría impedir el inicio de sesión: ' + ($St.SignInIssues -join ' ') + ' Si Word no te deja iniciar sesión, escríbenos.'
     } elseif ($Index -eq 3 -and $St.Tut.Auth -eq $false) {
-        $ui.TxtTutNote.Text = 'Respondiste que no te apareció: está todo bien. Presiona «Siguiente» para continuar en Word.'
-    } else {
-        $ui.TxtTutNote.Text = $s.Note
+        $noteText = 'Respondiste que no te apareció: **está todo bien**. Presiona «Siguiente» para continuar en Word.'
     }
-    $noteMap = @{ warn = @('#12F59E0B', '#4DF59E0B', '#FCD34D', [char]0xE7BA); info = @('#140891B2', '#4D0891B2', '#67E8F9', [char]0xE946) }[$s.NoteKind]
+    Set-StRichText -Target $ui.TxtTutNote -Text $noteText
+    $noteMap = @{
+        info     = @('#140891B2', '#4D0891B2', '#67E8F9', [char]0xE946, 'CONSEJO', '1')
+        warn     = @('#1AF59E0B', '#80F59E0B', '#FCD34D', [char]0xE7BA, 'IMPORTANTE', '1.5')
+        critical = @('#26DC2626', '#B3DC2626', '#FCA5A5', [char]0xE7BA, 'MUY IMPORTANTE · LÉELO', '2')
+    }[$noteKind]
     $ui.TutNote.Background = $conv.ConvertFromString($noteMap[0])
     $ui.TutNote.BorderBrush = $conv.ConvertFromString($noteMap[1])
+    $ui.TutNote.BorderThickness = $noteMap[5]
     $ui.TutNoteIcon.Foreground = $conv.ConvertFromString($noteMap[2])
     $ui.TutNoteIcon.Text = [string]$noteMap[3]
+    $ui.TxtTutNoteLabel.Text = $noteMap[4]
+    $ui.TxtTutNoteLabel.Foreground = $conv.ConvertFromString($noteMap[2])
+    $ui.TxtTutNote.Foreground = $conv.ConvertFromString($(if ($noteKind -eq 'info') { '#DBE5F1' } else { '#F8FAFC' }))
     $ui.TutNote.Visibility = $(if ($s.Note) { 'Visible' } else { 'Collapsed' })
 
     $ui.StackTutActions.Children.Clear()
@@ -2776,6 +2823,21 @@ if ($StMode -eq 'app') {
 # ----- Eventos ---------------------------------------------------------------------------------
 $ui = $St.UI
 $ui.BtnMin.Add_Click({ $St.Window.WindowState = 'Minimized' })
+$ui.BtnMax.Add_Click({ $St.Window.WindowState = $(if ($St.Window.WindowState -eq 'Maximized') { 'Normal' } else { 'Maximized' }) })
+$St.Window.Add_StateChanged({
+    # Con WindowChrome la ventana maximizada sobresale unos pixeles de la pantalla: se compensa con un margen.
+    if ($St.Window.WindowState -eq 'Maximized') {
+        $St.UI.RootBorder.Margin = '7'
+        $St.UI.RootBorder.BorderThickness = '0'
+        $St.UI.BtnMax.Content = [string][char]0xE923
+        $St.UI.BtnMax.ToolTip = 'Restaurar'
+    } else {
+        $St.UI.RootBorder.Margin = '0'
+        $St.UI.RootBorder.BorderThickness = '1'
+        $St.UI.BtnMax.Content = [string][char]0xE922
+        $St.UI.BtnMax.ToolTip = 'Maximizar'
+    }
+})
 $ui.BtnClose.Add_Click({ $St.Window.Close() })
 $ui.BtnHelpCenter.Add_Click({ Open-StUnelevated $StConfig.HelpUrl })
 $ui.BtnHelpWa.Add_Click({ Open-StUnelevated $StConfig.WhatsAppUrl })
@@ -2923,6 +2985,9 @@ if ($StMode -eq 'selftest') {
     }
     $root = $St.Window.Content
     Show-StPage 'Home'; Save-StShot $root '01-inicio'
+    $St.Window.Width = 1500; $St.Window.Height = 940
+    Save-StShot $root '01b-inicio-grande'
+    $St.Window.Width = 1080; $St.Window.Height = 740
     $St.Product = Get-StProduct '2024'; $St.Mode = 'install'
     Show-StDataPage
     $St.UI.InKey.Text = 'ABCDE12345FGHIJ67890KLMNO'
@@ -2945,6 +3010,7 @@ if ($StMode -eq 'selftest') {
     Save-StShot $root '05-avance-365'
     $St.Mode = 'tutorial'
     Show-StTutorial -Index 1; Save-StShot $root '06-tutorial-paso2'
+    Set-StTutorialStep -Index 2; Save-StShot $root '06a-tutorial-contrasena'
     Set-StTutorialStep -Index 3; Save-StShot $root '06b-tutorial-pregunta'
     $St.Tut.Auth = $false
     Set-StTutorialStep -Index 8; Save-StShot $root '07-tutorial-paso9'
