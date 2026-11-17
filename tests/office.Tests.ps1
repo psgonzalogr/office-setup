@@ -389,3 +389,22 @@ Describe 'Lanzador Instalar-Office-SafeTech.cmd (Windows real, solo en CI)' {
         $r.Out | Should -Match 'SAFETECH-PROBE-OK'
     }
 }
+
+Describe 'Pegar datos desde el correo' {
+    It 'Encuentra la clave y el código dentro de un texto del correo' {
+        $r = Find-StPurchaseData "Hola! Tu clave: abcde-12345-fghij-67890-klmno`nCódigo de activación: st-ab12cd. Saludos"
+        $r.Key | Should -BeExactly 'ABCDE-12345-FGHIJ-67890-KLMNO'
+        $r.Code | Should -BeExactly 'ST-AB12CD'
+    }
+    It 'Acepta el código sin guion' {
+        (Find-StPurchaseData 'codigo ST AB12CD').Code | Should -BeExactly 'ST-AB12CD'
+    }
+    It 'No inventa datos si no hay' {
+        $r = Find-StPurchaseData 'hola, no tengo nada'
+        $r.Key | Should -BeNullOrEmpty
+        $r.Code | Should -BeNullOrEmpty
+    }
+    It 'No confunde una clave más larga' {
+        (Find-StPurchaseData 'ABCDE-12345-FGHIJ-67890-KLMNOP').Key | Should -BeNullOrEmpty
+    }
+}

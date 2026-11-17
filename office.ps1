@@ -12,7 +12,7 @@
 # ==============================================================================
 
 $StConfig = @{
-    Version     = '1.0.8'
+    Version     = '1.1.0'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1'
     RawBase     = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main'
@@ -213,6 +213,19 @@ function ConvertTo-StAccessCode {
     if ($clean.StartsWith('ST') -and $clean.Length -eq 8) { $clean = $clean.Substring(2) }
     if ($clean.Length -ne 6) { return $null }
     return "ST-$clean"
+}
+
+function Find-StPurchaseData {
+    # Busca la clave y el código ST dentro de un texto pegado (por ejemplo, un trozo del correo).
+    param([string]$Text)
+    $r = @{ Key = $null; Code = $null }
+    if (-not $Text) { return $r }
+    $up = $Text.ToUpperInvariant()
+    $mk = [regex]::Match($up, '(?<![A-Z0-9])[A-Z0-9]{5}(-[A-Z0-9]{5}){4}(?![A-Z0-9])')
+    if ($mk.Success) { $r.Key = $mk.Value }
+    $mc = [regex]::Match($up, '(?<![A-Z0-9])ST\s*-?\s*([A-Z0-9]{6})(?![A-Z0-9])')
+    if ($mc.Success) { $r.Code = 'ST-' + $mc.Groups[1].Value }
+    return $r
 }
 
 function Test-StAccessCode {
@@ -676,7 +689,7 @@ function Invoke-StInstall {
         Set-StStep 'remove' 'skip'
     }
 
-    Set-StStep 'install' 'running' "Instalando $($prod.Name). Se abrió la ventana de Microsoft con el avance; déjala trabajar, se cierra sola."
+    Set-StStep 'install' 'running' 'Se abrió la ventana de Microsoft con el avance: déjala trabajar, se cierra sola.'
     Start-StClickToRunService
     $code = Invoke-StOdt -Setup $setup -Xml $installXml -Label "Instalacion de $($prod.FullName)"
     if ($code -ne 0) {
@@ -946,7 +959,7 @@ $St = @{
     NoAnim      = $false
     StartTime   = $null
     Act         = @{}
-    Tut         = @{ Index = 0; Started = $false; Auth = $null }
+    Tut         = @{ Index = 0; Started = $false; Auth = $null; Checked = @{} }
     CodeState   = 'empty'
     KeyFormatting = $false
     CacheDir    = (Join-Path $env:TEMP 'SafeTechOffice\cache')
@@ -968,70 +981,78 @@ $StResXaml = @'
 <SolidColorBrush x:Key="Muted" Color="#AEBDD0"/>
 <SolidColorBrush x:Key="Red" Color="#DC2626"/>
 <SolidColorBrush x:Key="RedText" Color="#FCA5A5"/>
+<SolidColorBrush x:Key="Focus" Color="#FCD34D"/>
 <LinearGradientBrush x:Key="RedGrad" StartPoint="0,0" EndPoint="1,1">
   <GradientStop Color="#DC2626" Offset="0"/><GradientStop Color="#991B1B" Offset="1"/>
 </LinearGradientBrush>
 <LinearGradientBrush x:Key="RedGradHover" StartPoint="0,0" EndPoint="1,1">
-  <GradientStop Color="#EF4444" Offset="0"/><GradientStop Color="#B91C1C" Offset="1"/>
+  <GradientStop Color="#E23434" Offset="0"/><GradientStop Color="#A11D1D" Offset="1"/>
+</LinearGradientBrush>
+<LinearGradientBrush x:Key="StubGrad" StartPoint="0,0" EndPoint="0,1">
+  <GradientStop Color="#DC2626" Offset="0"/><GradientStop Color="#8E1818" Offset="1"/>
 </LinearGradientBrush>
 <LinearGradientBrush x:Key="TopLine" StartPoint="0,0" EndPoint="1,0">
   <GradientStop Color="#00DC2626" Offset="0"/><GradientStop Color="#DC2626" Offset="0.5"/><GradientStop Color="#00DC2626" Offset="1"/>
 </LinearGradientBrush>
 <FontFamily x:Key="Icons">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
-<Style x:Key="Kicker" TargetType="TextBlock">
-  <Setter Property="Foreground" Value="#FCA5A5"/><Setter Property="FontSize" Value="11.5"/>
-  <Setter Property="FontWeight" Value="Black"/><Setter Property="Margin" Value="0,0,0,8"/>
-</Style>
 <Style x:Key="H1" TargetType="TextBlock">
-  <Setter Property="Foreground" Value="#F8FAFC"/><Setter Property="FontSize" Value="32"/>
-  <Setter Property="FontWeight" Value="Bold"/><Setter Property="TextWrapping" Value="Wrap"/>
+  <Setter Property="Foreground" Value="#F8FAFC"/><Setter Property="FontSize" Value="34"/>
+  <Setter Property="FontWeight" Value="SemiBold"/><Setter Property="TextWrapping" Value="Wrap"/>
   <Setter Property="FontFamily" Value="Segoe UI Variable Display, Segoe UI"/>
 </Style>
 <Style x:Key="H2" TargetType="TextBlock">
-  <Setter Property="Foreground" Value="#F8FAFC"/><Setter Property="FontSize" Value="19"/>
-  <Setter Property="FontWeight" Value="Bold"/><Setter Property="TextWrapping" Value="Wrap"/>
+  <Setter Property="Foreground" Value="#F8FAFC"/><Setter Property="FontSize" Value="22"/>
+  <Setter Property="FontWeight" Value="SemiBold"/><Setter Property="TextWrapping" Value="Wrap"/>
+  <Setter Property="FontFamily" Value="Segoe UI Variable Display, Segoe UI"/>
 </Style>
 <Style x:Key="Lead" TargetType="TextBlock">
-  <Setter Property="Foreground" Value="#AEBDD0"/><Setter Property="FontSize" Value="15.5"/>
-  <Setter Property="TextWrapping" Value="Wrap"/><Setter Property="LineHeight" Value="24"/>
-  <Setter Property="Margin" Value="0,10,0,0"/>
+  <Setter Property="Foreground" Value="#C9D5E3"/><Setter Property="FontSize" Value="18"/>
+  <Setter Property="TextWrapping" Value="Wrap"/><Setter Property="LineHeight" Value="27"/>
+  <Setter Property="Margin" Value="0,8,0,0"/>
 </Style>
 <Style x:Key="Body" TargetType="TextBlock">
-  <Setter Property="Foreground" Value="#DBE5F1"/><Setter Property="FontSize" Value="14.5"/>
-  <Setter Property="TextWrapping" Value="Wrap"/><Setter Property="LineHeight" Value="22"/>
+  <Setter Property="Foreground" Value="#DBE5F1"/><Setter Property="FontSize" Value="17"/>
+  <Setter Property="TextWrapping" Value="Wrap"/><Setter Property="LineHeight" Value="26"/>
 </Style>
 <Style x:Key="Small" TargetType="TextBlock">
-  <Setter Property="Foreground" Value="#AEBDD0"/><Setter Property="FontSize" Value="12.5"/>
-  <Setter Property="TextWrapping" Value="Wrap"/>
+  <Setter Property="Foreground" Value="#AEBDD0"/><Setter Property="FontSize" Value="16"/>
+  <Setter Property="TextWrapping" Value="Wrap"/><Setter Property="LineHeight" Value="22"/>
 </Style>
 <Style x:Key="Label" TargetType="TextBlock">
-  <Setter Property="Foreground" Value="#F8FAFC"/><Setter Property="FontSize" Value="14"/>
+  <Setter Property="Foreground" Value="#F8FAFC"/><Setter Property="FontSize" Value="17"/>
   <Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Margin" Value="0,0,0,8"/>
+</Style>
+<Style x:Key="Kicker" TargetType="TextBlock">
+  <Setter Property="Foreground" Value="#AEBDD0"/><Setter Property="FontSize" Value="15"/>
+  <Setter Property="Margin" Value="0,0,0,6"/>
 </Style>
 <Style x:Key="Panel" TargetType="Border">
   <Setter Property="Background" Value="#111C2F"/><Setter Property="BorderBrush" Value="#2A3C57"/>
   <Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="20"/>
-  <Setter Property="Padding" Value="22"/>
+  <Setter Property="Padding" Value="24"/>
 </Style>
 
 <Style x:Key="BtnPrimary" TargetType="Button">
-  <Setter Property="Foreground" Value="White"/><Setter Property="FontWeight" Value="Bold"/>
-  <Setter Property="FontSize" Value="14"/><Setter Property="MinHeight" Value="46"/>
-  <Setter Property="Padding" Value="24,10"/><Setter Property="Cursor" Value="Hand"/>
+  <Setter Property="Foreground" Value="White"/><Setter Property="FontWeight" Value="SemiBold"/>
+  <Setter Property="FontSize" Value="17"/><Setter Property="MinHeight" Value="56"/>
+  <Setter Property="Padding" Value="28,12"/><Setter Property="Cursor" Value="Hand"/>
   <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
   <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
   <Setter Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="1" ScaleY="1"/></Setter.Value></Setter>
   <Setter Property="Template"><Setter.Value>
     <ControlTemplate TargetType="Button">
-      <Border x:Name="Bd" CornerRadius="12" Padding="{TemplateBinding Padding}" Background="{StaticResource RedGrad}" BorderBrush="#00FFFFFF" BorderThickness="2">
-        <Border.Effect><DropShadowEffect Color="#DC2626" BlurRadius="20" ShadowDepth="5" Direction="270" Opacity="0.32"/></Border.Effect>
-        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextBlock.Foreground="White"/>
-      </Border>
+      <Grid>
+        <Border x:Name="Ring" CornerRadius="17" Margin="-5" BorderBrush="#FCD34D" BorderThickness="3" Visibility="Hidden"/>
+        <Border x:Name="Bd" CornerRadius="14" Padding="{TemplateBinding Padding}" Background="{StaticResource RedGrad}">
+          <Border.Effect><DropShadowEffect Color="#7F1D1D" BlurRadius="22" ShadowDepth="6" Direction="270" Opacity="0.45"/></Border.Effect>
+          <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextBlock.Foreground="White"/>
+        </Border>
+      </Grid>
       <ControlTemplate.Triggers>
         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{StaticResource RedGradHover}"/></Trigger>
         <Trigger Property="IsPressed" Value="True"><Setter Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.97" ScaleY="0.97"/></Setter.Value></Setter></Trigger>
-        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#99FCA5A5"/></Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Ring" Property="Visibility" Value="Visible"/></Trigger>
         <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.38"/></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate>
@@ -1039,24 +1060,48 @@ $StResXaml = @'
 </Style>
 
 <Style x:Key="BtnSoft" TargetType="Button">
-  <Setter Property="Foreground" Value="#DBE5F1"/><Setter Property="FontWeight" Value="SemiBold"/>
-  <Setter Property="FontSize" Value="14"/><Setter Property="MinHeight" Value="46"/>
-  <Setter Property="Padding" Value="20,10"/><Setter Property="Cursor" Value="Hand"/>
+  <Setter Property="Foreground" Value="#F8FAFC"/><Setter Property="FontWeight" Value="SemiBold"/>
+  <Setter Property="FontSize" Value="17"/><Setter Property="MinHeight" Value="56"/>
+  <Setter Property="Padding" Value="24,12"/><Setter Property="Cursor" Value="Hand"/>
   <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
   <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
   <Setter Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="1" ScaleY="1"/></Setter.Value></Setter>
   <Setter Property="Template"><Setter.Value>
     <ControlTemplate TargetType="Button">
-      <Border x:Name="Bd" CornerRadius="12" Padding="{TemplateBinding Padding}" Background="#17243A" BorderBrush="#2A3C57" BorderThickness="1.5">
-        <ContentPresenter x:Name="Cp" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-      </Border>
+      <Grid>
+        <Border x:Name="Ring" CornerRadius="17" Margin="-5" BorderBrush="#FCD34D" BorderThickness="3" Visibility="Hidden"/>
+        <Border x:Name="Bd" CornerRadius="14" Padding="{TemplateBinding Padding}" Background="#17243A" BorderBrush="#6B82A3" BorderThickness="2">
+          <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Border>
+      </Grid>
       <ControlTemplate.Triggers>
         <Trigger Property="IsMouseOver" Value="True">
-          <Setter TargetName="Bd" Property="BorderBrush" Value="#405776"/><Setter TargetName="Bd" Property="Background" Value="#20304A"/>
-          <Setter Property="Foreground" Value="#FCA5A5"/>
+          <Setter TargetName="Bd" Property="BorderBrush" Value="#AEBDD0"/><Setter TargetName="Bd" Property="Background" Value="#20304A"/>
         </Trigger>
         <Trigger Property="IsPressed" Value="True"><Setter Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.97" ScaleY="0.97"/></Setter.Value></Setter></Trigger>
-        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#99FCA5A5"/></Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Ring" Property="Visibility" Value="Visible"/></Trigger>
+        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.38"/></Trigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate>
+  </Setter.Value></Setter>
+</Style>
+
+<Style x:Key="BtnWa" TargetType="Button">
+  <Setter Property="Foreground" Value="#052E16"/><Setter Property="FontWeight" Value="SemiBold"/>
+  <Setter Property="FontSize" Value="17"/><Setter Property="MinHeight" Value="56"/>
+  <Setter Property="Padding" Value="24,12"/><Setter Property="Cursor" Value="Hand"/>
+  <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+  <Setter Property="Template"><Setter.Value>
+    <ControlTemplate TargetType="Button">
+      <Grid>
+        <Border x:Name="Ring" CornerRadius="17" Margin="-5" BorderBrush="#FCD34D" BorderThickness="3" Visibility="Hidden"/>
+        <Border x:Name="Bd" CornerRadius="14" Padding="{TemplateBinding Padding}" Background="#25D366">
+          <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextBlock.Foreground="#052E16"/>
+        </Border>
+      </Grid>
+      <ControlTemplate.Triggers>
+        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#3BE07A"/></Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Ring" Property="Visibility" Value="Visible"/></Trigger>
         <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.38"/></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate>
@@ -1065,54 +1110,69 @@ $StResXaml = @'
 
 <Style x:Key="BtnLink" TargetType="Button">
   <Setter Property="Foreground" Value="#FCA5A5"/><Setter Property="FontWeight" Value="SemiBold"/>
-  <Setter Property="FontSize" Value="13.5"/><Setter Property="Cursor" Value="Hand"/>
-  <Setter Property="Padding" Value="8,6"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+  <Setter Property="FontSize" Value="16"/><Setter Property="Cursor" Value="Hand"/>
+  <Setter Property="Padding" Value="10,8"/><Setter Property="MinHeight" Value="44"/>
+  <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
   <Setter Property="Template"><Setter.Value>
     <ControlTemplate TargetType="Button">
-      <Border x:Name="Bd" CornerRadius="8" Padding="{TemplateBinding Padding}" Background="#00000000">
+      <Border x:Name="Bd" CornerRadius="10" Padding="{TemplateBinding Padding}" Background="#00000000" BorderBrush="#00000000" BorderThickness="2">
         <ContentPresenter VerticalAlignment="Center"/>
       </Border>
       <ControlTemplate.Triggers>
-        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#1FDC2626"/></Trigger>
-        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="Background" Value="#1FDC2626"/></Trigger>
+        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#26DC2626"/></Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FCD34D"/></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate>
   </Setter.Value></Setter>
 </Style>
 
 <Style x:Key="BtnChrome" TargetType="Button">
-  <Setter Property="Foreground" Value="#AEBDD0"/><Setter Property="Width" Value="46"/><Setter Property="Height" Value="34"/>
-  <Setter Property="FontFamily" Value="{StaticResource Icons}"/><Setter Property="FontSize" Value="10"/>
+  <Setter Property="Foreground" Value="#C9D5E3"/><Setter Property="Width" Value="48"/><Setter Property="Height" Value="40"/>
+  <Setter Property="FontFamily" Value="{StaticResource Icons}"/><Setter Property="FontSize" Value="12"/>
   <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
   <Setter Property="Template"><Setter.Value>
     <ControlTemplate TargetType="Button">
-      <Border x:Name="Bd" CornerRadius="8" Background="#00000000"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+      <Border x:Name="Bd" CornerRadius="10" Background="#00000000" BorderBrush="#00000000" BorderThickness="2"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
       <ControlTemplate.Triggers>
         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#20304A"/><Setter Property="Foreground" Value="#F8FAFC"/></Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FCD34D"/></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate>
   </Setter.Value></Setter>
 </Style>
 
-<Style x:Key="Card" TargetType="Button">
+<Style x:Key="BtnClose" TargetType="Button" BasedOn="{StaticResource BtnChrome}">
+  <Setter Property="Template"><Setter.Value>
+    <ControlTemplate TargetType="Button">
+      <Border x:Name="Bd" CornerRadius="10" Background="#00000000" BorderBrush="#00000000" BorderThickness="2"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+      <ControlTemplate.Triggers>
+        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#C42B1C"/><Setter Property="Foreground" Value="White"/></Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FCD34D"/></Trigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate>
+  </Setter.Value></Setter>
+</Style>
+
+<Style x:Key="Ticket" TargetType="Button">
   <Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+  <Setter Property="Foreground" Value="#F8FAFC"/>
   <Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="VerticalContentAlignment" Value="Stretch"/>
   <Setter Property="RenderTransform"><Setter.Value><TranslateTransform Y="0"/></Setter.Value></Setter>
   <Setter Property="Template"><Setter.Value>
     <ControlTemplate TargetType="Button">
-      <Border x:Name="Bd" CornerRadius="20" Background="#111C2F" BorderBrush="#2A3C57" BorderThickness="1.5">
-        <Border.Effect><DropShadowEffect Color="#000000" BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.25"/></Border.Effect>
-        <Grid>
-          <Border Height="1.5" VerticalAlignment="Top" Margin="24,0" Background="{StaticResource TopLine}"/>
-          <ContentPresenter Margin="24,24,24,22"/>
-        </Grid>
-      </Border>
+      <Grid>
+        <Border x:Name="Ring" CornerRadius="25" Margin="-6" BorderBrush="#FCD34D" BorderThickness="3" Visibility="Hidden"/>
+        <Border x:Name="Bd" CornerRadius="20" Background="#17243A" BorderBrush="#2A3C57" BorderThickness="2">
+          <Border.Effect><DropShadowEffect Color="#000000" BlurRadius="30" ShadowDepth="10" Direction="270" Opacity="0.35"/></Border.Effect>
+          <ContentPresenter/>
+        </Border>
+      </Grid>
       <ControlTemplate.Triggers>
         <Trigger Property="IsMouseOver" Value="True">
-          <Setter TargetName="Bd" Property="BorderBrush" Value="#B4DC2626"/><Setter TargetName="Bd" Property="Background" Value="#152238"/>
-          <Setter Property="RenderTransform"><Setter.Value><TranslateTransform Y="-3"/></Setter.Value></Setter>
+          <Setter TargetName="Bd" Property="BorderBrush" Value="#DC2626"/>
+          <Setter Property="RenderTransform"><Setter.Value><TranslateTransform Y="-4"/></Setter.Value></Setter>
         </Trigger>
-        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#DC2626"/></Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Ring" Property="Visibility" Value="Visible"/></Trigger>
         <Trigger Property="IsPressed" Value="True"><Setter Property="RenderTransform"><Setter.Value><TranslateTransform Y="0"/></Setter.Value></Setter></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate>
@@ -1121,310 +1181,465 @@ $StResXaml = @'
 
 <Style x:Key="Field" TargetType="TextBox">
   <Setter Property="Foreground" Value="#F8FAFC"/><Setter Property="CaretBrush" Value="#F8FAFC"/>
-  <Setter Property="SelectionBrush" Value="#DC2626"/><Setter Property="FontSize" Value="18"/>
-  <Setter Property="FontFamily" Value="Consolas, Segoe UI"/><Setter Property="Height" Value="54"/>
+  <Setter Property="SelectionBrush" Value="#DC2626"/><Setter Property="FontSize" Value="21"/>
+  <Setter Property="FontFamily" Value="Consolas, Segoe UI"/><Setter Property="Height" Value="58"/>
+  <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
   <Setter Property="Template"><Setter.Value>
     <ControlTemplate TargetType="TextBox">
-      <Border x:Name="Bd" CornerRadius="12" Background="#17243A" BorderBrush="#2A3C57" BorderThickness="1.5">
-        <Grid Margin="16,0">
-          <TextBlock x:Name="Ph" Text="{TemplateBinding Tag}" Foreground="#5D7391" VerticalAlignment="Center" Visibility="Collapsed" FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}"/>
+      <Border x:Name="Bd" CornerRadius="14" Background="#0C1626" BorderBrush="#6B82A3" BorderThickness="2">
+        <Grid Margin="18,0">
+          <TextBlock x:Name="Ph" Text="{TemplateBinding Tag}" Foreground="#8FA3BE" VerticalAlignment="Center" Visibility="Collapsed" FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}"/>
           <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
         </Grid>
       </Border>
       <ControlTemplate.Triggers>
         <Trigger Property="Text" Value=""><Setter TargetName="Ph" Property="Visibility" Value="Visible"/></Trigger>
-        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#405776"/></Trigger>
-        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#DC2626"/></Trigger>
+        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#AEBDD0"/></Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FCD34D"/><Setter TargetName="Bd" Property="Background" Value="#111C2F"/></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate>
   </Setter.Value></Setter>
 </Style>
 
 <Style x:Key="Check" TargetType="CheckBox">
-  <Setter Property="Foreground" Value="#F8FAFC"/><Setter Property="FontSize" Value="14.5"/>
+  <Setter Property="Foreground" Value="#F8FAFC"/><Setter Property="FontSize" Value="17"/>
   <Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
   <Setter Property="Template"><Setter.Value>
     <ControlTemplate TargetType="CheckBox">
-      <Border x:Name="Row" CornerRadius="14" Background="#17243A" BorderBrush="#2A3C57" BorderThickness="1.5" Padding="16,14">
+      <Border x:Name="Row" CornerRadius="14" Background="#17243A" BorderBrush="#405776" BorderThickness="2" Padding="18,14" MinHeight="58">
         <Grid>
           <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-          <Border x:Name="Box" Width="24" Height="24" CornerRadius="7" BorderBrush="#405776" BorderThickness="2" Background="#00000000" VerticalAlignment="Top">
-            <TextBlock x:Name="Mark" Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="13" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+          <Border x:Name="Box" Width="28" Height="28" CornerRadius="8" BorderBrush="#8FA3BE" BorderThickness="2" Background="#00000000" VerticalAlignment="Center">
+            <TextBlock x:Name="Mark" Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="15" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
           </Border>
-          <ContentPresenter Grid.Column="1" Margin="14,1,0,0" VerticalAlignment="Center"/>
+          <ContentPresenter Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center"/>
         </Grid>
       </Border>
       <ControlTemplate.Triggers>
         <Trigger Property="IsChecked" Value="True">
-          <Setter TargetName="Box" Property="Background" Value="#DC2626"/><Setter TargetName="Box" Property="BorderBrush" Value="#DC2626"/>
-          <Setter TargetName="Mark" Property="Visibility" Value="Visible"/><Setter TargetName="Row" Property="BorderBrush" Value="#99DC2626"/>
+          <Setter TargetName="Box" Property="Background" Value="#059669"/><Setter TargetName="Box" Property="BorderBrush" Value="#059669"/>
+          <Setter TargetName="Mark" Property="Visibility" Value="Visible"/><Setter TargetName="Row" Property="BorderBrush" Value="#059669"/>
         </Trigger>
         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="Background" Value="#20304A"/></Trigger>
-        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Row" Property="BorderBrush" Value="#DC2626"/></Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Row" Property="BorderBrush" Value="#FCD34D"/></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate>
   </Setter.Value></Setter>
 </Style>
 
 <Style TargetType="ScrollBar">
-  <Setter Property="Width" Value="10"/><Setter Property="MinWidth" Value="10"/>
+  <Setter Property="Width" Value="12"/><Setter Property="MinWidth" Value="12"/>
   <Setter Property="Template"><Setter.Value>
     <ControlTemplate TargetType="ScrollBar">
       <Track x:Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True">
-        <Track.Thumb><Thumb><Thumb.Template><ControlTemplate TargetType="Thumb"><Border CornerRadius="4" Background="#405776" Margin="2,2"/></ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
+        <Track.Thumb><Thumb><Thumb.Template><ControlTemplate TargetType="Thumb"><Border CornerRadius="5" Background="#6B82A3" Margin="2,2"/></ControlTemplate></Thumb.Template></Thumb></Track.Thumb>
       </Track>
     </ControlTemplate>
   </Setter.Value></Setter>
 </Style>
 <Style TargetType="ToolTip">
-  <Setter Property="Background" Value="#20304A"/><Setter Property="Foreground" Value="#F8FAFC"/><Setter Property="BorderBrush" Value="#405776"/>
+  <Setter Property="Background" Value="#20304A"/><Setter Property="Foreground" Value="#F8FAFC"/><Setter Property="BorderBrush" Value="#405776"/><Setter Property="FontSize" Value="15"/>
 </Style>
 '@
 
 $StWindowXaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Instalador de Office | SafeTech" Width="1080" Height="740" MinWidth="960" MinHeight="620"
+        Title="Instalador de Office | SafeTech" Width="1280" Height="760" MinWidth="960" MinHeight="620"
         WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize"
-        Background="#09111F" Foreground="#F8FAFC" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14"
+        Background="#09111F" Foreground="#F8FAFC" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="17"
         UseLayoutRounding="True" SnapsToDevicePixels="True" TextOptions.TextFormattingMode="Ideal">
   <WindowChrome.WindowChrome>
-    <WindowChrome CaptionHeight="58" ResizeBorderThickness="7" CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
+    <WindowChrome CaptionHeight="64" ResizeBorderThickness="7" CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
   </WindowChrome.WindowChrome>
   <Window.Resources>
     __RESOURCES__
   </Window.Resources>
   <Border x:Name="RootBorder" BorderBrush="#2A3C57" BorderThickness="1" Background="#09111F">
   <Grid x:Name="Root">
+    <Grid.LayoutTransform><ScaleTransform x:Name="RootScale" ScaleX="1" ScaleY="1"/></Grid.LayoutTransform>
     <Grid.RowDefinitions>
-      <RowDefinition Height="58"/>
+      <RowDefinition Height="64"/>
+      <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
-      <RowDefinition Height="46"/>
+      <RowDefinition Height="64"/>
     </Grid.RowDefinitions>
 
     <!-- Barra superior -->
     <Border Grid.Row="0" Background="#0C1626" BorderBrush="#2A3C57" BorderThickness="0,0,0,1">
-      <Grid Margin="22,0,10,0">
+      <Grid Margin="24,0,10,0">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
           <Grid>
-            <Image x:Name="ImgLogo" Height="30" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+            <Image x:Name="ImgLogo" Height="32" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
             <StackPanel x:Name="LogoFallback" Orientation="Horizontal" Visibility="Collapsed">
-              <TextBlock Text="Safe" Foreground="#DC2626" FontSize="22" FontWeight="Bold" FontStyle="Italic"/>
-              <TextBlock Text="Tech" Foreground="#F8FAFC" FontSize="22" FontWeight="Black"/>
+              <TextBlock Text="Safe" Foreground="#DC2626" FontSize="24" FontWeight="Bold" FontStyle="Italic"/>
+              <TextBlock Text="Tech" Foreground="#F8FAFC" FontSize="24" FontWeight="Black"/>
             </StackPanel>
           </Grid>
-          <Border Width="1" Height="22" Background="#2A3C57" Margin="16,0"/>
-          <TextBlock Text="Instalador de Office" Foreground="#DBE5F1" FontSize="14.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+          <Border Width="1" Height="24" Background="#2A3C57" Margin="18,0"/>
+          <TextBlock Text="Instalador de Office" Foreground="#DBE5F1" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-          <Button x:Name="BtnAbout" Style="{StaticResource BtnLink}" Margin="0,0,10,0" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="¿Cómo funciona este instalador?">
+          <Button x:Name="BtnAbout" Style="{StaticResource BtnSoft}" MinHeight="48" Padding="16,6" FontSize="16" Margin="0,0,14,0" WindowChrome.IsHitTestVisibleInChrome="True">
             <StackPanel Orientation="Horizontal">
-              <TextBlock Text="&#xE946;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
-              <TextBlock Text="¿Cómo funciona?" FontSize="13"/>
+              <TextBlock Text="&#xE946;" FontFamily="{StaticResource Icons}" FontSize="16" VerticalAlignment="Center" Margin="0,0,9,0"/>
+              <TextBlock Text="¿Cómo funciona?" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
-          <Border CornerRadius="999" Background="#1F059669" BorderBrush="#66059669" BorderThickness="1" Padding="10,3" Margin="0,0,12,0" VerticalAlignment="Center">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Text="&#xE72E;" FontFamily="{StaticResource Icons}" FontSize="11" Foreground="#6EE7B7" VerticalAlignment="Center" Margin="0,0,6,0"/>
-              <TextBlock Text="Descarga oficial de Microsoft" Foreground="#6EE7B7" FontSize="11.5" FontWeight="SemiBold"/>
-            </StackPanel>
-          </Border>
           <Button x:Name="BtnMin" Style="{StaticResource BtnChrome}" Content="&#xE921;" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Minimizar"/>
           <Button x:Name="BtnMax" Style="{StaticResource BtnChrome}" Content="&#xE922;" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Maximizar"/>
-          <Button x:Name="BtnClose" Style="{StaticResource BtnChrome}" Content="&#xE8BB;" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Cerrar"/>
+          <Button x:Name="BtnClose" Style="{StaticResource BtnClose}" Content="&#xE8BB;" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Cerrar"/>
         </StackPanel>
       </Grid>
     </Border>
 
-    <Grid Grid.Row="1" x:Name="PageHost">
+    <!-- Guía: SafeBOT + etapas -->
+    <Grid x:Name="GuideBar" Grid.Row="1" Margin="40,12,40,4" MaxWidth="1240">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <Image x:Name="ImgBot" Height="66" Width="52" Stretch="Uniform" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+      <Grid Grid.Column="1" Margin="10,0,24,0" VerticalAlignment="Center" HorizontalAlignment="Left">
+        <Path Data="M 12,0 L 0,10 L 12,20 Z" Fill="#17243A" Stroke="#2A3C57" StrokeThickness="1.5" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+        <Border Margin="10,0,0,0" CornerRadius="18" Background="#17243A" BorderBrush="#2A3C57" BorderThickness="1.5" Padding="20,12" MaxWidth="660">
+          <TextBlock x:Name="TxtGuide" Foreground="#F8FAFC" FontSize="18" TextWrapping="Wrap" LineHeight="26" Text=""/>
+        </Border>
+      </Grid>
+      <StackPanel x:Name="Journey" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+        <StackPanel HorizontalAlignment="Center">
+          <Border x:Name="JDot1" Width="36" Height="36" CornerRadius="18" BorderThickness="2" HorizontalAlignment="Center">
+            <TextBlock x:Name="JNum1" Text="1" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <TextBlock x:Name="JLbl1" Text="Elegir" FontSize="16" Margin="0,6,0,0" HorizontalAlignment="Center"/>
+        </StackPanel>
+        <Border x:Name="JLine1" Width="44" Height="2" Margin="8,0,8,24" VerticalAlignment="Center"/>
+        <StackPanel HorizontalAlignment="Center">
+          <Border x:Name="JDot2" Width="36" Height="36" CornerRadius="18" BorderThickness="2" HorizontalAlignment="Center">
+            <TextBlock x:Name="JNum2" Text="2" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <TextBlock x:Name="JLbl2" Text="Tus datos" FontSize="16" Margin="0,6,0,0" HorizontalAlignment="Center"/>
+        </StackPanel>
+        <Border x:Name="JLine2" Width="44" Height="2" Margin="8,0,8,24" VerticalAlignment="Center"/>
+        <StackPanel HorizontalAlignment="Center">
+          <Border x:Name="JDot3" Width="36" Height="36" CornerRadius="18" BorderThickness="2" HorizontalAlignment="Center">
+            <TextBlock x:Name="JNum3" Text="3" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <TextBlock x:Name="JLbl3" Text="Instalar y activar" FontSize="16" Margin="0,6,0,0" HorizontalAlignment="Center"/>
+        </StackPanel>
+      </StackPanel>
+    </Grid>
+
+    <Grid Grid.Row="2" x:Name="PageHost">
 
       <!-- INICIO -->
       <Grid x:Name="PageHome">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel Margin="48,24,48,20" MaxWidth="1240">
-            <Border HorizontalAlignment="Left" CornerRadius="999" Background="#26DC2626" Padding="12,4" Margin="0,0,0,12">
-              <TextBlock Text="INSTALADOR OFICIAL SAFETECH" Foreground="#FCA5A5" FontSize="11" FontWeight="Black"/>
-            </Border>
-            <TextBlock Style="{StaticResource H1}" FontSize="38" Text="Instala Office en pocos pasos"/>
-            <TextBlock Style="{StaticResource Lead}" MaxWidth="760" HorizontalAlignment="Left"
-                       Text="Elige el producto que compraste. Descargamos Office directamente desde Microsoft, lo instalamos y te ayudamos a activarlo. No necesitas escribir comandos."/>
-            <Button x:Name="BtnAboutHome" Style="{StaticResource BtnLink}" HorizontalAlignment="Left" Margin="-8,8,0,0">
-              <StackPanel Orientation="Horizontal">
-                <TextBlock Text="&#xE72E;" FontFamily="{StaticResource Icons}" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <TextBlock Text="¿Cómo funciona este instalador? Es seguro y usa los métodos oficiales de Microsoft"/>
-              </StackPanel>
-            </Button>
-            <UniformGrid Columns="3" Margin="0,24,0,0">
-              <Button x:Name="BtnPick2024" Style="{StaticResource Card}" Margin="0,0,9,0">
-                <StackPanel>
-                  <Grid>
-                    <Border Width="58" Height="58" CornerRadius="16" Background="{StaticResource RedGrad}" HorizontalAlignment="Left">
-                      <TextBlock Text="24" Foreground="White" FontSize="23" FontWeight="Black" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <Border CornerRadius="999" Background="#1F059669" BorderBrush="#66059669" BorderThickness="1" Padding="9,3" HorizontalAlignment="Right" VerticalAlignment="Top">
-                      <TextBlock Text="MÁS NUEVO" Foreground="#6EE7B7" FontSize="10.5" FontWeight="Black"/>
-                    </Border>
-                  </Grid>
-                  <TextBlock Text="Office 2024" Style="{StaticResource H2}" FontSize="22" Margin="0,18,0,2"/>
-                  <TextBlock Text="Office LTSC Profesional Plus 2024" Style="{StaticResource Small}"/>
-                  <Border Height="1" Background="#2A3C57" Margin="0,16"/>
-                  <TextBlock Style="{StaticResource Body}" FontSize="13.5" Text="&#x2713;  Licencia permanente para este PC"/>
-                  <TextBlock Style="{StaticResource Body}" FontSize="13.5" Text="&#x2713;  Activación automática con tu código" Margin="0,4,0,0"/>
-                  <TextBlock Style="{StaticResource Body}" FontSize="13.5" Text="&#x2713;  Word, Excel, PowerPoint, Outlook y más" Margin="0,4,0,0"/>
-                  <TextBlock Text="Elegir Office 2024  &#x2192;" Foreground="#FCA5A5" FontWeight="Bold" Margin="0,18,0,0"/>
-                </StackPanel>
-              </Button>
-              <Button x:Name="BtnPick2021" Style="{StaticResource Card}" Margin="9,0,9,0">
-                <StackPanel>
-                  <Border Width="58" Height="58" CornerRadius="16" Background="#20304A" BorderBrush="#405776" BorderThickness="1" HorizontalAlignment="Left">
-                    <TextBlock Text="21" Foreground="#F8FAFC" FontSize="23" FontWeight="Black" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          <Grid MaxWidth="1240" Margin="40,10,40,18">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <StackPanel>
+              <TextBlock Style="{StaticResource H1}" Text="¿Qué compraste?"/>
+              <TextBlock Style="{StaticResource Lead}" Text="Míralo en el correo de tu compra de SafeTech y elige ese mismo producto."/>
+            </StackPanel>
+            <UniformGrid Grid.Row="1" Columns="3" Margin="0,18,0,0">
+              <Button x:Name="BtnPick2024" Style="{StaticResource Ticket}" Margin="0,0,12,0" Height="256" AutomationProperties.Name="Instalar Office 2024">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="108"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Border CornerRadius="18,0,0,18" Background="{StaticResource StubGrad}">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                      <TextBlock Text="OFFICE" Foreground="#FECACA" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center"/>
+                      <TextBlock Text="2024" Foreground="White" FontSize="32" FontWeight="Black" HorizontalAlignment="Center"/>
+                    </StackPanel>
                   </Border>
-                  <TextBlock Text="Office 2021" Style="{StaticResource H2}" FontSize="22" Margin="0,18,0,2"/>
-                  <TextBlock Text="Office Profesional Plus 2021" Style="{StaticResource Small}"/>
-                  <Border Height="1" Background="#2A3C57" Margin="0,16"/>
-                  <TextBlock Style="{StaticResource Body}" FontSize="13.5" Text="&#x2713;  Licencia permanente para este PC"/>
-                  <TextBlock Style="{StaticResource Body}" FontSize="13.5" Text="&#x2713;  Activación automática con tu código" Margin="0,4,0,0"/>
-                  <TextBlock Style="{StaticResource Body}" FontSize="13.5" Text="&#x2713;  Word, Excel, PowerPoint, Outlook y más" Margin="0,4,0,0"/>
-                  <TextBlock Text="Elegir Office 2021  &#x2192;" Foreground="#FCA5A5" FontWeight="Bold" Margin="0,18,0,0"/>
-                </StackPanel>
+                  <Line Grid.Column="1" X1="0" Y1="16" X2="0" Y2="238" Stroke="#405776" StrokeThickness="2" StrokeDashArray="2.5 2.5" HorizontalAlignment="Left"/>
+                  <Ellipse Grid.ColumnSpan="2" Width="24" Height="24" Fill="#09111F" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="96,-12,0,0"/>
+                  <Ellipse Grid.ColumnSpan="2" Width="24" Height="24" Fill="#09111F" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="96,0,0,-12"/>
+                  <StackPanel Grid.Column="1" Margin="24,20,18,0">
+                    <TextBlock Text="Office 2024" FontSize="26" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
+                    <TextBlock Text="Word, Excel, PowerPoint y más" Style="{StaticResource Small}" FontSize="16" Margin="0,2,0,14"/>
+                    <Grid Margin="0,0,0,8">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669" VerticalAlignment="Top"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                      <TextBlock Grid.Column="1" Text="Licencia para siempre" FontSize="16" Foreground="#DBE5F1" Margin="10,1,0,0" TextWrapping="Wrap"/>
+                    </Grid>
+                    <Grid>
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669" VerticalAlignment="Top"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                      <TextBlock Grid.Column="1" Text="Se activa con tu código" FontSize="16" Foreground="#DBE5F1" Margin="10,1,0,0" TextWrapping="Wrap"/>
+                    </Grid>
+                  </StackPanel>
+                  <Border Grid.Column="1" VerticalAlignment="Bottom" Margin="24,0,18,18" CornerRadius="12" Background="{StaticResource RedGrad}" Height="54">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                      <TextBlock Text="Instalar Office 2024" Foreground="White" FontSize="17" FontWeight="SemiBold"/>
+                      <TextBlock Text="&#xE72A;" FontFamily="{StaticResource Icons}" FontSize="13" Foreground="White" VerticalAlignment="Center" Margin="10,1,0,0"/>
+                    </StackPanel>
+                  </Border>
+                </Grid>
               </Button>
-              <Button x:Name="BtnPick365" Style="{StaticResource Card}" Margin="9,0,0,0">
-                <StackPanel>
-                  <Grid>
-                    <Border Width="58" Height="58" CornerRadius="16" Background="#20304A" BorderBrush="#405776" BorderThickness="1" HorizontalAlignment="Left">
-                      <TextBlock Text="365" Foreground="#F8FAFC" FontSize="19" FontWeight="Black" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <Border CornerRadius="999" Background="#262563EB" BorderBrush="#662563EB" BorderThickness="1" Padding="9,3" HorizontalAlignment="Right" VerticalAlignment="Top">
-                      <TextBlock Text="CON TUTORIAL" Foreground="#93C5FD" FontSize="10.5" FontWeight="Black"/>
-                    </Border>
-                  </Grid>
-                  <TextBlock Text="Microsoft 365" Style="{StaticResource H2}" FontSize="22" Margin="0,18,0,2"/>
-                  <TextBlock Text="Aplicaciones de Microsoft 365" Style="{StaticResource Small}"/>
-                  <Border Height="1" Background="#2A3C57" Margin="0,16"/>
-                  <TextBlock Style="{StaticResource Body}" FontSize="13.5" Text="&#x2713;  Se activa con la cuenta que te entregamos"/>
-                  <TextBlock Style="{StaticResource Body}" FontSize="13.5" Text="&#x2713;  Tutorial guiado, paso a paso" Margin="0,4,0,0"/>
-                  <TextBlock Style="{StaticResource Body}" FontSize="13.5" Text="&#x2713;  Siempre actualizado" Margin="0,4,0,0"/>
-                  <TextBlock Text="Elegir Microsoft 365  &#x2192;" Foreground="#FCA5A5" FontWeight="Bold" Margin="0,18,0,0"/>
-                </StackPanel>
+              <Button x:Name="BtnPick2021" Style="{StaticResource Ticket}" Margin="6,0,6,0" Height="256" AutomationProperties.Name="Instalar Office 2021">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="108"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Border CornerRadius="18,0,0,18" Background="{StaticResource StubGrad}">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                      <TextBlock Text="OFFICE" Foreground="#FECACA" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center"/>
+                      <TextBlock Text="2021" Foreground="White" FontSize="32" FontWeight="Black" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                  </Border>
+                  <Line Grid.Column="1" X1="0" Y1="16" X2="0" Y2="238" Stroke="#405776" StrokeThickness="2" StrokeDashArray="2.5 2.5" HorizontalAlignment="Left"/>
+                  <Ellipse Grid.ColumnSpan="2" Width="24" Height="24" Fill="#09111F" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="96,-12,0,0"/>
+                  <Ellipse Grid.ColumnSpan="2" Width="24" Height="24" Fill="#09111F" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="96,0,0,-12"/>
+                  <StackPanel Grid.Column="1" Margin="24,20,18,0">
+                    <TextBlock Text="Office 2021" FontSize="26" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
+                    <TextBlock Text="Word, Excel, PowerPoint y más" Style="{StaticResource Small}" FontSize="16" Margin="0,2,0,14"/>
+                    <Grid Margin="0,0,0,8">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669" VerticalAlignment="Top"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                      <TextBlock Grid.Column="1" Text="Licencia para siempre" FontSize="16" Foreground="#DBE5F1" Margin="10,1,0,0" TextWrapping="Wrap"/>
+                    </Grid>
+                    <Grid>
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669" VerticalAlignment="Top"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                      <TextBlock Grid.Column="1" Text="Se activa con tu código" FontSize="16" Foreground="#DBE5F1" Margin="10,1,0,0" TextWrapping="Wrap"/>
+                    </Grid>
+                  </StackPanel>
+                  <Border Grid.Column="1" VerticalAlignment="Bottom" Margin="24,0,18,18" CornerRadius="12" Background="{StaticResource RedGrad}" Height="54">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                      <TextBlock Text="Instalar Office 2021" Foreground="White" FontSize="17" FontWeight="SemiBold"/>
+                      <TextBlock Text="&#xE72A;" FontFamily="{StaticResource Icons}" FontSize="13" Foreground="White" VerticalAlignment="Center" Margin="10,1,0,0"/>
+                    </StackPanel>
+                  </Border>
+                </Grid>
+              </Button>
+              <Button x:Name="BtnPick365" Style="{StaticResource Ticket}" Margin="12,0,0,0" Height="256" AutomationProperties.Name="Instalar Microsoft 365">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="108"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Border CornerRadius="18,0,0,18" Background="{StaticResource StubGrad}">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                      <TextBlock Text="MICROSOFT" Foreground="#FECACA" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center"/>
+                      <TextBlock Text="365" Foreground="White" FontSize="34" FontWeight="Black" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                  </Border>
+                  <Line Grid.Column="1" X1="0" Y1="16" X2="0" Y2="238" Stroke="#405776" StrokeThickness="2" StrokeDashArray="2.5 2.5" HorizontalAlignment="Left"/>
+                  <Ellipse Grid.ColumnSpan="2" Width="24" Height="24" Fill="#09111F" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="96,-12,0,0"/>
+                  <Ellipse Grid.ColumnSpan="2" Width="24" Height="24" Fill="#09111F" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="96,0,0,-12"/>
+                  <StackPanel Grid.Column="1" Margin="24,20,18,0">
+                    <TextBlock Text="Microsoft 365" FontSize="26" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
+                    <TextBlock Text="Word, Excel, PowerPoint y más" Style="{StaticResource Small}" FontSize="16" Margin="0,2,0,14"/>
+                    <Grid Margin="0,0,0,8">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669" VerticalAlignment="Top"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                      <TextBlock Grid.Column="1" Text="Con tu cuenta de SafeTech" FontSize="16" Foreground="#DBE5F1" Margin="10,1,0,0" TextWrapping="Wrap"/>
+                    </Grid>
+                    <Grid>
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669" VerticalAlignment="Top"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                      <TextBlock Grid.Column="1" Text="Te guiamos paso a paso" FontSize="16" Foreground="#DBE5F1" Margin="10,1,0,0" TextWrapping="Wrap"/>
+                    </Grid>
+                  </StackPanel>
+                  <Border Grid.Column="1" VerticalAlignment="Bottom" Margin="24,0,18,18" CornerRadius="12" Background="{StaticResource RedGrad}" Height="54">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                      <TextBlock Text="Instalar Microsoft 365" Foreground="White" FontSize="17" FontWeight="SemiBold"/>
+                      <TextBlock Text="&#xE72A;" FontFamily="{StaticResource Icons}" FontSize="13" Foreground="White" VerticalAlignment="Center" Margin="10,1,0,0"/>
+                    </StackPanel>
+                  </Border>
+                </Grid>
               </Button>
             </UniformGrid>
-            <Border Style="{StaticResource Panel}" Margin="0,18,0,0" Padding="20,14" BorderBrush="#66DC2626" Background="#14DC2626">
+            <Border Grid.Row="2" Style="{StaticResource Panel}" Margin="0,18,0,0" Padding="24,12">
               <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <StackPanel VerticalAlignment="Center">
-                  <TextBlock Text="¿Ya tienes Office instalado?" FontWeight="Bold" FontSize="15"/>
-                  <TextBlock Style="{StaticResource Small}" Text="Puedes activarlo o ver el tutorial de la cuenta sin volver a instalar." Margin="0,2,0,0"/>
+                <StackPanel VerticalAlignment="Center" Margin="0,0,20,0">
+                  <TextBlock Text="¿Ya tienes Office instalado en este computador?" FontWeight="SemiBold" FontSize="18" TextWrapping="Wrap"/>
+                  <TextBlock Style="{StaticResource Small}" FontSize="16" Text="Puedes activarlo o conectar tu cuenta sin volver a instalar." Margin="0,2,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                  <Button x:Name="BtnOnlyActivate" Style="{StaticResource BtnPrimary}" Margin="0,0,10,0">
+                  <Button x:Name="BtnOnlyActivate" Style="{StaticResource BtnPrimary}" MinHeight="50" Padding="20,10" Margin="0,0,12,0">
                     <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="&#xE8D7;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,0,9,0"/>
+                      <TextBlock Text="&#xE8D7;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                       <TextBlock Text="Solo activar Office 2021 o 2024"/>
                     </StackPanel>
                   </Button>
-                  <Button x:Name="BtnOnlyTutorial" Style="{StaticResource BtnPrimary}">
+                  <Button x:Name="BtnOnlyTutorial" Style="{StaticResource BtnPrimary}" MinHeight="50" Padding="20,10">
                     <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="&#xE77B;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,0,9,0"/>
-                      <TextBlock Text="Tutorial de cuenta 365"/>
+                      <TextBlock Text="&#xE77B;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                      <TextBlock Text="Conectar mi cuenta 365"/>
                     </StackPanel>
                   </Button>
                 </StackPanel>
               </Grid>
             </Border>
-          </StackPanel>
+          </Grid>
         </ScrollViewer>
       </Grid>
 
       <!-- DATOS DE LA COMPRA -->
       <Grid x:Name="PageData" Visibility="Collapsed">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <Grid Margin="48,30,48,28" MaxWidth="1240">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="330"/></Grid.ColumnDefinitions>
-            <StackPanel Margin="0,0,34,0">
-              <TextBlock x:Name="TxtDataKicker" Style="{StaticResource Kicker}" Text="PASO 1 DE 3 · OFFICE 2024"/>
-              <TextBlock Style="{StaticResource H1}" Text="Ingresa los datos de tu compra"/>
-              <TextBlock Style="{StaticResource Lead}" Text="Los encontrarás en el correo que te envió SafeTech junto a tu licencia."/>
-              <TextBlock Style="{StaticResource Label}" Text="Clave de producto" Margin="0,28,0,8"/>
-              <TextBox x:Name="InKey" Style="{StaticResource Field}" Tag="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" MaxLength="40"/>
-              <TextBlock x:Name="TxtKeyHint" Style="{StaticResource Small}" Margin="2,8,0,0" Text="25 letras y números. Los guiones se agregan solos."/>
-              <TextBlock Style="{StaticResource Label}" Text="Código de activación SafeTech" Margin="0,24,0,8"/>
-              <Grid>
-                <TextBox x:Name="InCode" Style="{StaticResource Field}" Tag="ST-XXXXXX" MaxLength="12"/>
-                <Border x:Name="ChipCode" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" CornerRadius="999" Padding="11,5" Visibility="Collapsed" Background="#1F059669" BorderBrush="#66059669" BorderThickness="1">
-                  <TextBlock x:Name="TxtCodeStatus" FontSize="12" FontWeight="Bold" Foreground="#6EE7B7" Text=""/>
-                </Border>
-              </Grid>
-              <TextBlock Style="{StaticResource Small}" Margin="2,8,0,0" Text="Empieza con ST-. Con él generamos tu activación automáticamente."/>
-              <StackPanel Orientation="Horizontal" Margin="0,30,0,0">
-                <Button x:Name="BtnDataBack" Style="{StaticResource BtnSoft}" Content="Atrás" Margin="0,0,10,0"/>
-                <Button x:Name="BtnDataNext" Style="{StaticResource BtnPrimary}" IsEnabled="False">
-                  <StackPanel Orientation="Horizontal">
-                    <TextBlock x:Name="TxtDataNext" Text="Continuar"/>
-                    <TextBlock Text="&#xE72A;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="10,1,0,0" FontSize="12"/>
+          <Border MaxWidth="940" Margin="40,8,40,18" CornerRadius="22" Background="#17243A" BorderBrush="#2A3C57" BorderThickness="2" VerticalAlignment="Top">
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="118"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <Border CornerRadius="20,0,0,20" Background="{StaticResource StubGrad}">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                  <TextBlock x:Name="TxtDataStubLabel" Text="OFFICE" Foreground="#FECACA" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center"/>
+                  <TextBlock x:Name="TxtDataStubYear" Text="2024" Foreground="White" FontSize="34" FontWeight="Black" HorizontalAlignment="Center"/>
+                </StackPanel>
+              </Border>
+              <Line Grid.Column="1" X1="0" Y1="0" X2="0" Y2="1" Stretch="Fill" Margin="0,20" Stroke="#405776" StrokeThickness="2" StrokeDashArray="2.5 2.5" HorizontalAlignment="Left"/>
+              <Ellipse Grid.ColumnSpan="2" Width="26" Height="26" Fill="#09111F" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="105,-13,0,0"/>
+              <Ellipse Grid.ColumnSpan="2" Width="26" Height="26" Fill="#09111F" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="105,0,0,-13"/>
+              <StackPanel Grid.Column="1" Margin="36,26,36,26">
+                <TextBlock Style="{StaticResource H1}" FontSize="30" Text="Escribe los datos de tu compra"/>
+                <TextBlock Style="{StaticResource Body}" Foreground="#C9D5E3" Margin="0,6,0,0" Text="Están en el correo que te envió SafeTech. Puedes copiarlos y pulsar «Pegar»."/>
+                <TextBlock Style="{StaticResource Label}" Text="Clave de producto" Margin="0,20,0,8"/>
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBox x:Name="InKey" Style="{StaticResource Field}" Tag="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" MaxLength="200" AutomationProperties.Name="Clave de producto"/>
+                  <Button x:Name="BtnPasteKey" Grid.Column="1" Style="{StaticResource BtnSoft}" Margin="12,0,0,0" MinHeight="58" Padding="18,8">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock Text="&#xE77F;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                      <TextBlock Text="Pegar"/>
+                    </StackPanel>
+                  </Button>
+                </Grid>
+                <TextBlock x:Name="TxtKeyHint" Style="{StaticResource Small}" Margin="2,8,0,0" Text="25 letras y números. Los guiones se agregan solos."/>
+                <TextBlock Style="{StaticResource Label}" Text="Código de activación SafeTech" Margin="0,18,0,8"/>
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBox x:Name="InCode" Style="{StaticResource Field}" Tag="ST-XXXXXX" MaxLength="200" AutomationProperties.Name="Código de activación SafeTech"/>
+                  <Border x:Name="ChipCode" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0" CornerRadius="14" Height="28" Padding="12,0" Visibility="Collapsed" Background="#17243A" BorderBrush="#059669" BorderThickness="1.5">
+                    <TextBlock x:Name="TxtCodeStatus" FontSize="14" FontWeight="SemiBold" Foreground="#6EE7B7" VerticalAlignment="Center" Text=""/>
+                  </Border>
+                  <Button x:Name="BtnPasteCode" Grid.Column="1" Style="{StaticResource BtnSoft}" Margin="12,0,0,0" MinHeight="58" Padding="18,8">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock Text="&#xE77F;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                      <TextBlock Text="Pegar"/>
+                    </StackPanel>
+                  </Button>
+                </Grid>
+                <TextBlock Style="{StaticResource Small}" Margin="2,8,0,0" Text="Empieza con ST-, por ejemplo ST-AB12CD."/>
+                <Grid Margin="0,24,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Button x:Name="BtnDataBack" Style="{StaticResource BtnSoft}" Content="Atrás" Margin="0,0,12,0"/>
+                  <Button x:Name="BtnDataNext" Grid.Column="1" Style="{StaticResource BtnPrimary}" IsEnabled="False">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock x:Name="TxtDataNext" Text="Continuar"/>
+                      <TextBlock Text="&#xE72A;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="12,1,0,0" FontSize="14"/>
+                    </StackPanel>
+                  </Button>
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,0,0">
+                    <TextBlock Text="&#xE72E;" FontFamily="{StaticResource Icons}" FontSize="15" Foreground="#AEBDD0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Style="{StaticResource Small}" Text="Tus datos solo se usan para activar Office." VerticalAlignment="Center"/>
                   </StackPanel>
-                </Button>
+                </Grid>
               </StackPanel>
-            </StackPanel>
-            <StackPanel Grid.Column="1">
-              <Border Style="{StaticResource Panel}" BorderBrush="#4D0891B2" Background="#140891B2">
-                <StackPanel>
-                  <TextBlock Text="&#xE946;" FontFamily="{StaticResource Icons}" FontSize="22" Foreground="#67E8F9"/>
-                  <TextBlock Text="¿Para qué es el código?" FontWeight="Bold" FontSize="16" Margin="0,12,0,6"/>
-                  <TextBlock Style="{StaticResource Body}" FontSize="13.5" Text="Office 2021 y 2024 se activan por teléfono. El instalador obtiene el ID de instalación de tu equipo y, con tu código, consigue el ID de confirmación de Microsoft. Tú no copias ningún número."/>
-                  <TextBlock Style="{StaticResource Small}" Margin="0,12,0,0" Text="Cada activación usa 1 crédito de tu código."/>
-                </StackPanel>
-              </Border>
-              <Border Style="{StaticResource Panel}" Margin="0,14,0,0">
-                <StackPanel>
-                  <TextBlock Text="&#xE72E;" FontFamily="{StaticResource Icons}" FontSize="20" Foreground="#AEBDD0"/>
-                  <TextBlock Text="Tus datos están seguros" FontWeight="Bold" FontSize="15" Margin="0,10,0,6"/>
-                  <TextBlock Style="{StaticResource Small}" FontSize="13" Text="La clave se guarda solo en Office. Los registros del instalador muestran únicamente sus últimos 5 caracteres."/>
-                </StackPanel>
-              </Border>
-            </StackPanel>
-          </Grid>
+            </Grid>
+          </Border>
         </ScrollViewer>
       </Grid>
 
       <!-- CONFIRMACION -->
       <Grid x:Name="PageConfirm" Visibility="Collapsed">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <Grid Margin="48,30,48,28" MaxWidth="1240">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="330"/></Grid.ColumnDefinitions>
-            <StackPanel Margin="0,0,34,0">
-              <TextBlock x:Name="TxtConfirmKicker" Style="{StaticResource Kicker}" Text="PASO 2 DE 3"/>
-              <TextBlock x:Name="TxtConfirmTitle" Style="{StaticResource H1}" Text="Antes de comenzar"/>
-              <TextBlock x:Name="TxtConfirmLead" Style="{StaticResource Lead}" Text="Lee esto con calma. Después el instalador trabaja solo."/>
-              <Border Style="{StaticResource Panel}" Margin="0,24,0,0" Padding="20,18" x:Name="PanelDetected">
+          <Border MaxWidth="980" Margin="40,8,40,18" CornerRadius="22" Background="#17243A" BorderBrush="#2A3C57" BorderThickness="2" VerticalAlignment="Top">
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="108"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <Border CornerRadius="20,0,0,20" Background="{StaticResource StubGrad}">
+              <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock x:Name="TxtConfirmStubLabel" Text="OFFICE" Foreground="#FECACA" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center"/>
+                <TextBlock x:Name="TxtConfirmStubYear" Text="2024" Foreground="White" FontSize="32" FontWeight="Black" HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+            <Line Grid.Column="1" X1="0" Y1="0" X2="0" Y2="1" Stretch="Fill" Margin="0,20" Stroke="#405776" StrokeThickness="2" StrokeDashArray="2.5 2.5" HorizontalAlignment="Left"/>
+            <Ellipse Grid.ColumnSpan="2" Width="26" Height="26" Fill="#09111F" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="95,-13,0,0"/>
+            <Ellipse Grid.ColumnSpan="2" Width="26" Height="26" Fill="#09111F" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="95,0,0,-13"/>
+          <StackPanel Grid.Column="1" Margin="32,20,32,14">
+            <TextBlock x:Name="TxtConfirmTitle" Style="{StaticResource H1}" FontSize="28" Text="Antes de empezar"/>
+            <TextBlock x:Name="TxtConfirmLead" Style="{StaticResource Lead}" Text="" Visibility="Collapsed"/>
+            <Border x:Name="PanelDetected" Style="{StaticResource Panel}" Background="#111C2F" Margin="0,12,0,0" Padding="18,12">
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Border x:Name="DetectedIconBg" Width="48" Height="48" CornerRadius="14" Background="#26F59E0B" VerticalAlignment="Top">
+                  <TextBlock x:Name="DetectedIcon" Text="&#xE7BA;" FontFamily="{StaticResource Icons}" FontSize="20" Foreground="#FCD34D" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="18,0,0,0" VerticalAlignment="Center">
+                  <TextBlock x:Name="TxtDetectedTitle" Text="" FontWeight="SemiBold" FontSize="19" TextWrapping="Wrap"/>
+                  <TextBlock x:Name="TxtDetected" Style="{StaticResource Body}" Foreground="#C9D5E3" Margin="0,4,0,0" Text=""/>
+                </StackPanel>
+              </Grid>
+            </Border>
+            <StackPanel x:Name="StackConfirmList" Margin="0,14,0,0"/>
+            <CheckBox x:Name="ChkConfirm" Style="{StaticResource Check}" Margin="0,4,0,0" Content="Guardé mis documentos y leí estas indicaciones."/>
+            <WrapPanel Margin="0,16,0,0">
+              <Button x:Name="BtnConfirmBack" Style="{StaticResource BtnSoft}" Content="Atrás" Margin="0,0,12,10"/>
+              <Button x:Name="BtnConfirmAlt" Style="{StaticResource BtnSoft}" Content="Solo activar" Margin="0,0,12,10" Visibility="Collapsed"/>
+              <Button x:Name="BtnConfirmStart" Style="{StaticResource BtnPrimary}" IsEnabled="False" Margin="0,0,0,10">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock x:Name="TxtConfirmStart" Text="Comenzar instalación"/>
+                  <TextBlock Text="&#xE72A;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="12,1,0,0" FontSize="14"/>
+                </StackPanel>
+              </Button>
+            </WrapPanel>
+          </StackPanel>
+          </Grid>
+          </Border>
+        </ScrollViewer>
+      </Grid>
+
+      <!-- PROGRESO -->
+      <Grid x:Name="PageProgress" Visibility="Collapsed">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <Grid MaxWidth="1240" Margin="40,8,40,18">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="340"/></Grid.ColumnDefinitions>
+            <StackPanel Margin="0,0,36,0">
+              <TextBlock x:Name="TxtProgTitle" Style="{StaticResource H1}" FontSize="30" Text="Instalando Office"/>
+              <TextBlock x:Name="TxtProgDetail" Style="{StaticResource Lead}" FontSize="19" Text="Preparando..." MinHeight="54"/>
+              <Grid Margin="0,14,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Border x:Name="ProgTrack" Height="14" CornerRadius="7" Background="#20304A" VerticalAlignment="Center">
+                  <Border x:Name="ProgFill" HorizontalAlignment="Left" Width="0" CornerRadius="7" Background="{StaticResource RedGrad}"/>
+                </Border>
+                <TextBlock x:Name="TxtProgCount" Grid.Column="1" Style="{StaticResource Small}" FontSize="16" Margin="16,0,0,0" VerticalAlignment="Center" Text=""/>
+              </Grid>
+              <StackPanel x:Name="StackSteps" Margin="0,18,0,0"/>
+              <Border x:Name="PanelTutorialPromo" Style="{StaticResource Panel}" Margin="0,10,0,0" Padding="20,14" Visibility="Collapsed">
                 <Grid>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                  <Border x:Name="DetectedIconBg" Width="42" Height="42" CornerRadius="12" Background="#26F59E0B" VerticalAlignment="Top">
-                    <TextBlock x:Name="DetectedIcon" Text="&#xE7BA;" FontFamily="{StaticResource Icons}" FontSize="18" Foreground="#FCD34D" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Aprovecha la espera" FontWeight="SemiBold" FontSize="18"/>
+                    <TextBlock Style="{StaticResource Small}" Text="Puedes ir preparando tu cuenta. La instalación sigue sola." Margin="0,2,0,0"/>
+                  </StackPanel>
+                  <Button x:Name="BtnTutorialEarly" Grid.Column="1" Style="{StaticResource BtnSoft}" Content="Preparar mi cuenta"/>
+                </Grid>
+              </Border>
+            </StackPanel>
+            <StackPanel Grid.Column="1">
+              <Border CornerRadius="20" Background="#17243A" BorderBrush="#2A3C57" BorderThickness="2">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Border CornerRadius="18,0,0,18" Background="{StaticResource StubGrad}">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                      <TextBlock x:Name="TxtProgStubLabel" Text="OFFICE" Foreground="#FECACA" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"/>
+                      <TextBlock x:Name="TxtProgStubYear" Text="2024" Foreground="White" FontSize="26" FontWeight="Black" HorizontalAlignment="Center"/>
+                    </StackPanel>
                   </Border>
-                  <StackPanel Grid.Column="1" Margin="16,0,0,0">
-                    <TextBlock x:Name="TxtDetectedTitle" Text="Encontramos otra versión de Office" FontWeight="Bold" FontSize="15.5"/>
-                    <TextBlock x:Name="TxtDetected" Style="{StaticResource Body}" FontSize="13.5" Margin="0,4,0,0" Text=""/>
+                  <Line Grid.Column="1" X1="0" Y1="0" X2="0" Y2="1" Stretch="Fill" Margin="0,16" Stroke="#405776" StrokeThickness="2" StrokeDashArray="2.5 2.5" HorizontalAlignment="Left"/>
+                  <Ellipse Grid.ColumnSpan="2" Width="22" Height="22" Fill="#09111F" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="77,-11,0,0"/>
+                  <Ellipse Grid.ColumnSpan="2" Width="22" Height="22" Fill="#09111F" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="77,0,0,-11"/>
+                  <StackPanel Grid.Column="1" Margin="22,18,18,18">
+                    <TextBlock Text="Llevamos" Style="{StaticResource Small}"/>
+                    <TextBlock x:Name="TxtElapsed" Text="00:00" FontSize="36" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
+                    <TextBlock x:Name="TxtElapsedNote" Style="{StaticResource Small}" Text="Suele tardar entre 10 y 40 minutos, según tu Internet."/>
+                    <Border x:Name="ProgStamp" HorizontalAlignment="Left" Margin="2,14,0,0" CornerRadius="10" BorderBrush="#F59E0B" BorderThickness="3" Padding="12,4" RenderTransformOrigin="0.5,0.5">
+                      <Border.RenderTransform><TransformGroup><ScaleTransform x:Name="ProgStampScale" ScaleX="1" ScaleY="1"/><RotateTransform Angle="-6"/></TransformGroup></Border.RenderTransform>
+                      <TextBlock x:Name="TxtProgStamp" Text="PENDIENTE" FontSize="17" FontWeight="Black" Foreground="#FCD34D"/>
+                    </Border>
                   </StackPanel>
                 </Grid>
               </Border>
-              <StackPanel x:Name="StackConfirmList" Margin="0,18,0,0"/>
-              <CheckBox x:Name="ChkConfirm" Style="{StaticResource Check}" Margin="0,20,0,0" Content="Guardé mis documentos y leí estas indicaciones."/>
-              <WrapPanel Margin="0,24,0,0">
-                <Button x:Name="BtnConfirmBack" Style="{StaticResource BtnSoft}" Content="Atrás" Margin="0,0,10,10"/>
-                <Button x:Name="BtnConfirmAlt" Style="{StaticResource BtnSoft}" Content="Solo activar" Margin="0,0,10,10" Visibility="Collapsed"/>
-                <Button x:Name="BtnConfirmStart" Style="{StaticResource BtnPrimary}" IsEnabled="False" Margin="0,0,0,10">
-                  <StackPanel Orientation="Horizontal">
-                    <TextBlock x:Name="TxtConfirmStart" Text="Comenzar instalación"/>
-                    <TextBlock Text="&#xE72A;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="10,1,0,0" FontSize="12"/>
-                  </StackPanel>
-                </Button>
-              </WrapPanel>
-            </StackPanel>
-            <StackPanel Grid.Column="1">
-              <Border Style="{StaticResource Panel}">
+              <Border Style="{StaticResource Panel}" Margin="0,16,0,0" BorderBrush="#80F59E0B" Background="#1AF59E0B" Padding="20,16">
                 <StackPanel>
-                  <TextBlock Text="Así funciona" FontWeight="Bold" FontSize="16" Margin="0,0,0,14"/>
-                  <StackPanel x:Name="StackHowItWorks"/>
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE7BA;" FontFamily="{StaticResource Icons}" FontSize="18" Foreground="#FCD34D" VerticalAlignment="Center"/>
+                    <TextBlock Text="Mientras tanto" FontWeight="SemiBold" FontSize="18" Margin="10,0,0,0"/>
+                  </StackPanel>
+                  <TextBlock Style="{StaticResource Body}" FontSize="16" Margin="0,8,0,0" Text="No apagues ni reinicies el computador. Si aparece una ventana de Microsoft, déjala trabajar: se cierra sola."/>
                 </StackPanel>
               </Border>
             </StackPanel>
@@ -1432,144 +1647,95 @@ $StWindowXaml = @'
         </ScrollViewer>
       </Grid>
 
-      <!-- PROGRESO -->
-      <Grid x:Name="PageProgress" Visibility="Collapsed">
-        <Grid Margin="48,30,48,24" MaxWidth="1240">
-          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="330"/></Grid.ColumnDefinitions>
-          <Grid Margin="0,0,34,0">
-            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-            <StackPanel>
-              <TextBlock x:Name="TxtProgKicker" Style="{StaticResource Kicker}" Text="PASO 3 DE 3 · INSTALANDO"/>
-              <TextBlock x:Name="TxtProgTitle" Style="{StaticResource H1}" Text="Instalando Office 2024"/>
-              <TextBlock x:Name="TxtProgDetail" Style="{StaticResource Lead}" Text="Preparando..." MinHeight="48"/>
-              <Border x:Name="ProgTrack" Height="5" CornerRadius="3" Background="#20304A" Margin="0,16,0,18" ClipToBounds="True">
-                <Border x:Name="ProgBar" Width="180" HorizontalAlignment="Left" CornerRadius="3" Background="{StaticResource RedGrad}">
-                  <Border.RenderTransform><TranslateTransform x:Name="ProgBarMove" X="-180"/></Border.RenderTransform>
-                  <Border.Triggers>
-                    <EventTrigger RoutedEvent="FrameworkElement.Loaded">
-                      <BeginStoryboard><Storyboard>
-                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" From="-180" To="760" Duration="0:0:1.8" RepeatBehavior="Forever">
-                          <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
-                        </DoubleAnimation>
-                      </Storyboard></BeginStoryboard>
-                    </EventTrigger>
-                  </Border.Triggers>
-                </Border>
-              </Border>
-            </StackPanel>
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-              <StackPanel x:Name="StackSteps"/>
-            </ScrollViewer>
-          </Grid>
-          <StackPanel Grid.Column="1">
-            <Border Style="{StaticResource Panel}">
-              <StackPanel>
-                <TextBlock Text="TIEMPO TRANSCURRIDO" Style="{StaticResource Kicker}" Foreground="#AEBDD0"/>
-                <TextBlock x:Name="TxtElapsed" Text="00:00" FontSize="40" FontWeight="Bold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
-                <TextBlock Style="{StaticResource Small}" Text="La instalación suele tardar entre 10 y 40 minutos, según tu Internet."/>
-              </StackPanel>
-            </Border>
-            <Border Style="{StaticResource Panel}" Margin="0,14,0,0" BorderBrush="#4DF59E0B" Background="#12F59E0B">
-              <StackPanel>
-                <StackPanel Orientation="Horizontal">
-                  <TextBlock Text="&#xE7BA;" FontFamily="{StaticResource Icons}" FontSize="16" Foreground="#FCD34D" VerticalAlignment="Center"/>
-                  <TextBlock Text="Mientras tanto" FontWeight="Bold" FontSize="15" Margin="10,0,0,0"/>
-                </StackPanel>
-                <TextBlock Style="{StaticResource Body}" FontSize="13.5" Margin="0,10,0,0" Text="• No apagues ni reinicies el computador."/>
-                <TextBlock Style="{StaticResource Body}" FontSize="13.5" Margin="0,4,0,0" Text="• Si aparece una ventana de Microsoft, déjala trabajar: se cierra sola."/>
-                <TextBlock Style="{StaticResource Body}" FontSize="13.5" Margin="0,4,0,0" Text="• Mantén el computador conectado a Internet y a la corriente."/>
-              </StackPanel>
-            </Border>
-            <Border x:Name="PanelTutorialPromo" Style="{StaticResource Panel}" Margin="0,14,0,0" BorderBrush="#662563EB" Background="#142563EB" Visibility="Collapsed">
-              <StackPanel>
-                <TextBlock Text="&#xE77B;" FontFamily="{StaticResource Icons}" FontSize="20" Foreground="#93C5FD"/>
-                <TextBlock Text="Aprovecha la espera" FontWeight="Bold" FontSize="15.5" Margin="0,10,0,4"/>
-                <TextBlock Style="{StaticResource Small}" FontSize="13" Text="Mientras Office se instala, puedes preparar la cuenta que te entregamos. Te guiamos paso a paso."/>
-                <Button x:Name="BtnTutorialEarly" Style="{StaticResource BtnPrimary}" Margin="0,14,0,0" HorizontalAlignment="Stretch" Content="Comenzar el tutorial"/>
-              </StackPanel>
-            </Border>
-          </StackPanel>
-        </Grid>
-      </Grid>
-
       <!-- LISTO -->
       <Grid x:Name="PageDone" Visibility="Collapsed">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel MaxWidth="660" Margin="40,44,40,28" HorizontalAlignment="Center">
-            <Grid Width="96" Height="96" HorizontalAlignment="Center">
-              <Ellipse Fill="#1F059669" Stroke="#66059669" StrokeThickness="1.5"/>
-              <Ellipse Width="64" Height="64" Fill="#059669"/>
-              <TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="30" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-            </Grid>
-            <TextBlock x:Name="TxtDoneTitle" Style="{StaticResource H1}" TextAlignment="Center" Margin="0,24,0,0" Text="¡Office quedó listo!"/>
-            <TextBlock x:Name="TxtDoneText" Style="{StaticResource Lead}" TextAlignment="Center" Text=""/>
-            <Border Style="{StaticResource Panel}" Margin="0,26,0,0">
-              <StackPanel x:Name="StackDoneList"/>
-            </Border>
-            <Border x:Name="DoneNote" CornerRadius="14" Background="#12F59E0B" BorderBrush="#4DF59E0B" BorderThickness="1" Padding="16,12" Margin="0,14,0,0">
-              <TextBlock x:Name="TxtDoneNote" Style="{StaticResource Body}" FontSize="13" Foreground="#FDE68A" Text=""/>
-            </Border>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,26,0,0">
-              <Button x:Name="BtnDoneWord" Style="{StaticResource BtnPrimary}" Margin="0,0,10,0">
-                <StackPanel Orientation="Horizontal">
-                  <TextBlock Text="&#xE8A5;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                  <TextBlock Text="Abrir Word"/>
+          <Border MaxWidth="900" Margin="40,8,40,18" CornerRadius="22" Background="#17243A" BorderBrush="#2A3C57" BorderThickness="2" VerticalAlignment="Top">
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="118"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <Border CornerRadius="20,0,0,20" Background="{StaticResource StubGrad}">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                  <TextBlock x:Name="TxtDoneStubLabel" Text="OFFICE" Foreground="#FECACA" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center"/>
+                  <TextBlock x:Name="TxtDoneStubYear" Text="2024" Foreground="White" FontSize="34" FontWeight="Black" HorizontalAlignment="Center"/>
                 </StackPanel>
-              </Button>
-              <Button x:Name="BtnDoneClose" Style="{StaticResource BtnSoft}" Content="Cerrar el instalador"/>
-            </StackPanel>
-          </StackPanel>
+              </Border>
+              <Line Grid.Column="1" X1="0" Y1="0" X2="0" Y2="1" Stretch="Fill" Margin="0,20" Stroke="#405776" StrokeThickness="2" StrokeDashArray="2.5 2.5" HorizontalAlignment="Left"/>
+              <Ellipse Grid.ColumnSpan="2" Width="26" Height="26" Fill="#09111F" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="105,-13,0,0"/>
+              <Ellipse Grid.ColumnSpan="2" Width="26" Height="26" Fill="#09111F" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="105,0,0,-13"/>
+              <StackPanel Grid.Column="1" Margin="36,28,36,28">
+                <TextBlock x:Name="TxtDoneTitle" Style="{StaticResource H1}" FontSize="32" Text="¡Listo!" Margin="0,0,170,0"/>
+                <TextBlock x:Name="TxtDoneText" Style="{StaticResource Lead}" Text="" Margin="0,8,170,0"/>
+                <StackPanel x:Name="StackDoneList" Margin="0,18,0,0"/>
+                <WrapPanel Margin="0,20,0,0">
+                  <Button x:Name="BtnDoneWord" Style="{StaticResource BtnPrimary}" Margin="0,0,12,10">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock Text="&#xE8A5;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                      <TextBlock Text="Abrir Word"/>
+                    </StackPanel>
+                  </Button>
+                  <Button x:Name="BtnDoneClose" Style="{StaticResource BtnSoft}" Content="Cerrar el instalador" Margin="0,0,0,10"/>
+                </WrapPanel>
+                <Border x:Name="DoneNote" Margin="0,8,0,0">
+                  <TextBlock x:Name="TxtDoneNote" Style="{StaticResource Small}" FontSize="16" Text=""/>
+                </Border>
+              </StackPanel>
+              <Border x:Name="DoneStamp" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,30,30,0" CornerRadius="12" BorderBrush="#34D399" BorderThickness="3" Padding="16,6" RenderTransformOrigin="0.5,0.5">
+                <Border.RenderTransform><TransformGroup><ScaleTransform x:Name="DoneStampScale" ScaleX="1" ScaleY="1"/><RotateTransform Angle="-9"/></TransformGroup></Border.RenderTransform>
+                <TextBlock x:Name="TxtDoneStamp" Text="ACTIVADO" FontSize="24" FontWeight="Black" Foreground="#34D399"/>
+              </Border>
+            </Grid>
+          </Border>
         </ScrollViewer>
       </Grid>
 
       <!-- ERROR -->
       <Grid x:Name="PageError" Visibility="Collapsed">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel MaxWidth="720" Margin="40,40,40,28" HorizontalAlignment="Center">
-            <Grid Width="88" Height="88" HorizontalAlignment="Center">
-              <Ellipse Fill="#1FDC2626" Stroke="#66DC2626" StrokeThickness="1.5"/>
-              <Ellipse Width="58" Height="58" Fill="#DC2626"/>
-              <TextBlock Text="&#xE711;" FontFamily="{StaticResource Icons}" FontSize="24" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-            </Grid>
-            <TextBlock x:Name="TxtErrTitle" Style="{StaticResource H1}" TextAlignment="Center" Margin="0,22,0,0" Text="No pudimos completar la instalación"/>
-            <TextBlock Style="{StaticResource Lead}" TextAlignment="Center" Text="No te preocupes: puedes reintentar. Si se repite, crea el ZIP de diagnóstico y envíanoslo."/>
-            <Border Style="{StaticResource Panel}" Margin="0,22,0,0" Padding="18">
+          <StackPanel MaxWidth="840" Margin="40,4,40,18">
+            <StackPanel Orientation="Horizontal">
+              <Border Width="56" Height="56" CornerRadius="16" Background="#26F59E0B" VerticalAlignment="Top">
+                <TextBlock Text="&#xE7BA;" FontFamily="{StaticResource Icons}" FontSize="24" Foreground="#FCD34D" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <TextBlock x:Name="TxtErrTitle" Style="{StaticResource H1}" FontSize="30" Margin="18,0,0,0" VerticalAlignment="Center" MaxWidth="740" Text="No pudimos terminar"/>
+            </StackPanel>
+            <TextBlock Style="{StaticResource Lead}" Margin="0,12,0,0" Text="No te preocupes: no se borró nada. Puedes reintentar ahora o pedirnos ayuda."/>
+            <Border CornerRadius="16" Background="#17243A" BorderBrush="#80F59E0B" BorderThickness="1.5" Padding="20,16" Margin="0,16,0,0">
               <TextBox x:Name="TxtErrDetail" IsReadOnly="True" TextWrapping="Wrap" Background="#00000000" BorderThickness="0"
-                       Foreground="#DBE5F1" FontSize="13" FontFamily="Consolas, Segoe UI" MaxHeight="260" VerticalScrollBarVisibility="Auto" Text=""/>
+                       Foreground="#DBE5F1" FontSize="16" MaxHeight="190" VerticalScrollBarVisibility="Auto" Text=""/>
             </Border>
-            <WrapPanel HorizontalAlignment="Center" Margin="0,22,0,0">
-              <Button x:Name="BtnErrRetry" Style="{StaticResource BtnPrimary}" Content="Reintentar" Margin="0,0,10,10"/>
-              <Button x:Name="BtnErrZip" Style="{StaticResource BtnSoft}" Margin="0,0,10,10">
+            <WrapPanel Margin="0,20,0,0">
+              <Button x:Name="BtnErrRetry" Style="{StaticResource BtnPrimary}" Content="Reintentar" Margin="0,0,12,10"/>
+              <Button x:Name="BtnErrWa" Style="{StaticResource BtnWa}" Margin="0,0,12,10">
                 <StackPanel Orientation="Horizontal">
-                  <TextBlock Text="&#xE8B7;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,0,9,0"/>
-                  <TextBlock Text="Crear ZIP para soporte"/>
+                  <TextBlock Text="&#xE8BD;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                  <TextBlock Text="Pedir ayuda por WhatsApp"/>
                 </StackPanel>
               </Button>
-              <Button x:Name="BtnErrHome" Style="{StaticResource BtnSoft}" Content="Volver al inicio" Margin="0,0,0,10"/>
             </WrapPanel>
-            <TextBlock x:Name="TxtErrHelp" Style="{StaticResource Small}" TextAlignment="Center" Margin="0,8,0,0"
-                       Text="Envía el ZIP por WhatsApp al +56 9 5101 7168 o a contacto@safe-tech.cl."/>
+            <WrapPanel Margin="-10,0,0,0">
+              <Button x:Name="BtnErrHome" Style="{StaticResource BtnLink}" Content="Volver al inicio" Margin="0,0,8,0"/>
+              <Button x:Name="BtnErrZip" Style="{StaticResource BtnLink}" Content="Guardar informe para soporte en el Escritorio"/>
+            </WrapPanel>
           </StackPanel>
         </ScrollViewer>
       </Grid>
 
       <!-- TUTORIAL MICROSOFT 365 -->
       <Grid x:Name="PageTutorial" Visibility="Collapsed">
-        <Grid Margin="32,24,40,22" MaxWidth="1380">
-          <Grid.ColumnDefinitions><ColumnDefinition Width="268"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-          <Border Style="{StaticResource Panel}" Padding="14,18" Margin="0,0,28,0">
+        <Grid MaxWidth="1380" Margin="32,18,32,16">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+          <Border Style="{StaticResource Panel}" Padding="12,16" Margin="0,0,26,0">
             <Grid>
               <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-              <StackPanel Margin="8,0,8,10">
-                <TextBlock Text="TUTORIAL" Style="{StaticResource Kicker}"/>
-                <TextBlock Text="Tu cuenta de Microsoft 365" FontWeight="Bold" FontSize="16" TextWrapping="Wrap"/>
-                <Border x:Name="ChipInstall" CornerRadius="999" Padding="10,4" Margin="0,12,0,0" HorizontalAlignment="Left" Background="#26F59E0B" BorderBrush="#66F59E0B" BorderThickness="1" Visibility="Collapsed">
-                  <TextBlock x:Name="TxtChipInstall" FontSize="11.5" FontWeight="Bold" Foreground="#FCD34D" Text="Office instalándose"/>
+              <StackPanel Margin="8,0,8,8">
+                <TextBlock Text="Cuenta Microsoft 365" FontWeight="SemiBold" FontSize="18" TextWrapping="Wrap"/>
+                <Border x:Name="ChipInstall" CornerRadius="14" Padding="12,5" Margin="0,10,0,0" HorizontalAlignment="Left" Background="#1AF59E0B" BorderBrush="#80F59E0B" BorderThickness="1.5" Visibility="Collapsed">
+                  <TextBlock x:Name="TxtChipInstall" FontSize="14" FontWeight="SemiBold" Foreground="#FCD34D" Text="Office instalándose"/>
                 </Border>
-                <Button x:Name="BtnTutProgress" Style="{StaticResource BtnLink}" FontSize="12.5" Margin="-8,6,0,0" HorizontalAlignment="Left" Visibility="Collapsed" Content="Ver el avance de la instalación"/>
-                <Button x:Name="BtnTutHome" Style="{StaticResource BtnLink}" FontSize="12.5" Margin="-8,6,0,0" HorizontalAlignment="Left">
+                <Button x:Name="BtnTutProgress" Style="{StaticResource BtnLink}" FontSize="15" Margin="-10,4,0,0" HorizontalAlignment="Left" Visibility="Collapsed" Content="Ver el avance"/>
+                <Button x:Name="BtnTutHome" Style="{StaticResource BtnLink}" FontSize="15" Margin="-10,2,0,0" HorizontalAlignment="Left">
                   <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xE72B;" FontFamily="{StaticResource Icons}" FontSize="11" VerticalAlignment="Center" Margin="0,1,8,0"/>
+                    <TextBlock Text="&#xE72B;" FontFamily="{StaticResource Icons}" FontSize="13" VerticalAlignment="Center" Margin="0,1,8,0"/>
                     <TextBlock Text="Volver al inicio"/>
                   </StackPanel>
                 </Button>
@@ -1581,47 +1747,49 @@ $StWindowXaml = @'
           </Border>
           <Grid Grid.Column="1">
             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-            <ScrollViewer x:Name="TutScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-              <StackPanel x:Name="TutContent" Margin="0,6,10,10">
-                <TextBlock x:Name="TxtTutKicker" Style="{StaticResource Kicker}" Text="PASO 1 DE 10"/>
-                <TextBlock x:Name="TxtTutTitle" Style="{StaticResource H1}" FontSize="29" Text=""/>
-                <StackPanel x:Name="StackTutBody" Margin="0,16,0,0"/>
-                <Border x:Name="TutNote" CornerRadius="14" BorderThickness="1" Padding="16,12" Margin="0,16,0,0">
-                  <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                    <TextBlock x:Name="TutNoteIcon" FontFamily="{StaticResource Icons}" FontSize="18" Margin="0,1,12,0" Text="&#xE946;"/>
-                    <StackPanel Grid.Column="1">
-                      <TextBlock x:Name="TxtTutNoteLabel" FontSize="11" FontWeight="Black" Margin="0,2,0,4" Text="CONSEJO"/>
-                      <TextBlock x:Name="TxtTutNote" Style="{StaticResource Body}" FontSize="14" Text=""/>
-                    </StackPanel>
-                  </Grid>
-                </Border>
-                <WrapPanel x:Name="StackTutActions" Margin="0,16,0,0"/>
-                <Border x:Name="TutImageFrame" CornerRadius="16" BorderBrush="#2A3C57" BorderThickness="1" Background="#0C1626" Margin="0,18,0,0" Padding="8" HorizontalAlignment="Left">
-                  <Image x:Name="ImgTut" MaxHeight="300" MaxWidth="600" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
-                </Border>
-              </StackPanel>
-            </ScrollViewer>
-            <Border Grid.Row="1" BorderBrush="#2A3C57" BorderThickness="0,1,0,0" Padding="0,16,0,0">
+            <Grid x:Name="TutColumns">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="1.2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <ScrollViewer x:Name="TutScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="TutContent" Margin="0,2,18,10">
+                  <TextBlock x:Name="TxtTutTitle" Style="{StaticResource H1}" FontSize="28" Text=""/>
+                  <StackPanel x:Name="StackTutBody" Margin="0,16,0,0"/>
+                  <WrapPanel x:Name="StackTutActions" Margin="0,6,0,4"/>
+                  <Border x:Name="TutNote" CornerRadius="14" BorderThickness="1.5" Padding="18,14" Margin="0,8,0,0">
+                    <Grid>
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <TextBlock x:Name="TutNoteIcon" FontFamily="{StaticResource Icons}" FontSize="20" Margin="0,2,14,0" Text="&#xE946;"/>
+                      <StackPanel Grid.Column="1">
+                        <TextBlock x:Name="TxtTutNoteLabel" FontSize="14" FontWeight="Bold" Margin="0,1,0,4" Text="CONSEJO"/>
+                        <TextBlock x:Name="TxtTutNote" Style="{StaticResource Body}" FontSize="16" Text=""/>
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                </StackPanel>
+              </ScrollViewer>
+              <Border x:Name="TutImageFrame" Grid.Column="1" CornerRadius="16" BorderBrush="#2A3C57" BorderThickness="1.5" Background="#0C1626" Margin="10,0,0,10" Padding="10" VerticalAlignment="Top" HorizontalAlignment="Left" MaxHeight="{Binding ActualHeight, ElementName=TutColumns}">
+                <Image x:Name="ImgTut" Stretch="Uniform" StretchDirection="DownOnly" RenderOptions.BitmapScalingMode="HighQuality"/>
+              </Border>
+            </Grid>
+            <Border Grid.Row="1" BorderBrush="#2A3C57" BorderThickness="0,1,0,0" Padding="0,14,0,0">
               <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center" Margin="0,0,24,0">
-                  <Border Height="6" CornerRadius="3" Background="#20304A">
-                    <Border x:Name="TutProgFill" HorizontalAlignment="Left" Width="0" CornerRadius="3" Background="{StaticResource RedGrad}"/>
+                  <TextBlock x:Name="TxtTutProgress" Style="{StaticResource Small}" FontSize="16" Margin="0,0,0,8" Text=""/>
+                  <Border Height="10" CornerRadius="5" Background="#20304A">
+                    <Border x:Name="TutProgFill" HorizontalAlignment="Left" Width="0" CornerRadius="5" Background="{StaticResource RedGrad}"/>
                   </Border>
-                  <TextBlock x:Name="TxtTutProgress" Style="{StaticResource Small}" Margin="0,6,0,0" Text=""/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                  <Button x:Name="BtnTutBack" Style="{StaticResource BtnSoft}" Margin="0,0,10,0">
+                  <Button x:Name="BtnTutBack" Style="{StaticResource BtnSoft}" Margin="0,0,12,0">
                     <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="&#xE72B;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,1,10,0" FontSize="12"/>
+                      <TextBlock Text="&#xE72B;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,1,10,0" FontSize="14"/>
                       <TextBlock Text="Atrás"/>
                     </StackPanel>
                   </Button>
-                  <Button x:Name="BtnTutNext" Style="{StaticResource BtnPrimary}" MinWidth="150">
+                  <Button x:Name="BtnTutNext" Style="{StaticResource BtnPrimary}" MinWidth="170">
                     <StackPanel Orientation="Horizontal">
                       <TextBlock x:Name="TxtTutNext" Text="Siguiente"/>
-                      <TextBlock Text="&#xE72A;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="10,1,0,0" FontSize="12"/>
+                      <TextBlock Text="&#xE72A;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="12,1,0,0" FontSize="14"/>
                     </StackPanel>
                   </Button>
                 </StackPanel>
@@ -1633,15 +1801,19 @@ $StWindowXaml = @'
     </Grid>
 
     <!-- Pie -->
-    <Border Grid.Row="2" Background="#0C1626" BorderBrush="#2A3C57" BorderThickness="0,1,0,0">
-      <Grid Margin="22,0">
+    <Border Grid.Row="3" Background="#0C1626" BorderBrush="#2A3C57" BorderThickness="0,1,0,0" Padding="0,4">
+      <Grid Margin="24,0">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-          <TextBlock Text="¿Necesitas ayuda?" Foreground="#AEBDD0" FontSize="12.5" VerticalAlignment="Center" Margin="0,0,6,0"/>
-          <Button x:Name="BtnHelpCenter" Style="{StaticResource BtnLink}" FontSize="12.5" Content="Centro de Ayuda"/>
-          <TextBlock Text="·" Foreground="#5D7391" VerticalAlignment="Center"/>
-          <Button x:Name="BtnHelpWa" Style="{StaticResource BtnLink}" FontSize="12.5" Content="WhatsApp +56 9 5101 7168"/>
+          <TextBlock Text="¿Dudas?" Foreground="#DBE5F1" FontSize="16" VerticalAlignment="Center" Margin="0,0,12,0"/>
+          <Button x:Name="BtnHelpWa" Style="{StaticResource BtnWa}" MinHeight="48" Padding="18,6" FontSize="16">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="&#xE8BD;" FontFamily="{StaticResource Icons}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <TextBlock Text="Escríbenos por WhatsApp"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="BtnHelpCenter" Style="{StaticResource BtnLink}" FontSize="16" Margin="10,0,0,0" Content="Centro de Ayuda"/>
         </StackPanel>
-        <TextBlock x:Name="TxtVersion" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="#5D7391" FontSize="12" Text="SafeTech SpA"/>
+        <TextBlock x:Name="TxtVersion" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="#AEBDD0" FontSize="14" Text="SafeTech SpA"/>
       </Grid>
     </Border>
   </Grid>
@@ -1654,26 +1826,26 @@ $StDialogXaml = @'
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="SafeTech" SizeToContent="WidthAndHeight" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner" FontFamily="Segoe UI Variable Text, Segoe UI"
-        FontSize="14" Foreground="#F8FAFC" UseLayoutRounding="True" TextOptions.TextFormattingMode="Ideal">
+        FontSize="17" Foreground="#F8FAFC" UseLayoutRounding="True" TextOptions.TextFormattingMode="Ideal">
   <Window.Resources>
     __RESOURCES__
   </Window.Resources>
-  <Border Margin="24" CornerRadius="22" Background="#111C2F" BorderBrush="#405776" BorderThickness="1" MinWidth="440" MaxWidth="600">
+  <Border x:Name="DlgCard" Margin="24" CornerRadius="24" Background="#111C2F" BorderBrush="#405776" BorderThickness="1.5" MinWidth="480" MaxWidth="640">
     <Border.Effect><DropShadowEffect Color="#000000" BlurRadius="40" ShadowDepth="10" Direction="270" Opacity="0.55"/></Border.Effect>
     <Grid>
       <Border Height="2" VerticalAlignment="Top" Margin="40,0" Background="{StaticResource TopLine}"/>
       <StackPanel Margin="30,28,30,26">
         <Grid x:Name="DlgDrag" Background="#00000000">
           <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-          <Border x:Name="DlgIconBg" Width="46" Height="46" CornerRadius="14" Background="#262563EB" VerticalAlignment="Top">
-            <TextBlock x:Name="DlgIcon" FontFamily="{StaticResource Icons}" FontSize="20" Foreground="#93C5FD" HorizontalAlignment="Center" VerticalAlignment="Center" Text="&#xE946;"/>
+          <Border x:Name="DlgIconBg" Width="52" Height="52" CornerRadius="16" Background="#262563EB" VerticalAlignment="Top">
+            <TextBlock x:Name="DlgIcon" FontFamily="{StaticResource Icons}" FontSize="22" Foreground="#93C5FD" HorizontalAlignment="Center" VerticalAlignment="Center" Text="&#xE946;"/>
           </Border>
-          <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
-            <TextBlock x:Name="DlgKicker" Style="{StaticResource Kicker}" Margin="0,0,0,4" Text="SAFETECH"/>
-            <TextBlock x:Name="DlgTitle" Style="{StaticResource H2}" FontSize="20" Text=""/>
+          <StackPanel Grid.Column="1" Margin="18,0,0,0" VerticalAlignment="Center">
+            <TextBlock x:Name="DlgKicker" Visibility="Collapsed" Text=""/>
+            <TextBlock x:Name="DlgTitle" Style="{StaticResource H2}" FontSize="23" Text=""/>
           </StackPanel>
         </Grid>
-        <TextBlock x:Name="DlgMessage" Style="{StaticResource Body}" Margin="0,16,0,0" Text=""/>
+        <TextBlock x:Name="DlgMessage" Style="{StaticResource Body}" Margin="0,18,0,0" Text=""/>
         <ContentControl x:Name="DlgExtra" Margin="0,16,0,0"/>
         <WrapPanel x:Name="DlgButtons" HorizontalAlignment="Right" Margin="0,22,0,0"/>
       </StackPanel>
@@ -1729,6 +1901,13 @@ function Get-StWordPath {
     return $null
 }
 
+function Open-StWhatsApp {
+    param([string]$Message)
+    $url = $StConfig.WhatsAppUrl
+    if ($Message) { $url += '?text=' + [Uri]::EscapeDataString($Message) }
+    Open-StUnelevated $url
+}
+
 function Open-StWord {
     $word = Get-StWordPath
     if ($word) { Open-StUnelevated $word; return $true }
@@ -1751,18 +1930,119 @@ function Show-StPage {
     $el = $St.UI["Page$Name"]
     $el.Visibility = 'Visible'
     $St.CurrentPage = $Name
+    Update-StGuide -Page $Name
+    $St.UI.GuideBar.Visibility = $(if ($Name -eq 'Tutorial') { 'Collapsed' } else { 'Visible' })
     if ($St.NoAnim) { $el.Opacity = 1; return }
     $tt = New-Object System.Windows.Media.TranslateTransform 0, 18
     $el.RenderTransform = $tt
     $ease = New-Object System.Windows.Media.Animation.QuinticEase
     $ease.EasingMode = 'EaseOut'
-    $dur = [System.Windows.Duration]::new([TimeSpan]::FromMilliseconds(520))
+    $dur = [System.Windows.Duration]::new([TimeSpan]::FromMilliseconds(360))
     $fade = [System.Windows.Media.Animation.DoubleAnimation]::new([double]0, [double]1, $dur)
     $fade.EasingFunction = $ease
     $move = [System.Windows.Media.Animation.DoubleAnimation]::new([double]18, [double]0, $dur)
     $move.EasingFunction = $ease
     $el.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $fade)
     $tt.BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, $move)
+}
+
+# ----- Guía de SafeBOT y etapas ----------------------------------------------------------------
+function Set-StGuide {
+    param([string]$Text)
+    $St.UI.TxtGuide.Text = $Text
+}
+
+function Set-StJourney {
+    # Stage: 0 = oculto, 1..3 = etapa actual, 4 = todo listo.
+    param([int]$Stage, [string]$Label2 = 'Tus datos')
+    $ui = $St.UI
+    if ($Stage -le 0) { $ui.Journey.Visibility = 'Collapsed'; return }
+    $ui.Journey.Visibility = 'Visible'
+    $ui.JLbl2.Text = $Label2
+    $conv = New-Object System.Windows.Media.BrushConverter
+    for ($i = 1; $i -le 3; $i++) {
+        $dot = $ui["JDot$i"]; $num = $ui["JNum$i"]; $lbl = $ui["JLbl$i"]
+        if ($i -lt $Stage) {
+            $dot.Background = $conv.ConvertFromString('#059669'); $dot.BorderBrush = $conv.ConvertFromString('#059669')
+            $num.Text = [string][char]0xE73E; $num.FontFamily = 'Segoe Fluent Icons, Segoe MDL2 Assets'; $num.FontSize = 14
+            $num.Foreground = $conv.ConvertFromString('#FFFFFF'); $lbl.Foreground = $conv.ConvertFromString('#C9D5E3'); $lbl.FontWeight = 'Normal'
+        } elseif ($i -eq $Stage) {
+            $dot.Background = $St.Window.FindResource('RedGrad'); $dot.BorderBrush = $conv.ConvertFromString('#DC2626')
+            $num.Text = [string]$i; $num.FontFamily = 'Segoe UI'; $num.FontSize = 16
+            $num.Foreground = $conv.ConvertFromString('#FFFFFF'); $lbl.Foreground = $conv.ConvertFromString('#F8FAFC'); $lbl.FontWeight = 'SemiBold'
+        } else {
+            $dot.Background = $conv.ConvertFromString('#00000000'); $dot.BorderBrush = $conv.ConvertFromString('#8FA3BE')
+            $num.Text = [string]$i; $num.FontFamily = 'Segoe UI'; $num.FontSize = 16
+            $num.Foreground = $conv.ConvertFromString('#AEBDD0'); $lbl.Foreground = $conv.ConvertFromString('#AEBDD0'); $lbl.FontWeight = 'Normal'
+        }
+    }
+    $ui.JLine1.Background = $conv.ConvertFromString($(if ($Stage -gt 1) { '#059669' } else { '#405776' }))
+    $ui.JLine2.Background = $conv.ConvertFromString($(if ($Stage -gt 2) { '#059669' } else { '#405776' }))
+}
+
+function Update-StGuide {
+    param([string]$Page)
+    $p = $St.Product
+    $label2 = $(if ($p -and -not $p.NeedsKey) { 'Revisar' } else { 'Tus datos' })
+    switch ($Page) {
+        'Home' {
+            Set-StGuide '¡Hola! Soy SafeBOT y te acompaño en todo el proceso. Lo que compraste aparece en el correo que te envió SafeTech.'
+            Set-StJourney 1 'Tus datos'
+        }
+        'Data' {
+            Set-StGuide 'Copia la clave y el código desde tu correo. Si te equivocas no pasa nada: lo puedes corregir.'
+            Set-StJourney 2 $label2
+        }
+        'Confirm' {
+            Set-StGuide 'Revisa esto con calma y marca la casilla. Después yo me encargo de todo.'
+            Set-StJourney 2 $label2
+        }
+        'Progress' {
+            if ($St.Mode -eq 'activate' -or ($St.InstallDone -and $p -and $p.NeedsKey)) {
+                Set-StGuide 'Estoy activando Office con tu código. Tarda menos de un minuto.'
+            } else {
+                Set-StGuide 'Estoy instalando Office. Puedes dejar el computador solo: te aviso cuando termine.'
+            }
+            Set-StJourney 3 $label2
+        }
+        'Done' {
+            Set-StGuide '¡Lo logramos! Gracias por confiar en SafeTech.'
+            Set-StJourney 4 $label2
+        }
+        'Error' {
+            Set-StGuide 'Esto tiene solución. Si prefieres, te ayudamos por WhatsApp.'
+            Set-StJourney 0
+        }
+        'Tutorial' {
+            Set-StGuide 'Sigue cada paso con calma. Si algo no coincide con tu pantalla, escríbenos por WhatsApp.'
+            Set-StJourney 0
+        }
+    }
+}
+
+function Update-StScale {
+    # Diseñado para 1280x720; en pantallas más grandes todo crece para leerse mejor.
+    $w = $St.Window.ActualWidth; $h = $St.Window.ActualHeight
+    if ($w -le 0 -or $h -le 0) { return }
+    $scale = [Math]::Min($w / 1280, $h / 760)
+    $scale = [Math]::Max(0.8, [Math]::Min(1.4, $scale))
+    $St.UI.RootScale.ScaleX = $scale
+    $St.UI.RootScale.ScaleY = $scale
+}
+
+function Update-StWindowFrame {
+    # Con WindowChrome la ventana maximizada sobresale unos pixeles de la pantalla: se compensa con un margen.
+    if ($St.Window.WindowState -eq 'Maximized') {
+        $St.UI.RootBorder.Margin = '7'
+        $St.UI.RootBorder.BorderThickness = '0'
+        $St.UI.BtnMax.Content = [string][char]0xE923
+        $St.UI.BtnMax.ToolTip = 'Restaurar'
+    } else {
+        $St.UI.RootBorder.Margin = '0'
+        $St.UI.RootBorder.BorderThickness = '1'
+        $St.UI.BtnMax.Content = [string][char]0xE922
+        $St.UI.BtnMax.ToolTip = 'Maximizar'
+    }
 }
 
 # ----- Ventanas emergentes -------------------------------------------------------------------
@@ -1773,8 +2053,12 @@ function Show-StDialog {
         [ValidateSet('info', 'success', 'warn', 'error', 'question', 'key')][string]$Kind = 'info',
         [string[]]$Buttons = @('Aceptar'),
         [string]$Primary,
-        [string]$Kicker = 'SAFETECH',
-        $Extra
+        [string]$Kicker = '',
+        $Extra,
+        [int]$Width = 0,
+        [string]$LinkLabel,
+        [scriptblock]$OnLink,
+        $Image
     )
     $xaml = $StDialogXaml.Replace('__RESOURCES__', $StResXaml)
     $dlg = [Windows.Markup.XamlReader]::Parse($xaml)
@@ -1791,7 +2075,18 @@ function Show-StDialog {
     $icon = $dlg.FindName('DlgIcon')
     $icon.Foreground = $conv.ConvertFromString($look[1])
     $icon.Text = [string]$look[2]
-    $dlg.FindName('DlgKicker').Text = $Kicker.ToUpper()
+    $card = $dlg.FindName('DlgCard')
+    if ($Width -gt 0) { $card.MaxWidth = $Width; $card.MinWidth = $Width }
+    $dscale = 1.0
+    try { $dscale = [Math]::Max(1.0, [double]$St.UI.RootScale.ScaleX) } catch { }
+    if ($dscale -gt 1.01) { $card.LayoutTransform = New-Object System.Windows.Media.ScaleTransform $dscale, $dscale }
+    if ($Image) {
+        $ib = $dlg.FindName('DlgIconBg')
+        $ib.Background = $conv.ConvertFromString('#00000000'); $ib.Width = 64; $ib.Height = 80
+        $img = New-Object System.Windows.Controls.Image
+        $img.Source = $Image; $img.Stretch = 'Uniform'
+        $ib.Child = $img
+    }
     $dlg.FindName('DlgTitle').Text = $Title
     $msg = $dlg.FindName('DlgMessage')
     $msg.Text = $Message
@@ -1804,8 +2099,8 @@ function Show-StDialog {
         $b = New-Object System.Windows.Controls.Button
         $b.Content = $label
         $b.Tag = $label
-        $b.Margin = '10,0,0,0'
-        $b.MinWidth = 120
+        $b.Margin = '12,0,0,0'
+        $b.MinWidth = 140
         $styleKey = if ($label -eq $Primary) { 'BtnPrimary' } else { 'BtnSoft' }
         $b.Style = $dlg.FindResource($styleKey)
         if ($label -eq $Primary) { $b.IsDefault = $true }
@@ -1816,6 +2111,19 @@ function Show-StDialog {
             $w.Close()
         })
         [void]$panel.Children.Add($b)
+    }
+    if ($LinkLabel) {
+        $lnk = New-Object System.Windows.Controls.Button
+        $lnk.Content = $LinkLabel
+        $lnk.Style = $dlg.FindResource('BtnLink')
+        $lnk.Margin = '0,0,12,0'
+        $lnk.Tag = $(if ($OnLink) { $OnLink } else { $LinkLabel })
+        $lnk.Add_Click({
+            param($s, $e)
+            if ($s.Tag -is [scriptblock]) { & $s.Tag }
+            else { $w = [System.Windows.Window]::GetWindow($s); $w.Tag = [string]$s.Tag; $w.Close() }
+        })
+        $panel.Children.Insert(0, $lnk)
     }
     $dlg.FindName('DlgDrag').Add_MouseLeftButtonDown({ param($s, $e) try { [System.Windows.Window]::GetWindow($s).DragMove() } catch { } })
     if ($St.Window -and $St.Window.IsVisible) { $dlg.Owner = $St.Window } else { $dlg.WindowStartupLocation = 'CenterScreen' }
@@ -1843,7 +2151,7 @@ function New-StDialogField {
         $h = New-Object System.Windows.Controls.TextBlock
         $h.Text = $Hint
         $h.Foreground = '#AEBDD0'
-        $h.FontSize = 12.5
+        $h.FontSize = 16
         $h.TextWrapping = 'Wrap'
         $h.Margin = '2,8,0,0'
         [void]$sp.Children.Add($h)
@@ -1898,7 +2206,7 @@ function Invoke-StJobPump {
                     $tail = "Pasos:`n" + ($heads -join "`n") + "`n`nDetalle:`n" + ($lines -join "`n")
                 }
             } catch { }
-            $detail = "La tarea en segundo plano se detuvo sin entregar un resultado.`n`nDIAGNÓSTICO (v$($StConfig.Version))`n" + ($diag -join "`n") + "`n`nÚLTIMAS LÍNEAS DEL REGISTRO`n" + $tail
+            $detail = "La tarea en segundo plano se detuvo sin entregar un resultado.`n`nDiagnóstico (v$($StConfig.Version))`n" + ($diag -join "`n") + "`n`nÚLTIMAS LÍNEAS DEL REGISTRO`n" + $tail
             Write-StLog ("Tarea sin resultado. " + ($diag -join ' | '))
             $res = @{ Ok = $false; Result = $null; Error = $detail }
         }
@@ -1932,6 +2240,17 @@ function Initialize-StSteps {
     $St.StepRows = @{}
     $St.StepOrder = $Ids
     $St.Sync.Steps.Clear()
+    $St.StepSummary = New-StXamlElement @'
+<Border CornerRadius="14" Padding="14,10" Margin="0,0,0,6" Background="#12059669" BorderBrush="#4D059669" BorderThickness="1" Visibility="Collapsed">
+  <StackPanel Orientation="Horizontal">
+    <Border Width="32" Height="32" CornerRadius="16" Background="#059669">
+      <TextBlock Text="&#xE73E;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Border>
+    <TextBlock x:Name="T" Foreground="#DBE5F1" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" Margin="14,0,0,0"/>
+  </StackPanel>
+</Border>
+'@
+    [void]$St.UI.StackSteps.Children.Add($St.StepSummary)
     $n = 0
     foreach ($id in $Ids) {
         $n++
@@ -1939,14 +2258,14 @@ function Initialize-StSteps {
         $title = $def[0]
         if ($id -eq 'install' -and $St.Product) { $title = "Instalar $($St.Product.Name)" }
         $row = New-StXamlElement @"
-<Border CornerRadius="14" Padding="12,10" Margin="0,0,0,6" Background="#00000000">
+<Border CornerRadius="14" Padding="14,10" Margin="0,0,0,6" Background="#00000000" BorderBrush="#00000000" BorderThickness="1">
   <Grid>
-    <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-    <Grid Width="30" Height="30" VerticalAlignment="Top" Margin="0,1,0,0">
-      <Ellipse x:Name="Ring" Stroke="#2A3C57" StrokeThickness="1.5" Fill="#00000000"/>
-      <TextBlock x:Name="Num" Text="$n" Foreground="#AEBDD0" FontSize="12.5" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-      <TextBlock x:Name="Glyph" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="12" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
-      <Path x:Name="Spin" Width="30" Height="30" Data="M 15,1.5 A 13.5,13.5 0 0 1 28.5,15" Stroke="#DC2626" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5" Visibility="Collapsed">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Grid Width="32" Height="32" VerticalAlignment="Top">
+      <Ellipse x:Name="Ring" Stroke="#8FA3BE" StrokeThickness="2" Fill="#00000000"/>
+      <TextBlock x:Name="Num" Text="$n" Foreground="#AEBDD0" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+      <TextBlock x:Name="Glyph" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+      <Path x:Name="Spin" Width="32" Height="32" Data="M 16,1.5 A 14.5,14.5 0 0 1 30.5,16" Stroke="#DC2626" StrokeThickness="3.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5" Visibility="Collapsed">
         <Path.RenderTransform><RotateTransform Angle="0"/></Path.RenderTransform>
         <Path.Triggers>
           <EventTrigger RoutedEvent="FrameworkElement.Loaded">
@@ -1958,8 +2277,8 @@ function Initialize-StSteps {
       </Path>
     </Grid>
     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-      <TextBlock x:Name="Title" Foreground="#AEBDD0" FontSize="14.5" FontWeight="SemiBold" TextWrapping="Wrap"/>
-      <TextBlock x:Name="Sub" Foreground="#7F93AE" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0"/>
+      <TextBlock x:Name="Title" Foreground="#AEBDD0" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap"/>
+      <TextBlock x:Name="Sub" Foreground="#C9D5E3" FontSize="15" TextWrapping="Wrap" Margin="0,2,0,0" Visibility="Collapsed"/>
     </StackPanel>
   </Grid>
 </Border>
@@ -1970,6 +2289,11 @@ function Initialize-StSteps {
         $St.StepRows[$id] = @{ Row = $row; State = 'pending'; Sub = $def[1] }
         $St.Sync.Steps[$id] = 'pending'
     }
+    $St.StepMore = New-StXamlElement @'
+<TextBlock Foreground="#AEBDD0" FontSize="16" Margin="62,4,0,0" Visibility="Collapsed"/>
+'@
+    [void]$St.UI.StackSteps.Children.Add($St.StepMore)
+    Update-StStepLayout
 }
 
 function Update-StStepRow {
@@ -1981,14 +2305,16 @@ function Update-StStepRow {
     $conv = New-Object System.Windows.Media.BrushConverter
     $ring = $row.FindName('Ring'); $num = $row.FindName('Num'); $glyph = $row.FindName('Glyph')
     $spin = $row.FindName('Spin'); $title = $row.FindName('Title'); $sub = $row.FindName('Sub')
-    $spin.Visibility = 'Collapsed'; $glyph.Visibility = 'Collapsed'; $num.Visibility = 'Visible'
-    $row.Background = $conv.ConvertFromString('#00000000')
-    $ring.Fill = $conv.ConvertFromString('#00000000'); $ring.Stroke = $conv.ConvertFromString('#2A3C57')
+    $spin.Visibility = 'Collapsed'; $glyph.Visibility = 'Collapsed'; $num.Visibility = 'Visible'; $sub.Visibility = 'Collapsed'
+    $row.Background = $conv.ConvertFromString('#00000000'); $row.BorderBrush = $conv.ConvertFromString('#00000000')
+    $ring.Fill = $conv.ConvertFromString('#00000000'); $ring.Stroke = $conv.ConvertFromString('#8FA3BE')
     $title.Foreground = $conv.ConvertFromString('#AEBDD0'); $sub.Text = $r.Sub
     switch ($State) {
         'running' {
-            $spin.Visibility = 'Visible'; $num.Foreground = $conv.ConvertFromString('#FCA5A5')
-            $row.Background = $conv.ConvertFromString('#17243A'); $title.Foreground = $conv.ConvertFromString('#F8FAFC')
+            $spin.Visibility = 'Visible'; $num.Foreground = $conv.ConvertFromString('#FCA5A5'); $sub.Visibility = 'Visible'
+            $ring.Stroke = $conv.ConvertFromString('#405776')
+            $row.Background = $conv.ConvertFromString('#17243A'); $row.BorderBrush = $conv.ConvertFromString('#405776')
+            $title.Foreground = $conv.ConvertFromString('#F8FAFC')
         }
         'done' {
             $num.Visibility = 'Collapsed'; $glyph.Visibility = 'Visible'; $glyph.Text = [string][char]0xE73E
@@ -1997,16 +2323,57 @@ function Update-StStepRow {
             $title.Foreground = $conv.ConvertFromString('#DBE5F1')
         }
         'skip' {
-            $num.Visibility = 'Collapsed'; $glyph.Visibility = 'Visible'; $glyph.Text = [string][char]0xE738
-            $glyph.Foreground = $conv.ConvertFromString('#7F93AE'); $sub.Text = 'No fue necesario'
+            $num.Visibility = 'Collapsed'; $glyph.Visibility = 'Visible'; $glyph.Text = [string][char]0xE73E
+            $glyph.Foreground = $conv.ConvertFromString('#FFFFFF')
+            $ring.Fill = $conv.ConvertFromString('#059669'); $ring.Stroke = $conv.ConvertFromString('#059669')
+            $sub.Text = 'No hizo falta'
         }
         'error' {
             $num.Visibility = 'Collapsed'; $glyph.Visibility = 'Visible'; $glyph.Text = [string][char]0xE711
-            $glyph.Foreground = $conv.ConvertFromString('#FFFFFF')
-            $ring.Fill = $conv.ConvertFromString('#DC2626'); $ring.Stroke = $conv.ConvertFromString('#DC2626')
-            $title.Foreground = $conv.ConvertFromString('#FCA5A5')
+            $glyph.Foreground = $conv.ConvertFromString('#FFFFFF'); $sub.Visibility = 'Visible'
+            $ring.Fill = $conv.ConvertFromString('#B45309'); $ring.Stroke = $conv.ConvertFromString('#B45309')
+            $title.Foreground = $conv.ConvertFromString('#FCD34D')
         }
         default { $num.Foreground = $conv.ConvertFromString('#AEBDD0') }
+    }
+    Update-StStepLayout
+}
+
+function Update-StStepLayout {
+    # Muestra un resumen de lo terminado, el paso actual y solo los próximos pasos.
+    if (-not $St.StepOrder -or -not $St.StepSummary) { return }
+    $total = @($St.StepOrder).Count
+    $finished = 0; $current = -1; $i = 0
+    foreach ($id in $St.StepOrder) {
+        $state = $St.StepRows[$id].State
+        if ($state -in @('done', 'skip')) { $finished++ }
+        elseif ($current -lt 0) { $current = $i }
+        $i++
+    }
+    $shownPending = 0; $hidden = 0; $i = 0
+    foreach ($id in $St.StepOrder) {
+        $r = $St.StepRows[$id]
+        if ($r.State -in @('done', 'skip')) { $r.Row.Visibility = 'Collapsed' }
+        elseif ($r.State -in @('running', 'error') -or $i -eq $current) { $r.Row.Visibility = 'Visible' }
+        elseif ($shownPending -lt 2) { $r.Row.Visibility = 'Visible'; $shownPending++ }
+        else { $r.Row.Visibility = 'Collapsed'; $hidden++ }
+        $i++
+    }
+    $St.StepSummary.Visibility = $(if ($finished -gt 0) { 'Visible' } else { 'Collapsed' })
+    $St.StepSummary.FindName('T').Text = $(if ($finished -eq 1) { '1 tarea lista' } else { "$finished tareas listas" })
+    $St.StepMore.Visibility = $(if ($hidden -gt 0) { 'Visible' } else { 'Collapsed' })
+    $St.StepMore.Text = $(if ($hidden -eq 1) { 'y 1 paso más' } else { "y $hidden pasos más" })
+    $stepNow = [Math]::Min($total, $finished + 1)
+    $St.UI.TxtProgCount.Text = $(if ($finished -ge $total) { '¡Todo listo!' } else { "Paso $stepNow de $total" })
+    $fraction = $(if ($total -gt 0) { ($finished + 0.5 * [int]($finished -lt $total)) / $total } else { 0 })
+    $trackWidth = $St.UI.ProgTrack.ActualWidth
+    if ($trackWidth -le 0) { $trackWidth = 600 }
+    $target = [double]$trackWidth * [Math]::Min([double]1, [double]$fraction)
+    if ($St.NoAnim) { $St.UI.ProgFill.Width = $target }
+    else {
+        $anim = [System.Windows.Media.Animation.DoubleAnimation]::new([double]$St.UI.ProgFill.ActualWidth, $target, [System.Windows.Duration]::new([TimeSpan]::FromMilliseconds(450)))
+        $e = New-Object System.Windows.Media.Animation.QuinticEase; $e.EasingMode = 'EaseOut'; $anim.EasingFunction = $e
+        $St.UI.ProgFill.BeginAnimation([System.Windows.FrameworkElement]::WidthProperty, $anim)
     }
 }
 
@@ -2036,7 +2403,8 @@ function Update-StProgressUi {
 }
 
 function Stop-StProgressAnimation {
-    $St.UI.ProgTrack.Visibility = 'Collapsed'
+    # La barra de avance se mantiene: muestra cuánto se completó.
+    Update-StStepLayout
 }
 
 # ----- Errores ---------------------------------------------------------------------------------
@@ -2066,12 +2434,34 @@ function Select-StProduct {
 
 function Show-StDataPage {
     $p = $St.Product
-    $total = if ($St.Mode -eq 'activate') { '2' } else { '3' }
-    $St.UI.TxtDataKicker.Text = "PASO 1 DE $total · $($p.Name.ToUpper())"
+    Set-StStub -Label $St.UI.TxtDataStubLabel -Year $St.UI.TxtDataStubYear -Product $p
     $St.UI.TxtDataNext.Text = $(if ($St.Mode -eq 'activate') { 'Activar Office' } else { 'Continuar' })
     Update-StDataValidity
     Show-StPage 'Data'
     [void]$St.UI.InKey.Focus()
+}
+
+function Set-StStub {
+    param($Label, $Year, $Product)
+    if (-not $Product) { return }
+    if ($Product.Id -eq '365') { $Label.Text = 'MICROSOFT'; $Year.Text = '365' }
+    else { $Label.Text = 'OFFICE'; $Year.Text = $Product.Year }
+}
+
+function Invoke-StPaste {
+    param([string]$Target)
+    $text = ''
+    try { $text = [System.Windows.Clipboard]::GetText() } catch { }
+    if (-not $text) {
+        [void](Show-StDialog -Kind 'info' -Title 'No hay nada copiado' -Message 'Primero copia el dato desde tu correo: selecciónalo con el mouse, haz clic derecho y elige «Copiar». Después vuelve aquí y pulsa «Pegar».' -Buttons @('Entendido'))
+        return
+    }
+    $found = Find-StPurchaseData -Text $text
+    if ($found.Key) { $St.UI.InKey.Text = $found.Key }
+    if ($found.Code) { $St.UI.InCode.Text = $found.Code }
+    if (-not $found.Key -and -not $found.Code) {
+        if ($Target -eq 'key') { $St.UI.InKey.Text = $text.Trim() } else { $St.UI.InCode.Text = $text.Trim() }
+    }
 }
 
 function Update-StDataValidity {
@@ -2151,9 +2541,10 @@ function Show-StConfirmPage {
     $ui.BtnConfirmStart.IsEnabled = $false
     $ui.TxtConfirmStart.Text = 'Comenzar instalación'
     $ui.TxtConfirmTitle.Text = "Antes de instalar $($p.Name)"
-    $ui.TxtConfirmLead.Text = 'Lee esto con calma. Después el instalador trabaja solo.'
-    $ui.TxtConfirmKicker.Text = $(if ($p.NeedsKey) { "PASO 2 DE 3 · $($p.Name.ToUpper())" } else { "PASO 1 DE 2 · $($p.Name.ToUpper())" })
+    $ui.TxtConfirmLead.Text = ''
+    $ui.TxtConfirmLead.Visibility = 'Collapsed'
     $St.ConfirmAction = 'install'
+    Set-StStub -Label $ui.TxtConfirmStubLabel -Year $ui.TxtConfirmStubYear -Product $p
 
     $same = Test-StProductInstalled -ProductId $p.Id -State $state
     $others = @($state.Friendly)
@@ -2172,9 +2563,10 @@ function Show-StConfirmPage {
         & $setDetected 'ok' 'Microsoft 365 ya está instalado' 'No necesitas reinstalarlo. Solo falta conectar la cuenta que te entregó SafeTech.'
         $ui.TxtConfirmTitle.Text = 'Microsoft 365 ya está en tu equipo'
         $ui.TxtConfirmLead.Text = 'Puede ser una edición Personal, Familia, Empresa o Educación. Funciona con la cuenta entregada por SafeTech.'
-        $items.Add('No se desinstalará ni se cambiará nada en tu Office.')
-        $items.Add('No es necesario cerrar tu cuenta personal de OneDrive o Teams.')
-        $items.Add('Te guiaremos para agregar la cuenta de SafeTech en Word.')
+        $ui.TxtConfirmLead.Visibility = 'Visible'
+        $items.Add('E73E|No se desinstala ni se cambia nada en tu Office.')
+        $items.Add('E77B|No es necesario cerrar tu cuenta personal de OneDrive o Teams.')
+        $items.Add('E8A5|Te guiaremos para agregar la cuenta de SafeTech en Word.')
         $ui.ChkConfirm.Visibility = 'Collapsed'
         $ui.BtnConfirmStart.IsEnabled = $true
         $ui.TxtConfirmStart.Text = 'Ir al tutorial de la cuenta'
@@ -2189,50 +2581,31 @@ function Show-StConfirmPage {
         } else {
             & $setDetected 'ok' 'No encontramos otra versión de Office' "El computador está listo para instalar $($p.Name)."
         }
-        $items.Add('Se cerrarán Word, Excel, PowerPoint y Outlook si están abiertos. Guarda tus documentos ahora.')
-        $items.Add('Tus documentos y archivos personales no se borran.')
-        $items.Add('Office se descarga desde Microsoft (unos 3 GB). Mantén el equipo conectado a Internet y a la corriente.')
-        $items.Add('Verás una ventana de Microsoft con el avance. Déjala trabajar: se cierra sola.')
-        if ($p.NeedsKey) { $items.Add('Al terminar, activaremos Office automáticamente con tu código SafeTech.') }
-        else { $items.Add('Mientras se instala, podrás preparar tu cuenta con el tutorial guiado.') }
+        $items.Add('E8A5|**Guarda los documentos que tengas abiertos**: vamos a cerrar Word, Excel y Outlook.')
+        $items.Add('E8B7|Tus documentos y archivos **no se borran**.')
+        $items.Add('E701|Deja el computador **enchufado y con Internet**: Office se descarga desde Microsoft (unos 3 GB).')
+        if ($p.NeedsKey) { $items.Add('E8D7|Al terminar, **activamos Office solos** con tu código SafeTech.') }
+        else { $items.Add('E77B|Mientras se instala, puedes ir preparando tu cuenta con el tutorial.') }
         if ($p.Id -eq '365' -and $state.HasAny) {
-            $items.Add('Si usabas otra cuenta en Office, puede que tengas que volver a elegirla después.')
+            $items.Add('E77B|Si usabas otra cuenta en Office, puede que tengas que volver a elegirla después.')
         }
     }
 
     $ui.StackConfirmList.Children.Clear()
     foreach ($t in $items) {
+        $parts = $t.Split('|', 2)
         $row = New-StXamlElement @"
-<Grid Margin="0,0,0,10">
-  <Grid.ColumnDefinitions><ColumnDefinition Width="26"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-  <Ellipse Width="7" Height="7" Fill="#DC2626" VerticalAlignment="Top" Margin="0,8,0,0" HorizontalAlignment="Left"/>
-  <TextBlock Grid.Column="1" x:Name="T" Foreground="#DBE5F1" FontSize="14.5" TextWrapping="Wrap" LineHeight="22"/>
-</Grid>
-"@
-        $row.FindName('T').Text = $t
-        [void]$ui.StackConfirmList.Children.Add($row)
-    }
-
-    $how = if ($p.NeedsKey) {
-        @('Revisamos tu equipo y creamos un punto de restauración.', 'Quitamos versiones anteriores de Office.', "Instalamos $($p.Name) desde Microsoft.", 'Activamos Office con tu clave y tu código.')
-    } else {
-        @('Revisamos tu equipo y creamos un punto de restauración.', 'Quitamos versiones anteriores de Office.', 'Instalamos Microsoft 365 desde Microsoft.', 'Te guiamos para conectar tu cuenta.')
-    }
-    $ui.StackHowItWorks.Children.Clear()
-    $i = 0
-    foreach ($t in $how) {
-        $i++
-        $row = New-StXamlElement @"
-<Grid Margin="0,0,0,12">
-  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-  <Border Width="26" Height="26" CornerRadius="13" Background="#26DC2626" VerticalAlignment="Top">
-    <TextBlock Text="$i" Foreground="#FCA5A5" FontWeight="Bold" FontSize="12.5" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+<Grid Margin="0,0,0,8">
+  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+  <Border Width="34" Height="34" CornerRadius="10" Background="#20304A" VerticalAlignment="Top">
+    <TextBlock x:Name="I" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" Foreground="#C9D5E3" HorizontalAlignment="Center" VerticalAlignment="Center"/>
   </Border>
-  <TextBlock Grid.Column="1" x:Name="T" Foreground="#DBE5F1" FontSize="13.5" TextWrapping="Wrap" Margin="0,3,0,0"/>
+  <TextBlock Grid.Column="1" x:Name="T" Foreground="#DBE5F1" FontSize="17" TextWrapping="Wrap" LineHeight="26" VerticalAlignment="Center" Margin="0,3,0,0"/>
 </Grid>
 "@
-        $row.FindName('T').Text = $t
-        [void]$ui.StackHowItWorks.Children.Add($row)
+        $row.FindName('I').Text = [string][char][Convert]::ToInt32($parts[0], 16)
+        Set-StRichText -Target $row.FindName('T') -Text $parts[1]
+        [void]$ui.StackConfirmList.Children.Add($row)
     }
     Show-StPage 'Confirm'
 }
@@ -2244,16 +2617,16 @@ function Start-StInstallFlow {
     $ids = @('check', 'restore', 'download', 'clean', 'remove', 'install', 'verify')
     if ($p.NeedsKey) { $ids += @('act_key', 'act_iid', 'act_cid', 'act_confirm') } else { $ids += 'account' }
     Initialize-StSteps $ids
-    $St.UI.TxtProgKicker.Text = $(if ($p.NeedsKey) { "PASO 3 DE 3 · $($p.Name.ToUpper())" } else { "PASO 2 DE 2 · $($p.Name.ToUpper())" })
     $St.UI.TxtProgTitle.Text = "Instalando $($p.Name)"
     $St.UI.TxtProgDetail.Text = 'Preparando...'
     $St.Sync.Detail = 'Preparando...'
-    $St.UI.ProgTrack.Visibility = 'Visible'
+    $St.UI.TxtElapsedNote.Text = 'Suele tardar entre 10 y 40 minutos, según tu Internet.'
     $St.UI.PanelTutorialPromo.Visibility = $(if ($p.Id -eq '365') { 'Visible' } else { 'Collapsed' })
     $St.UI.ChipInstall.Visibility = $(if ($p.Id -eq '365') { 'Visible' } else { 'Collapsed' })
     $St.StartTime = Get-Date
     $St.Busy = $true
     $St.InstallDone = $false
+    Set-StProgStamp -Text 'PENDIENTE' -Kind 'pending'
     Show-StPage 'Progress'
 
     $work = Join-Path $StConfig.DataDir 'trabajo'
@@ -2269,6 +2642,7 @@ function Start-StInstallFlow {
             return
         }
         $St.InstallDone = $true
+        Set-StProgStamp -Text 'INSTALADO' -Kind 'done' -Animate
         if ($St.Product.NeedsKey) {
             $choice = Show-StDialog -Kind 'success' -Kicker 'Instalación lista' -Title "$($St.Product.Name) quedó instalado" `
                 -Message 'Ahora lo activaremos automáticamente con tu clave y tu código SafeTech. No necesitas abrir Word ni escribir números.' `
@@ -2306,12 +2680,12 @@ function Start-StActivationFlow {
     if (-not $KeepSteps) {
         Initialize-StSteps @('act_key', 'act_iid', 'act_cid', 'act_confirm')
         $St.StartTime = Get-Date
-        $St.UI.TxtProgKicker.Text = "PASO 2 DE 2 · $($p.Name.ToUpper())"
         $St.UI.PanelTutorialPromo.Visibility = 'Collapsed'
     }
     $St.UI.TxtProgTitle.Text = "Activando $($p.Name)"
-    $St.UI.ProgTrack.Visibility = 'Visible'
+    $St.UI.TxtElapsedNote.Text = $(if ($KeepSteps) { 'Ya casi: solo falta activar Office (menos de un minuto).' } else { 'La activación tarda menos de un minuto.' })
     $St.Busy = $true
+    if (-not $KeepSteps) { Set-StProgStamp -Text 'PENDIENTE' -Kind 'pending' }
     Show-StPage 'Progress'
     Set-StUiStep 'act_key' 'running' 'Registrando tu clave de producto en Office...'
     Start-StAsync -Params @{ ProductId = $p.Id; Key = $St.Act.Key } -Work {
@@ -2371,23 +2745,28 @@ function Request-StCidFlow {
         $message = if ($ok) { $r.Message } else { $err }
         $kind = if ($ok) { $r.Kind } else { 'network' }
         Set-StUiStep 'act_cid' 'error' $message
-        $buttons = if ($kind -eq 'code') { @('Usar otro código', 'Activar manualmente', 'Cancelar') } else { @('Reintentar', 'Activar manualmente', 'Cancelar') }
-        $choice = Show-StDialog -Kind 'warn' -Title 'No pudimos generar el ID de confirmación' -Message $message -Buttons $buttons
-        switch ($choice) {
-            'Usar otro código' {
-                $newCode = $null
-                $hint = 'Lo encuentras en el correo de tu compra.'
-                while (-not $newCode) {
-                    $f = New-StDialogField -Label 'Código de activación SafeTech' -Placeholder 'ST-XXXXXX' -MaxLength 12 -Hint $hint
-                    $again = Show-StDialog -Kind 'key' -Title 'Ingresa otro código' -Message '' -Extra $f.Panel -Buttons @('Usar este código', 'Cancelar')
-                    if ($again -ne 'Usar este código') { break }
-                    $newCode = ConvertTo-StAccessCode $f.Box.Text
-                    $hint = 'Ese código está incompleto. Debe tener el formato ST-XXXXXX.'
-                }
-                if ($newCode) { $St.Act.Code = $newCode; Request-StCidFlow } else { Stop-StActivationPending }
+        if ($kind -eq 'code') {
+            # Un solo paso: el cliente corrige el código en la misma ventana.
+            $hint = 'Revisa que empiece con ST- y que no confundas 0 (cero) con la letra O.'
+            $msg = "El código no es válido o ya se usó.`n$message"
+            while ($true) {
+                $f = New-StDialogField -Label 'Código de activación SafeTech' -Placeholder 'ST-XXXXXX' -Value $St.Act.Code -MaxLength 40 -Hint $hint
+                $choice = Show-StDialog -Kind 'warn' -Title 'Tu código SafeTech no funcionó' -Message $msg -Extra $f.Panel `
+                    -Buttons @('Cancelar', 'Probar este código') -Primary 'Probar este código' -LinkLabel 'Activar de otra forma' -Width 640
+                if ($choice -eq 'Activar de otra forma') { Show-StManualActivation; return }
+                if ($choice -ne 'Probar este código') { Stop-StActivationPending; return }
+                $newCode = ConvertTo-StAccessCode $f.Box.Text
+                if ($newCode) { $St.Act.Code = $newCode; Request-StCidFlow; return }
+                $hint = 'Ese código está incompleto. Debe tener el formato ST-XXXXXX, por ejemplo ST-AB12CD.'
+                $msg = 'Escribe el código tal como aparece en tu correo.'
             }
+        }
+        $choice = Show-StDialog -Kind 'warn' -Title 'No pudimos conectarnos con SafeTech' `
+            -Message ($message + "`n`nRevisa tu Internet y vuelve a intentarlo. No se gastó ningún crédito si no llegó la respuesta.") `
+            -Buttons @('Cancelar', 'Reintentar') -Primary 'Reintentar' -LinkLabel 'Activar de otra forma' -Width 640
+        switch ($choice) {
             'Reintentar' { Request-StCidFlow }
-            'Activar manualmente' { Show-StManualActivation }
+            'Activar de otra forma' { Show-StManualActivation }
             default { Stop-StActivationPending }
         }
     }
@@ -2426,24 +2805,80 @@ $StAboutSections = @(
        Text = 'Instalar o desinstalar Office y registrar su licencia siempre requiere permisos de administrador, también cuando lo haces a mano. Por eso Windows te pregunta si permites los cambios.' }
 )
 
+$StWelcomeCards = @(
+    @{ Icon = [char]0xE896; Color = '#6EE7B7'; Back = '#26059669'; Title = 'Office original de Microsoft'
+       Text = 'Se descarga directo desde Microsoft, sin cambios ni archivos modificados.' },
+    @{ Icon = [char]0xE72E; Color = '#6EE7B7'; Back = '#26059669'; Title = 'Nada pirata'
+       Text = 'No usamos cracks ni activadores. Solo tu licencia, como lo haría un técnico.' },
+    @{ Icon = [char]0xE8D7; Color = '#FCA5A5'; Back = '#26DC2626'; Title = 'Se activa con tu código'
+       Text = 'Con tu clave y tu código SafeTech activamos Office por ti. No copias números.' },
+    @{ Icon = [char]0xE8B7; Color = '#93C5FD'; Back = '#262563EB'; Title = 'Tus archivos no se tocan'
+       Text = 'Tus documentos, fotos y programas quedan igual que antes.' }
+)
+
 function Show-StAbout {
+    param([switch]$Welcome)
     $panel = New-StXamlElement @'
-<ScrollViewer MaxHeight="430" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,6,0">
+<StackPanel>
+  <UniformGrid x:Name="Cards" Columns="2"/>
+  <Border CornerRadius="14" Background="#1AF59E0B" BorderBrush="#80F59E0B" BorderThickness="1.5" Padding="18,12" Margin="0,4,0,0">
+    <Grid>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+      <TextBlock Text="&#xE7EF;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="20" Foreground="#FCD34D" VerticalAlignment="Center" Margin="0,0,14,0"/>
+      <TextBlock Grid.Column="1" FontSize="17" Foreground="#F8FAFC" TextWrapping="Wrap" VerticalAlignment="Center">Windows te pedirá permiso para hacer cambios: responde <Bold>«Sí»</Bold>. Es normal.</TextBlock>
+    </Grid>
+  </Border>
+  <TextBlock Text="SafeTech no es distribuidor oficial de Microsoft. Microsoft y Office son marcas de Microsoft Corporation." FontSize="15" Foreground="#AEBDD0" TextWrapping="Wrap" Margin="2,12,0,0"/>
+</StackPanel>
+'@
+    $cards = $panel.FindName('Cards')
+    $i = 0
+    foreach ($c in $StWelcomeCards) {
+        $m = $(if ($i % 2 -eq 0) { '0,0,7,14' } else { '7,0,0,14' })
+        $row = New-StXamlElement @"
+<Border CornerRadius="16" Background="#17243A" BorderBrush="#2A3C57" BorderThickness="1.5" Padding="18,16" Margin="$m">
+  <Grid>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Border Width="52" Height="52" CornerRadius="26" Background="$($c.Back)" VerticalAlignment="Top">
+      <TextBlock x:Name="Ico" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="22" Foreground="$($c.Color)" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Border>
+    <StackPanel Grid.Column="1" Margin="16,0,0,0">
+      <TextBlock x:Name="Ttl" Foreground="#F8FAFC" FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap"/>
+      <TextBlock x:Name="Txt" Foreground="#C9D5E3" FontSize="17" TextWrapping="Wrap" LineHeight="24" Margin="0,4,0,0"/>
+    </StackPanel>
+  </Grid>
+</Border>
+"@
+        $row.FindName('Ico').Text = [string]$c.Icon
+        $row.FindName('Ttl').Text = $c.Title
+        $row.FindName('Txt').Text = $c.Text
+        [void]$cards.Children.Add($row)
+        $i++
+    }
+    $label = $(if ($Welcome) { 'Entendido, empezar' } else { 'Entendido' })
+    $title = $(if ($Welcome) { '¡Hola! Así funciona este instalador' } else { '¿Cómo funciona este instalador?' })
+    return (Show-StDialog -Kind 'info' -Title $title -Message 'Léelo con calma: son solo 4 cosas.' -Extra $panel -Buttons @($label) -Width 920 `
+        -Image $St.BotImage -LinkLabel 'Ver detalles técnicos' -OnLink { Show-StAboutDetails })
+}
+
+function Show-StAboutDetails {
+    $panel = New-StXamlElement @'
+<ScrollViewer MaxHeight="440" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,8,0">
   <StackPanel x:Name="List"/>
 </ScrollViewer>
 '@
     $list = $panel.FindName('List')
     foreach ($sec in $StAboutSections) {
         $row = New-StXamlElement @"
-<Border CornerRadius="14" Background="#0C1626" BorderBrush="#2A3C57" BorderThickness="1" Padding="14,12" Margin="0,0,0,10">
+<Border CornerRadius="14" Background="#0C1626" BorderBrush="#2A3C57" BorderThickness="1" Padding="16,14" Margin="0,0,0,10">
   <Grid>
-    <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-    <Border Width="30" Height="30" CornerRadius="9" Background="#20304A" VerticalAlignment="Top">
-      <TextBlock x:Name="Ico" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Foreground="$($sec.Color)" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Border Width="34" Height="34" CornerRadius="10" Background="#20304A" VerticalAlignment="Top">
+      <TextBlock x:Name="Ico" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" Foreground="$($sec.Color)" HorizontalAlignment="Center" VerticalAlignment="Center"/>
     </Border>
     <StackPanel Grid.Column="1">
-      <TextBlock x:Name="Ttl" Foreground="#F8FAFC" FontSize="15" FontWeight="Bold" TextWrapping="Wrap" Margin="0,4,0,6"/>
-      <TextBlock x:Name="Txt" Foreground="#DBE5F1" FontSize="13.5" TextWrapping="Wrap" LineHeight="21"/>
+      <TextBlock x:Name="Ttl" Foreground="#F8FAFC" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,4,0,6"/>
+      <TextBlock x:Name="Txt" Foreground="#DBE5F1" FontSize="16" TextWrapping="Wrap" LineHeight="23"/>
     </StackPanel>
   </Grid>
 </Border>
@@ -2453,14 +2888,7 @@ function Show-StAbout {
         Set-StRichText -Target $row.FindName('Txt') -Text $sec.Text
         [void]$list.Children.Add($row)
     }
-    $note = New-Object System.Windows.Controls.TextBlock
-    $note.TextWrapping = 'Wrap'
-    $note.FontSize = 12
-    $note.Foreground = '#7F93AE'
-    $note.Margin = '2,4,0,0'
-    $note.Text = 'SafeTech SpA es un vendedor independiente de licencias y servicio técnico en Antofagasta, Chile; no es distribuidor oficial de Microsoft. Microsoft, Office y Microsoft 365 son marcas de Microsoft Corporation.'
-    [void]$list.Children.Add($note)
-    $r = Show-StDialog -Kind 'info' -Kicker 'Transparencia' -Title '¿Cómo funciona este instalador?' -Message '' -Extra $panel -Buttons @('Entendido', 'Ver el código en GitHub')
+    $r = Show-StDialog -Kind 'info' -Title 'Detalles técnicos' -Message '' -Extra $panel -Buttons @('Cerrar', 'Ver el código en GitHub') -Width 760
     if ($St.SelfTest) { return $r }
     if ($r -eq 'Ver el código en GitHub') { Open-StUnelevated "https://github.com/$($StConfig.Repo)" }
 }
@@ -2472,7 +2900,7 @@ function Show-StManualActivation {
     $iidBox = New-StXamlElement @"
 <Border CornerRadius="14" Background="#0C1626" BorderBrush="#2A3C57" BorderThickness="1" Padding="16,12">
   <StackPanel>
-    <TextBlock Text="1. TU ID DE INSTALACI&#xD3;N" Foreground="#FCA5A5" FontSize="11" FontWeight="Black" Margin="0,0,0,6"/>
+    <TextBlock Text="1. Tu ID de instalación" Foreground="#F8FAFC" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6"/>
     <TextBox x:Name="Iid" IsReadOnly="True" Background="#00000000" BorderThickness="0" Foreground="#F8FAFC" FontFamily="Consolas" FontSize="15.5" TextWrapping="Wrap"/>
   </StackPanel>
 </Border>
@@ -2534,28 +2962,67 @@ function Complete-StActivation {
     Write-StLog "$($p.Name) activado correctamente."
     $sub = if ($Online) { 'La activación se completó en línea.' } else { 'La activación por teléfono se completó automáticamente.' }
     [void](Show-StDialog -Kind 'success' -Kicker 'Activación completa' -Title "¡$($p.Name) quedó activado!" -Message "$sub Ya puedes usar Word, Excel, PowerPoint y los demás programas." -Buttons @('Continuar'))
-    $St.UI.TxtDoneTitle.Text = "¡$($p.Name) quedó listo!"
-    $St.UI.TxtDoneText.Text = "Office está instalado y activado en este computador."
-    Set-StDoneList @("$($p.FullName) instalado", 'Licencia activada con tu clave', 'Actualizaciones automáticas de Microsoft activadas')
-    $St.UI.TxtDoneNote.Text = 'La activación queda asociada a este computador. Si formateas o reinstalas Windows, se pierde. Guarda el correo de tu compra.'
+    $St.UI.TxtDoneTitle.Text = "¡Listo! $($p.Name) quedó activado"
+    $St.UI.TxtDoneText.Text = 'Ya puedes usar Word, Excel y PowerPoint en este computador.'
+    Set-StDoneList @('E8A5|Word, Excel, PowerPoint y más, **instalados**', 'E8D7|**Activado** con tu licencia', 'E895|Se actualiza solo con Microsoft', 'E721|Para abrirlos después: botón **Inicio** y escribe **Word**')
+    $St.UI.TxtDoneNote.Text = 'Guarda el correo de tu compra. Si algún día reinstalas Windows, escríbenos y te ayudamos.'
+    Show-StDonePage -Stamp 'ACTIVADO'
+}
+
+function Set-StProgStamp {
+    param([string]$Text, [ValidateSet('pending', 'done')][string]$Kind = 'pending', [switch]$Animate)
+    $conv = New-Object System.Windows.Media.BrushConverter
+    $St.UI.TxtProgStamp.Text = $Text
+    $c = $(if ($Kind -eq 'done') { @('#34D399', '#34D399') } else { @('#F59E0B', '#FCD34D') })
+    $St.UI.ProgStamp.BorderBrush = $conv.ConvertFromString($c[0])
+    $St.UI.TxtProgStamp.Foreground = $conv.ConvertFromString($c[1])
+    Set-StStub -Label $St.UI.TxtProgStubLabel -Year $St.UI.TxtProgStubYear -Product $St.Product
+    if (-not $Animate -or $St.NoAnim) { return }
+    $ease = New-Object System.Windows.Media.Animation.BackEase; $ease.EasingMode = 'EaseOut'; $ease.Amplitude = 0.35
+    $dur = [System.Windows.Duration]::new([TimeSpan]::FromMilliseconds(300))
+    foreach ($prop in @([System.Windows.Media.ScaleTransform]::ScaleXProperty, [System.Windows.Media.ScaleTransform]::ScaleYProperty)) {
+        $a = [System.Windows.Media.Animation.DoubleAnimation]::new([double]1.7, [double]1, $dur); $a.EasingFunction = $ease
+        $St.UI.ProgStampScale.BeginAnimation($prop, $a)
+    }
+}
+
+function Show-StDonePage {
+    param([string]$Stamp)
+    Set-StStub -Label $St.UI.TxtDoneStubLabel -Year $St.UI.TxtDoneStubYear -Product $St.Product
+    $St.UI.TxtDoneStamp.Text = $Stamp
     $St.UI.DoneNote.Visibility = 'Visible'
     Show-StPage 'Done'
+    if ($St.NoAnim) { return }
+    # El sello cae sobre el comprobante.
+    $St.UI.DoneStamp.Opacity = 0
+    $ease = New-Object System.Windows.Media.Animation.BackEase; $ease.EasingMode = 'EaseOut'; $ease.Amplitude = 0.35
+    $dur = [System.Windows.Duration]::new([TimeSpan]::FromMilliseconds(320))
+    $begin = [TimeSpan]::FromMilliseconds(260)
+    $sx = [System.Windows.Media.Animation.DoubleAnimation]::new([double]1.6, [double]1, $dur); $sx.EasingFunction = $ease; $sx.BeginTime = $begin
+    $sy = [System.Windows.Media.Animation.DoubleAnimation]::new([double]1.6, [double]1, $dur); $sy.EasingFunction = $ease; $sy.BeginTime = $begin
+    $op = [System.Windows.Media.Animation.DoubleAnimation]::new([double]0, [double]1, [System.Windows.Duration]::new([TimeSpan]::FromMilliseconds(180))); $op.BeginTime = $begin
+    $St.UI.DoneStampScale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $sx)
+    $St.UI.DoneStampScale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $sy)
+    $St.UI.DoneStamp.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $op)
 }
 
 function Set-StDoneList {
+    # Cada elemento: "<código del ícono>|<texto con **negrita**>".
     param([string[]]$Items)
     $St.UI.StackDoneList.Children.Clear()
     foreach ($t in $Items) {
+        $parts = $t.Split('|', 2)
         $row = New-StXamlElement @"
-<Grid Margin="0,4">
-  <Grid.ColumnDefinitions><ColumnDefinition Width="32"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-  <Border Width="22" Height="22" CornerRadius="11" Background="#26059669">
-    <TextBlock Text="&#xE73E;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="11" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+<Grid Margin="0,5">
+  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+  <Border Width="34" Height="34" CornerRadius="17" Background="#26059669">
+    <TextBlock x:Name="I" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="15" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/>
   </Border>
-  <TextBlock Grid.Column="1" x:Name="T" Foreground="#DBE5F1" FontSize="14.5" VerticalAlignment="Center" TextWrapping="Wrap"/>
+  <TextBlock Grid.Column="1" x:Name="T" Foreground="#DBE5F1" FontSize="17" VerticalAlignment="Center" TextWrapping="Wrap"/>
 </Grid>
 "@
-        $row.FindName('T').Text = $t
+        $row.FindName('I').Text = [string][char][Convert]::ToInt32($parts[0], 16)
+        Set-StRichText -Target $row.FindName('T') -Text $parts[1]
         [void]$St.UI.StackDoneList.Children.Add($row)
     }
 }
@@ -2590,25 +3057,25 @@ $StTutorial = @(
        Body = @('El **correo y la contraseña de Microsoft 365** que te envió SafeTech.',
                 'Tu **celular con Internet**, por si Microsoft te pide instalar la app Microsoft Authenticator (algunas cuentas lo piden y otras no).',
                 '!Papel o una nota para **guardar la contraseña nueva** que vas a crear.')
-       Note = 'Si este computador es de tu **empresa, colegio o universidad**, consulta antes con quien lo administra: la cuenta puede entrar en conflicto con sus políticas.'; NoteKind = 'warn'
+       Note = 'si este computador es de tu **empresa, colegio o universidad**, consulta antes con quien lo administra: la cuenta puede entrar en conflicto con sus políticas.'; NoteKind = 'warn'
        Image = $null; Actions = @(); NeedsOffice = $false },
-    @{ Short = 'Iniciar sesión'; Title = 'Inicia sesión en el portal de Microsoft 365'
+    @{ Short = 'Entrar al portal'; Title = 'Inicia sesión en el portal de Microsoft 365'
        Body = @('Haz clic en **«Abrir el portal»**. Se abrirá tu navegador.',
                 'Escribe el **correo entregado por SafeTech** y presiona **Siguiente**.',
                 'Escribe la **contraseña temporal** que te enviamos.',
                 '!**No uses tu correo personal** en este paso.')
-       Note = 'Si en el navegador ya tienes abierta otra cuenta de Microsoft, abre una **ventana privada (Ctrl + Mayús + N)**, pega el enlace y entra desde ahí.'; NoteKind = 'info'
+       Note = 'Si el navegador entra solo con otra cuenta tuya, ciérrala arriba a la derecha («Cerrar sesión») y vuelve a pulsar «Abrir el portal». Si te enredas, escríbenos.'; NoteKind = 'info'
        Image = 'assets/tutorial/02-portal-inicio-sesion.jpg'; Actions = @('portal', 'copyPortal'); NeedsOffice = $false },
-    @{ Short = 'Nueva contraseña'; Title = 'Cambia la contraseña temporal'
+    @{ Short = 'Contraseña'; Title = 'Cambia la contraseña temporal'
        Body = @('La primera vez, Microsoft te pedirá **crear una contraseña nueva**.',
                 'En el primer campo escribe la **contraseña temporal**; en los otros dos, **tu contraseña nueva**.',
-                'Usa mayúsculas, minúsculas, números y un símbolo. Ejemplo: **MiClaveSegura123!**')
-       Note = '**Anota y guarda tu nueva contraseña ahora.** SafeTech no puede verla ni recuperarla después; si la pierdes, pierdes el acceso a la cuenta.'; NoteKind = 'critical'
-       Image = 'assets/tutorial/03-cambiar-contrasena.jpg'; Actions = @(); NeedsOffice = $false },
-    @{ Short = '¿Te pidió seguridad?'; Title = '¿Te apareció este mensaje?'
+                'Usa mayúsculas, minúsculas, números y un símbolo. Ejemplo: Perro#Azul2026 (inventa la tuya).')
+       Note = '**anótala ahora en un papel o sácale una foto.** SafeTech no puede verla ni recuperarla; si la pierdes, pierdes la cuenta.'; NoteKind = 'critical'
+       Image = 'assets/tutorial/03-cambiar-contrasena.jpg'; Actions = @(); NeedsOffice = $false; Confirm = 'Ya anoté mi nueva contraseña' },
+    @{ Short = 'Seguridad'; Title = '¿Te apareció este mensaje?'
        Body = @('Después de cambiar la contraseña, algunas cuentas muestran **«Vamos a garantizar la seguridad de la cuenta»** y piden instalar Microsoft Authenticator.',
                 'Otras cuentas no lo piden y entran directo. Depende de la cuenta que te entregamos.',
-                '!**Elige lo que te pasó a ti** con los botones de abajo.')
+                '!**Elige lo que te pasó a ti** con uno de los dos botones de abajo.')
        Note = 'Las dos situaciones son normales. Si no te apareció, **tu cuenta está bien** y te saltas esta parte.'; NoteKind = 'info'
        Image = 'assets/tutorial/04-garantizar-seguridad.jpg'; Actions = @('authYes', 'authNo'); NeedsOffice = $false },
     @{ Short = 'Authenticator'; Title = 'Instala Microsoft Authenticator en tu celular'
@@ -2630,7 +3097,7 @@ $StTutorial = @(
                 '!En tu celular abre la notificación de Authenticator, **escribe ese número** y toca **«Sí»** o **«Aprobar»**.',
                 'Cuando el computador diga **«Notificación aprobada»**, haz clic en **Siguiente** y luego en **Listo**.',
                 'Si Microsoft pide otro método (por ejemplo, tu número de teléfono), complétalo con el código que te llegue por SMS.')
-       Note = '**No borres la app ni la cuenta de tu celular**: Microsoft puede pedirte aprobar el ingreso otra vez. Si cambias de celular, **avísanos antes por WhatsApp**.'; NoteKind = 'critical'
+       Note = '**no borres la app ni la cuenta de tu celular**: Microsoft puede pedirte aprobar el ingreso otra vez. Si cambias de celular, **avísanos antes por WhatsApp**.'; NoteKind = 'critical'
        Image = $null; Actions = @(); NeedsOffice = $false },
     @{ Short = 'Abrir Word'; Title = 'Inicia sesión en Word'
        Body = @('Haz clic en **«Abrir Word»**.',
@@ -2642,13 +3109,13 @@ $StTutorial = @(
     @{ Short = 'Solo esta app'; Title = 'Elige «No, solo esta aplicación»'
        Body = @('Puede aparecer una ventana que pregunta si quieres iniciar sesión en **todas las aplicaciones del dispositivo**.',
                 '!Haz clic en **«No, solo esta aplicación»**.')
-       Note = '**No elijas «Sí».** La cuenta quedaría ligada al computador como cuenta de empresa y cambiaría su configuración. Esta cuenta solo debe usarse para activar Office.'; NoteKind = 'critical'
+       Note = '**no elijas «Sí».** La cuenta quedaría ligada al computador como cuenta de empresa y cambiaría su configuración. Esta cuenta solo debe usarse para activar Office.'; NoteKind = 'critical'
        Image = 'assets/tutorial/09-solo-esta-aplicacion.jpg'; Actions = @(); NeedsOffice = $true },
     @{ Short = 'Comprobar'; Title = 'Comprueba que Office quedó activado'
        Body = @('En Word ve a **Archivo > Cuenta**.',
                 '!Debe decir **«Producto de suscripción»** y **«Aplicaciones de Microsoft 365»**.',
                 'Si aparece «Producto sin licencia», **cierra todos los programas de Office**, vuelve a abrir Word y revisa otra vez.')
-       Note = '**No guardes archivos importantes en el OneDrive de esta cuenta**: Microsoft puede reducir o eliminar ese espacio sin aviso. Usa tu OneDrive personal.'; NoteKind = 'warn'
+       Note = '**no guardes archivos importantes en el OneDrive de esta cuenta**: Microsoft puede reducir o eliminar ese espacio sin aviso. Usa tu OneDrive personal.'; NoteKind = 'warn'
        Image = 'assets/tutorial/10-producto-activado.jpg'; Actions = @('check', 'word'); NeedsOffice = $true }
 )
 
@@ -2659,22 +3126,23 @@ function Initialize-StTutorialNav {
     foreach ($s in $StTutorial) {
         $i++
         $row = New-StXamlElement @"
-<Button Cursor="Hand" Margin="0,0,0,3" FocusVisualStyle="{x:Null}" Background="#00000000" BorderThickness="0" HorizontalContentAlignment="Stretch">
+<Button Cursor="Hand" Margin="0,0,0,2" FocusVisualStyle="{x:Null}" Background="#00000000" BorderThickness="0" HorizontalContentAlignment="Stretch">
   <Button.Template>
     <ControlTemplate TargetType="Button">
-      <Border x:Name="Bd" CornerRadius="12" Padding="10,8" Background="{TemplateBinding Background}"><ContentPresenter/></Border>
+      <Border x:Name="Bd" CornerRadius="12" Padding="10,5" MinHeight="42" Background="{TemplateBinding Background}" BorderBrush="#00000000" BorderThickness="2"><ContentPresenter VerticalAlignment="Center"/></Border>
       <ControlTemplate.Triggers>
         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#17243A"/></Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="#FCD34D"/></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate>
   </Button.Template>
   <Grid>
-    <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-    <Grid Width="24" Height="24">
-      <Ellipse x:Name="Dot" Stroke="#2A3C57" StrokeThickness="1.5"/>
-      <TextBlock x:Name="Num" Text="$i" FontSize="11.5" FontWeight="Bold" Foreground="#AEBDD0" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Grid Width="28" Height="28">
+      <Ellipse x:Name="Dot" Stroke="#8FA3BE" StrokeThickness="2"/>
+      <TextBlock x:Name="Num" Text="$i" FontSize="13" FontWeight="Bold" Foreground="#AEBDD0" HorizontalAlignment="Center" VerticalAlignment="Center"/>
     </Grid>
-    <TextBlock Grid.Column="1" x:Name="Lbl" Foreground="#AEBDD0" FontSize="13.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+    <TextBlock Grid.Column="1" x:Name="Lbl" Foreground="#AEBDD0" FontSize="16" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
   </Grid>
 </Button>
 "@
@@ -2757,7 +3225,6 @@ function Set-StTutorialStep {
     $ui = $St.UI
     $conv = New-Object System.Windows.Media.BrushConverter
     $n = $StTutorial.Count
-    $ui.TxtTutKicker.Text = "PASO $($Index + 1) DE $n"
     $ui.TxtTutTitle.Text = $s.Title
     $ui.StackTutBody.Children.Clear()
     $k = 0
@@ -2767,24 +3234,22 @@ function Set-StTutorialStep {
         $text = $line.TrimStart('!')
         if ($must) {
             $row = New-StXamlElement @"
-<Border CornerRadius="12" Background="#1FDC2626" BorderBrush="#66DC2626" BorderThickness="1" Padding="10,9" Margin="-10,0,0,10">
+<Border CornerRadius="14" Background="#20304A" BorderBrush="#405776" BorderThickness="1.5" Padding="14,12" Margin="-14,0,0,12">
   <Grid>
-    <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-    <Border Width="24" Height="24" CornerRadius="8" Background="#DC2626" VerticalAlignment="Top">
-      <TextBlock Text="$k" FontSize="12" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Border Width="28" Height="28" CornerRadius="14" Background="#DC2626" VerticalAlignment="Top">
+      <TextBlock Text="&#xE72A;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
     </Border>
-    <TextBlock Grid.Column="1" x:Name="T" Foreground="#F8FAFC" FontSize="15" TextWrapping="Wrap" LineHeight="23" Margin="0,1,0,0"/>
+    <TextBlock Grid.Column="1" x:Name="T" Foreground="#F8FAFC" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" LineHeight="26" Margin="0,1,0,0"/>
   </Grid>
 </Border>
 "@
         } else {
             $row = New-StXamlElement @"
-<Grid Margin="0,0,0,10">
-  <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-  <Border Width="24" Height="24" CornerRadius="8" Background="#20304A" VerticalAlignment="Top">
-    <TextBlock Text="$k" FontSize="12" FontWeight="Bold" Foreground="#FCA5A5" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-  </Border>
-  <TextBlock Grid.Column="1" x:Name="T" Foreground="#DBE5F1" FontSize="15" TextWrapping="Wrap" LineHeight="23" Margin="0,1,0,0"/>
+<Grid Margin="0,0,0,12">
+  <Grid.ColumnDefinitions><ColumnDefinition Width="26"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+  <Ellipse Width="8" Height="8" Fill="#AEBDD0" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="4,10,0,0"/>
+  <TextBlock Grid.Column="1" x:Name="T" Foreground="#DBE5F1" FontSize="17" TextWrapping="Wrap" LineHeight="26"/>
 </Grid>
 "@
         }
@@ -2798,20 +3263,23 @@ function Set-StTutorialStep {
     } elseif ($Index -eq 3 -and $St.Tut.Auth -eq $false) {
         $noteText = 'Respondiste que no te apareció: **está todo bien**. Presiona «Siguiente» para continuar en Word.'
     }
-    Set-StRichText -Target $ui.TxtTutNote -Text $noteText
     $noteMap = @{
-        info     = @('#140891B2', '#4D0891B2', '#67E8F9', [char]0xE946, 'CONSEJO', '1')
-        warn     = @('#1AF59E0B', '#80F59E0B', '#FCD34D', [char]0xE7BA, 'IMPORTANTE', '1.5')
-        critical = @('#26DC2626', '#B3DC2626', '#FCA5A5', [char]0xE7BA, 'MUY IMPORTANTE · LÉELO', '2')
+        info     = @('#17243A', '#405776', '#AEBDD0', [char]0xE946, '', '1.5')
+        warn     = @('#1AF59E0B', '#80F59E0B', '#FCD34D', [char]0xE7BA, 'Importante: ', '1.5')
+        critical = @('#26F59E0B', '#F59E0B', '#FCD34D', [char]0xE7BA, 'Muy importante: ', '2.5')
     }[$noteKind]
+    Set-StRichText -Target $ui.TxtTutNote -Text $(if ($noteMap[4]) { '**' + $noteMap[4] + '**' + $noteText } else { $noteText })
     $ui.TutNote.Background = $conv.ConvertFromString($noteMap[0])
     $ui.TutNote.BorderBrush = $conv.ConvertFromString($noteMap[1])
     $ui.TutNote.BorderThickness = $noteMap[5]
     $ui.TutNoteIcon.Foreground = $conv.ConvertFromString($noteMap[2])
     $ui.TutNoteIcon.Text = [string]$noteMap[3]
-    $ui.TxtTutNoteLabel.Text = $noteMap[4]
-    $ui.TxtTutNoteLabel.Foreground = $conv.ConvertFromString($noteMap[2])
+    $ui.TxtTutNoteLabel.Visibility = 'Collapsed'
     $ui.TxtTutNote.Foreground = $conv.ConvertFromString($(if ($noteKind -eq 'info') { '#DBE5F1' } else { '#F8FAFC' }))
+    # El aviso crítico va antes de los botones (se lee antes de confirmar); los consejos, después.
+    [void]$ui.TutContent.Children.Remove($ui.TutNote)
+    $pos = $ui.TutContent.Children.IndexOf($ui.StackTutActions)
+    if ($noteKind -eq 'critical') { $ui.TutContent.Children.Insert($pos, $ui.TutNote) } else { $ui.TutContent.Children.Insert($pos + 1, $ui.TutNote) }
     $ui.TutNote.Visibility = $(if ($s.Note) { 'Visible' } else { 'Collapsed' })
 
     $ui.StackTutActions.Children.Clear()
@@ -2824,18 +3292,32 @@ function Set-StTutorialStep {
             'copyPortal' { $b.Content = 'Copiar el enlace'; $b.Style = $St.Window.FindResource('BtnSoft') }
             'word' { $b.Content = 'Abrir Word'; $b.Style = $St.Window.FindResource($(if ($s.Actions[0] -eq 'word') { 'BtnPrimary' } else { 'BtnSoft' })) }
             'check' { $b.Content = 'Comprobar la activación'; $b.Style = $St.Window.FindResource('BtnPrimary') }
-            'authYes' { $b.Content = 'Sí, me apareció'; $b.Style = $St.Window.FindResource($(if ($St.Tut.Auth -eq $false) { 'BtnSoft' } else { 'BtnPrimary' })) }
-            'authNo' { $b.Content = 'No me apareció'; $b.Style = $St.Window.FindResource($(if ($St.Tut.Auth -eq $false) { 'BtnPrimary' } else { 'BtnSoft' })) }
+            'authYes' { $b.Content = 'Sí, me apareció'; $b.Style = $St.Window.FindResource($(if ($St.Tut.Auth -eq $true) { 'BtnPrimary' } else { 'BtnSoft' })); $b.MinWidth = 220 }
+            'authNo' { $b.Content = 'No, entré directo'; $b.Style = $St.Window.FindResource($(if ($St.Tut.Auth -eq $false) { 'BtnPrimary' } else { 'BtnSoft' })); $b.MinWidth = 220 }
         }
         $b.Add_Click({ param($sender, $e) Invoke-StTutorialAction ([string]$sender.Tag) $sender })
         [void]$ui.StackTutActions.Children.Add($b)
     }
-    $ui.StackTutActions.Visibility = $(if ($s.Actions.Count) { 'Visible' } else { 'Collapsed' })
+    if ($s.ContainsKey('Confirm') -and $s.Confirm) {
+        $chk = New-Object System.Windows.Controls.CheckBox
+        $chk.Style = $St.Window.FindResource('Check')
+        $chk.Content = $s.Confirm
+        $chk.Margin = '0,4,0,10'
+        $chk.MinWidth = 380
+        $chk.IsChecked = [bool]$St.Tut.Checked[$Index]
+        $chk.Tag = $Index
+        $chk.Add_Checked({ param($sender, $e) $St.Tut.Checked[[int]$sender.Tag] = $true; $St.UI.BtnTutNext.IsEnabled = $true })
+        $chk.Add_Unchecked({ param($sender, $e) $St.Tut.Checked[[int]$sender.Tag] = $false; $St.UI.BtnTutNext.IsEnabled = $false })
+        [void]$ui.StackTutActions.Children.Add($chk)
+    }
+    $ui.StackTutActions.Visibility = $(if ($ui.StackTutActions.Children.Count) { 'Visible' } else { 'Collapsed' })
 
     $img = $null
     if ($s.Image) { $img = Get-StImage $s.Image }
     $ui.ImgTut.Source = $img
     $ui.TutImageFrame.Visibility = $(if ($img) { 'Visible' } else { 'Collapsed' })
+    [System.Windows.Controls.Grid]::SetColumnSpan($ui.TutScroll, $(if ($img) { 1 } else { 2 }))
+    $ui.TutContent.MaxWidth = $(if ($img) { [double]::PositiveInfinity } else { 760 })
 
     for ($i = 0; $i -lt $St.TutRows.Count; $i++) {
         $r = $St.TutRows[$i]
@@ -2852,21 +3334,28 @@ function Set-StTutorialStep {
             $lbl.Foreground = $conv.ConvertFromString('#DBE5F1'); $lbl.FontWeight = 'Normal'
         } else {
             $r.Background = $conv.ConvertFromString('#00000000')
-            $dot.Fill = $conv.ConvertFromString('#00000000'); $dot.Stroke = $conv.ConvertFromString('#2A3C57')
+            $dot.Fill = $conv.ConvertFromString('#00000000'); $dot.Stroke = $conv.ConvertFromString('#8FA3BE')
             $num.Foreground = $conv.ConvertFromString('#AEBDD0'); $num.Text = [string]($i + 1); $num.FontFamily = 'Segoe UI'
             $lbl.Foreground = $conv.ConvertFromString('#AEBDD0'); $lbl.FontWeight = 'Normal'
-            if (Test-StTutorialBlocked $i) { $lbl.Foreground = $conv.ConvertFromString('#5D7391') }
+            if (Test-StTutorialBlocked $i) { $lbl.Foreground = $conv.ConvertFromString('#8FA3BE') }
         }
         if ($i -ne $Index -and (Test-StAuthSkipped $i)) {
             $dot.Fill = $conv.ConvertFromString('#00000000'); $dot.Stroke = $conv.ConvertFromString('#2A3C57')
-            $num.Foreground = $conv.ConvertFromString('#5D7391'); $num.Text = [string][char]0xE738; $num.FontFamily = 'Segoe Fluent Icons, Segoe MDL2 Assets'
-            $lbl.Foreground = $conv.ConvertFromString('#5D7391'); $lbl.FontWeight = 'Normal'
+            $num.Foreground = $conv.ConvertFromString('#8FA3BE'); $num.Text = [string][char]0xE738; $num.FontFamily = 'Segoe Fluent Icons, Segoe MDL2 Assets'
+            $lbl.Foreground = $conv.ConvertFromString('#8FA3BE'); $lbl.FontWeight = 'Normal'
+            $lbl.Text = $StTutorial[$i].Short
+            $r.ToolTip = 'No hizo falta en tu cuenta'
+        } else {
+            $lbl.Text = $StTutorial[$i].Short
         }
     }
     # En el primer paso, «Atrás» vuelve a la pantalla principal (salvo mientras se instala Microsoft 365).
     $ui.BtnTutBack.IsEnabled = ($Index -gt 0 -or -not (Test-StInstalling365))
     $ui.TxtTutNext.Text = $(if ($Index -eq $n - 1) { 'Terminar' } else { 'Siguiente' })
-    $ui.TxtTutProgress.Text = "Paso $($Index + 1) de $n · $([Math]::Round((($Index + 1) / $n) * 100))%"
+    # En la pregunta de seguridad se responde con los dos botones; en la contraseña hay que confirmar que se anotó.
+    $ui.BtnTutNext.Visibility = $(if ($Index -eq 3 -and $null -eq $St.Tut.Auth) { 'Collapsed' } else { 'Visible' })
+    $ui.BtnTutNext.IsEnabled = -not ($s.ContainsKey('Confirm') -and $s.Confirm -and -not $St.Tut.Checked[$Index])
+    $ui.TxtTutProgress.Text = "Paso $($Index + 1) de $n"
     $trackWidth = $ui.TutProgFill.Parent.ActualWidth
     if ($trackWidth -le 0) { $trackWidth = 520 }
     $target = [double]($trackWidth * (($Index + 1) / $n))
@@ -2906,18 +3395,18 @@ function Invoke-StTutorialAction {
 }
 
 function Complete-StTutorial {
-    $St.UI.TxtDoneTitle.Text = '¡Microsoft 365 quedó listo!'
+    if (-not $St.Product) { $St.Product = Get-StProduct '365' }
+    $St.UI.TxtDoneTitle.Text = '¡Listo! Microsoft 365 quedó conectado'
     $St.UI.TxtDoneText.Text = 'Ya puedes usar Word, Excel, PowerPoint y Outlook con la cuenta que te entregamos.'
     if ($St.Tut.Auth -eq $false) {
-        Set-StDoneList @('Aplicaciones de Microsoft 365 instaladas', 'Cuenta de SafeTech conectada en Office', 'Contraseña nueva creada')
+        Set-StDoneList @('E8A5|Aplicaciones de Microsoft 365 **instaladas**', 'E77B|Cuenta de SafeTech **conectada** en Office', 'E72E|Contraseña nueva creada')
         $St.UI.TxtDoneNote.Text = 'Guarda tu nueva contraseña: SafeTech no puede recuperarla. La garantía dura 1 año desde la compra.'
     } else {
-        Set-StDoneList @('Aplicaciones de Microsoft 365 instaladas', 'Cuenta de SafeTech conectada en Office', 'Microsoft Authenticator configurado en tu celular')
+        Set-StDoneList @('E8A5|Aplicaciones de Microsoft 365 **instaladas**', 'E77B|Cuenta de SafeTech **conectada** en Office', 'E8EA|Microsoft Authenticator listo en tu celular')
         $St.UI.TxtDoneNote.Text = 'Guarda tu nueva contraseña y no borres Microsoft Authenticator de tu celular. La garantía dura 1 año desde la compra.'
     }
-    $St.UI.DoneNote.Visibility = 'Visible'
-    if ($St.StepRows.ContainsKey('account')) { Set-StUiStep 'account' 'done' }
-    Show-StPage 'Done'
+    if ($St.StepRows -and $St.StepRows.ContainsKey('account')) { Set-StUiStep 'account' 'done' }
+    Show-StDonePage -Stamp 'CONECTADO'
 }
 
 # ==============================================================================
@@ -2941,6 +3430,8 @@ $St.Pool.Open()
 # Logo e icono
 $logo = Get-StImage 'assets/logo-safetech-dark.png'
 if ($logo) { $St.UI.ImgLogo.Source = $logo } else { $St.UI.ImgLogo.Visibility = 'Collapsed'; $St.UI.LogoFallback.Visibility = 'Visible' }
+$bot = Get-StImage 'assets/safebot.png'
+if ($bot) { $St.UI.ImgBot.Source = $bot; $St.BotImage = $bot } else { $St.UI.ImgBot.Visibility = 'Collapsed' }
 $icon = Get-StImage 'assets/icono.png'
 if ($icon) { $St.Window.Icon = $icon }
 
@@ -2957,25 +3448,17 @@ if ($StMode -eq 'app') {
 $ui = $St.UI
 $ui.BtnMin.Add_Click({ $St.Window.WindowState = 'Minimized' })
 $ui.BtnMax.Add_Click({ $St.Window.WindowState = $(if ($St.Window.WindowState -eq 'Maximized') { 'Normal' } else { 'Maximized' }) })
-$St.Window.Add_StateChanged({
-    # Con WindowChrome la ventana maximizada sobresale unos pixeles de la pantalla: se compensa con un margen.
-    if ($St.Window.WindowState -eq 'Maximized') {
-        $St.UI.RootBorder.Margin = '7'
-        $St.UI.RootBorder.BorderThickness = '0'
-        $St.UI.BtnMax.Content = [string][char]0xE923
-        $St.UI.BtnMax.ToolTip = 'Restaurar'
-    } else {
-        $St.UI.RootBorder.Margin = '0'
-        $St.UI.RootBorder.BorderThickness = '1'
-        $St.UI.BtnMax.Content = [string][char]0xE922
-        $St.UI.BtnMax.ToolTip = 'Maximizar'
-    }
+$St.Window.Add_StateChanged({ Update-StWindowFrame })
+$St.Window.Add_SizeChanged({ Update-StScale })
+$St.Window.Add_ContentRendered({
+    if ($St.SelfTest -or $St.AboutShown) { return }
+    $St.AboutShown = $true
+    Show-StAbout -Welcome
 })
 $ui.BtnClose.Add_Click({ $St.Window.Close() })
 $ui.BtnHelpCenter.Add_Click({ Open-StUnelevated $StConfig.HelpUrl })
 $ui.BtnAbout.Add_Click({ Show-StAbout })
-$ui.BtnAboutHome.Add_Click({ Show-StAbout })
-$ui.BtnHelpWa.Add_Click({ Open-StUnelevated $StConfig.WhatsAppUrl })
+$ui.BtnHelpWa.Add_Click({ Open-StWhatsApp -Message 'Hola SafeTech, necesito ayuda con el instalador de Office.' })
 
 $ui.BtnPick2024.Add_Click({ Select-StProduct '2024' })
 $ui.BtnPick2021.Add_Click({ Select-StProduct '2021' })
@@ -2998,6 +3481,13 @@ $ui.InKey.Add_TextChanged({
     if ($St.KeyFormatting) { return }
     $St.KeyFormatting = $true
     try {
+        $raw = $St.UI.InKey.Text
+        if ($raw.Length -gt 29) {
+            $found = Find-StPurchaseData -Text $raw
+            if ($found.Key) { $raw = $found.Key }
+            if ($found.Code -and -not $St.UI.InCode.Text) { $St.UI.InCode.Text = $found.Code }
+        }
+        if ($raw -ne $St.UI.InKey.Text) { $St.UI.InKey.Text = $raw }
         $fmt = Format-StProductKey $St.UI.InKey.Text
         if ($fmt -ne $St.UI.InKey.Text) {
             $St.UI.InKey.Text = $fmt
@@ -3008,6 +3498,10 @@ $ui.InKey.Add_TextChanged({
 })
 $ui.InCode.Add_TextChanged({
     $t = $St.UI.InCode.Text
+    if ($t.Length -gt 12) {
+        $found = Find-StPurchaseData -Text $t
+        if ($found.Code) { $St.UI.InCode.Text = $found.Code; return }
+    }
     $up = $t.ToUpperInvariant()
     if ($up -ne $t) { $caret = $St.UI.InCode.CaretIndex; $St.UI.InCode.Text = $up; $St.UI.InCode.CaretIndex = $caret }
     $St.CodeState = 'typing'
@@ -3020,6 +3514,8 @@ $St.CodeTimer.Interval = [TimeSpan]::FromMilliseconds(450)
 $St.CodeTimer.Add_Tick({ $St.CodeTimer.Stop(); Start-StCodeCheck })
 
 $ui.BtnDataBack.Add_Click({ Show-StPage 'Home' })
+$ui.BtnPasteKey.Add_Click({ Invoke-StPaste -Target 'key' })
+$ui.BtnPasteCode.Add_Click({ Invoke-StPaste -Target 'code' })
 $ui.BtnDataNext.Add_Click({
     $St.Act = @{ Key = $St.UI.InKey.Text; Code = (ConvertTo-StAccessCode $St.UI.InCode.Text) }
     if ($St.Mode -eq 'activate') { Start-StActivationFlow } else { Show-StConfirmPage }
@@ -3065,10 +3561,30 @@ $ui.BtnErrZip.Add_Click({
         param($ok, $zip, $err)
         $St.UI.BtnErrZip.IsEnabled = $true
         if ($ok) {
-            $c = Show-StDialog -Kind 'success' -Title 'ZIP de diagnóstico creado' -Message "Lo dejamos en tu Escritorio:`n$zip`n`nEnvíalo por WhatsApp al $($StConfig.WhatsApp) o a $($StConfig.Email)." -Buttons @('Mostrar el archivo', 'Cerrar')
+            $c = Show-StDialog -Kind 'success' -Title 'Informe guardado' -Message "Lo dejamos en tu Escritorio:`n$zip`n`nEnvíalo por WhatsApp al $($StConfig.WhatsApp) o a $($StConfig.Email)." -Buttons @('Mostrar el archivo', 'Cerrar')
             if ($c -eq 'Mostrar el archivo') { Start-Process (Join-Path $env:SystemRoot 'explorer.exe') -ArgumentList "/select,`"$zip`"" }
         } else {
             [void](Show-StDialog -Kind 'error' -Title 'No pudimos crear el ZIP' -Message "$err`n`nLos registros están en: $($St.LogDir)" -Buttons @('Cerrar'))
+        }
+    }
+})
+
+$ui.BtnErrWa.Add_Click({
+    Initialize-StLogs
+    $St.UI.BtnErrWa.IsEnabled = $false
+    $name = $(if ($St.Product) { $St.Product.Name } else { 'Office' })
+    $St.WaProduct = $name
+    Start-StAsync -Params @{ Dir = $St.LogDir } -Work { New-StDiagnosticZip -LogDir $P.Dir } -OnDone {
+        param($ok, $zip, $err)
+        $St.UI.BtnErrWa.IsEnabled = $true
+        $msg = "Hola SafeTech, el instalador de $($St.WaProduct) no pudo terminar."
+        if ($ok -and $zip) {
+            $msg += ' Te envío el archivo del informe que quedó en mi Escritorio.'
+            try { Start-Process (Join-Path $env:SystemRoot 'explorer.exe') -ArgumentList "/select,`"$zip`"" } catch { }
+        }
+        Open-StWhatsApp -Message $msg
+        if ($ok -and $zip) {
+            [void](Show-StDialog -Kind 'info' -Title 'Adjunta el informe en WhatsApp' -Message "Abrimos WhatsApp y la carpeta con el informe.`n`nEn WhatsApp, pulsa el clip (Adjuntar), elige «Documento» y selecciona el archivo que empieza con SafeTech-Diagnostico." -Buttons @('Entendido'))
         }
     }
 })
@@ -3118,55 +3634,91 @@ if ($StMode -eq 'selftest') {
         $enc.Save($fs); $fs.Close()
         Write-Host "Captura: $Name ($w x $h)"
     }
-    $root = $St.Window.Content
-    Show-StPage 'Home'; Save-StShot $root '01-inicio'
-    $St.Window.Width = 1500; $St.Window.Height = 940
-    Save-StShot $root '01b-inicio-grande'
-    $St.Window.Width = 1080; $St.Window.Height = 740
+    function Save-StShotAt {
+        # Dibuja la ventana como si estuviera maximizada en una pantalla de W x H (el runner tiene pantalla chica).
+        param([string]$Name, [int]$W = 1366, [int]$H = 728)
+        $root = $St.Window.Content
+        $St.Window.Content = $null
+        $holder = New-Object System.Windows.Controls.Border
+        $holder.Background = $St.Window.Background
+        try { $holder.Resources.MergedDictionaries.Add($St.Window.Resources) } catch { Write-Host "Aviso recursos: $($_.Exception.Message)" }
+        [System.Windows.Documents.TextElement]::SetFontFamily($holder, $St.Window.FontFamily)
+        [System.Windows.Documents.TextElement]::SetFontSize($holder, $St.Window.FontSize)
+        [System.Windows.Documents.TextElement]::SetForeground($holder, $St.Window.Foreground)
+        [System.Windows.Media.TextOptions]::SetTextFormattingMode($holder, 'Ideal')
+        $holder.Child = $root
+        $St.UI.RootBorder.Margin = '0'; $St.UI.RootBorder.BorderThickness = '0'
+        $scale = [Math]::Max(0.8, [Math]::Min(1.4, [Math]::Min($W / 1280, $H / 760)))
+        $St.UI.RootScale.ScaleX = $scale; $St.UI.RootScale.ScaleY = $scale
+        try {
+            $holder.Measure((New-Object System.Windows.Size $W, $H))
+            $holder.Arrange((New-Object System.Windows.Rect 0, 0, $W, $H))
+            $holder.UpdateLayout()
+            if ($St.CurrentPage -eq 'Progress') { Update-StStepLayout; $holder.UpdateLayout() }
+            if ($St.CurrentPage -eq 'Tutorial') { Set-StTutorialStep -Index $St.Tut.Index; $holder.UpdateLayout() }
+            $rtb = New-Object System.Windows.Media.Imaging.RenderTargetBitmap $W, $H, 96, 96, ([System.Windows.Media.PixelFormats]::Pbgra32)
+            $rtb.Render($holder)
+            $enc = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
+            $enc.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($rtb))
+            $fs = [IO.File]::Create((Join-Path $out "$Name.png"))
+            $enc.Save($fs); $fs.Close()
+            Write-Host "Captura: $Name ($W x $H, escala $([Math]::Round($scale, 2)))"
+        } finally {
+            $holder.Child = $null
+            $St.Window.Content = $root
+        }
+    }
+    Show-StPage 'Home'
+    Save-StShotAt '01-inicio' 1366 728
+    Save-StShotAt '01b-inicio-fullhd' 1920 1040
+    Save-StShotAt '01c-inicio-chico' 1280 680
     $St.Product = Get-StProduct '2024'; $St.Mode = 'install'
     Show-StDataPage
-    $St.UI.InKey.Text = 'ABCDE12345FGHIJ67890KLMNO'
-    $St.UI.InCode.Text = 'ST-AB12CD'
+    $St.UI.InKey.Text = 'Tu clave: abcde-12345-fghij-67890-klmno  Código: ST-AB12CD'
     $St.CodeTimer.Stop()
     Set-StCodeChip 'valid' 'Válido · 3 créditos'
-    Save-StShot $root '02-datos'
+    Save-StShotAt '02-datos'
     Show-StConfirmPage
     $St.UI.ChkConfirm.IsChecked = $true
-    Save-StShot $root '03-confirmar'
+    Save-StShotAt '03-confirmar'
     Initialize-StSteps @('check', 'restore', 'download', 'clean', 'remove', 'install', 'verify', 'act_key', 'act_iid', 'act_cid', 'act_confirm')
     foreach ($id in @('check', 'restore', 'download', 'clean')) { Set-StUiStep $id 'done' }
     Set-StUiStep 'remove' 'skip'
-    Set-StUiStep 'install' 'running' 'Instalando Office 2024. Se abrió la ventana de Microsoft con el avance; déjala trabajar, se cierra sola.'
+    Set-StUiStep 'install' 'running' 'Se abrió la ventana de Microsoft con el avance: déjala trabajar, se cierra sola.'
     $St.UI.TxtProgTitle.Text = 'Instalando Office 2024'
     $St.UI.TxtElapsed.Text = '07:42'
-    Show-StPage 'Progress'; Save-StShot $root '04-avance'
+    Set-StProgStamp -Text 'PENDIENTE' -Kind 'pending'
+    Show-StPage 'Progress'; Save-StShotAt '04-avance'
     $St.Product = Get-StProduct '365'
+    $St.UI.TxtProgTitle.Text = 'Instalando Microsoft 365'
+    Set-StProgStamp -Text 'PENDIENTE' -Kind 'pending'
     $St.UI.PanelTutorialPromo.Visibility = 'Visible'
-    Save-StShot $root '05-avance-365'
+    Save-StShotAt '05-avance-365'
     $St.Mode = 'tutorial'
-    Show-StTutorial -Index 1; Save-StShot $root '06-tutorial-paso2'
-    Set-StTutorialStep -Index 2; Save-StShot $root '06a-tutorial-contrasena'
-    Set-StTutorialStep -Index 3; Save-StShot $root '06b-tutorial-pregunta'
+    Show-StTutorial -Index 1; Save-StShotAt '06-tutorial-paso2'
+    Save-StShotAt '06c-tutorial-fullhd' 1920 1040
+    Set-StTutorialStep -Index 2; Save-StShotAt '06a-tutorial-contrasena'
+    Set-StTutorialStep -Index 3; Save-StShotAt '06b-tutorial-pregunta'
     $St.Tut.Auth = $false
-    Set-StTutorialStep -Index 8; Save-StShot $root '07-tutorial-paso9'
+    Set-StTutorialStep -Index 8; Save-StShotAt '07-tutorial-paso9'
+    Set-StTutorialStep -Index 6; Save-StShotAt '07b-tutorial-sin-imagen'
     $St.Product = Get-StProduct '2024'
-    $St.UI.TxtDoneTitle.Text = '¡Office 2024 quedó listo!'
-    $St.UI.TxtDoneText.Text = 'Office está instalado y activado en este computador.'
-    Set-StDoneList @('Office LTSC Profesional Plus 2024 instalado', 'Licencia activada con tu clave', 'Actualizaciones automáticas de Microsoft activadas')
-    $St.UI.TxtDoneNote.Text = 'La activación queda asociada a este computador. Si formateas o reinstalas Windows, se pierde.'
-    Show-StPage 'Done'; Save-StShot $root '08-listo'
+    $St.UI.TxtDoneTitle.Text = '¡Listo! Office 2024 quedó activado'
+    $St.UI.TxtDoneText.Text = 'Ya puedes usar Word, Excel y PowerPoint en este computador.'
+    Set-StDoneList @('E8A5|Word, Excel, PowerPoint y más, **instalados**', 'E8D7|**Activado** con tu licencia', 'E895|Se actualiza solo con Microsoft', 'E721|Para abrirlos después: botón **Inicio** y escribe **Word**')
+    $St.UI.TxtDoneNote.Text = 'Guarda el correo de tu compra. Si algún día reinstalas Windows, escríbenos y te ayudamos.'
+    Show-StDonePage -Stamp 'ACTIVADO'; Save-StShotAt '08-listo'
     $St.ErrRetry = { }
     Show-StError -Title 'No pudimos instalar Office 2024' -Detail 'No pudimos conectarnos con los servidores de Microsoft. Revisa tu conexión a Internet.' -OnRetry { }
-    Save-StShot $root '09-error'
+    Save-StShotAt '09-error'
     $St.Act = @{ Iid = '123456712345671234567123456712345671234567123456712345671234567' }
-    $dlg = Show-StDialog -Kind 'success' -Kicker 'Instalación lista' -Title 'Office 2024 quedó instalado' -Message 'Ahora lo activaremos automáticamente con tu clave y tu código SafeTech. No necesitas abrir Word ni escribir números.' -Buttons @('Activar ahora')
+    $dlg = Show-StDialog -Kind 'success' -Title 'Office 2024 quedó instalado' -Message 'Ahora lo activaremos automáticamente con tu clave y tu código SafeTech. No necesitas abrir Word ni escribir números.' -Buttons @('Activar ahora')
     $dlg.Show(); Save-StShot $dlg '10-ventana-emergente'; $dlg.Close()
-    $f = New-StDialogField -Label 'Código de activación SafeTech' -Placeholder 'ST-XXXXXX' -MaxLength 12 -Hint 'Lo encuentras en el correo de tu compra.'
-    $f.Box.Style = $St.Window.FindResource('Field')
-    $dlg = Show-StDialog -Kind 'warn' -Title 'No pudimos generar el ID de confirmación' -Message 'Código no válido. Verifica que esté escrito correctamente.' -Extra $f.Panel -Buttons @('Usar otro código', 'Activar manualmente', 'Cancelar')
+    $f = New-StDialogField -Label 'Código de activación SafeTech' -Placeholder 'ST-XXXXXX' -Value 'ST-AB12CO' -MaxLength 40 -Hint 'Revisa que empiece con ST- y que no confundas 0 (cero) con la letra O.'
+    $dlg = Show-StDialog -Kind 'warn' -Title 'Tu código SafeTech no funcionó' -Message "El código no es válido o ya se usó.`nCódigo no válido. Verifica que esté escrito correctamente." -Extra $f.Panel -Buttons @('Cancelar', 'Probar este código') -Primary 'Probar este código' -LinkLabel 'Activar de otra forma' -Width 640
     $dlg.Show(); Save-StShot $dlg '11-ventana-codigo'; $dlg.Close()
-    $dlg = Show-StAbout
-    $dlg.Show(); Save-StShot $dlg '12-como-funciona'; $dlg.Close()
+    $dlg = Show-StAbout -Welcome
+    $dlg.Show(); Save-StShot $dlg '12-bienvenida'; $dlg.Close()
     $St.Window.Close()
     Write-Host "Autoprueba completa: $out"
     return
@@ -3184,5 +3736,7 @@ try {
 } catch { }
 
 Show-StPage 'Home'
+$St.Window.WindowState = 'Maximized'
+Update-StWindowFrame
 [void]$St.Window.ShowDialog()
 if ($env:SAFETECH_OFFICE_CHILD -eq '1') { [Environment]::Exit(0) }
