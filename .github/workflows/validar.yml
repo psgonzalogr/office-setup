@@ -1,0 +1,61 @@
+name: Validar instalador
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validar:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sintaxis (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          $text = [IO.File]::ReadAllText("$PWD\office.ps1", [Text.Encoding]::UTF8)
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseInput($text, [ref]$null, [ref]$errors)
+          if ($errors) { $errors | Format-List; exit 1 }
+          Write-Host 'Sintaxis correcta.'
+
+      - name: PSScriptAnalyzer (errores)
+        shell: powershell
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -Repository PSGallery
+          $r = Invoke-ScriptAnalyzer -Path office.ps1 -Severity Error
+          $r | Format-Table -AutoSize -Wrap
+          if ($r) { exit 1 }
+          Write-Host 'Sin errores de PSScriptAnalyzer.'
+
+      - name: Pruebas (Pester)
+        shell: powershell
+        run: |
+          Install-Module Pester -MinimumVersion 5.5.0 -Force -SkipPublisherCheck -Scope CurrentUser -Repository PSGallery
+          Import-Module Pester -MinimumVersion 5.5.0
+          $c = New-PesterConfiguration
+          $c.Run.Path = 'tests'
+          $c.Run.Exit = $true
+          $c.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $c
+
+      - name: Autoprueba de la interfaz (capturas)
+        shell: powershell
+        run: |
+          $env:SAFETECH_OFFICE_MODE = 'selftest'
+          $env:SAFETECH_OFFICE_ASSETS = "$PWD"
+          $env:SAFETECH_OFFICE_OUT = "$PWD\capturas"
+          $text = [IO.File]::ReadAllText("$PWD\office.ps1", [Text.Encoding]::UTF8)
+          Invoke-Expression $text
+          $n = @(Get-ChildItem capturas -Filter *.png).Count
+          Write-Host "Capturas generadas: $n"
+          if ($n -lt 11) { throw 'Faltan capturas de la interfaz.' }
+
+      - name: Subir capturas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas
+          path: capturas
+          if-no-files-found: ignore
