@@ -273,3 +273,80 @@ function Invoke-StOspp {
         $out | Should -Contain ('iid=' + ('2' * 63))
     }
 }
+
+Describe 'Flujo completo de activación en segundo plano (salida real de OSPP)' {
+    BeforeAll {
+        $fake = @'
+function Invoke-StOspp {
+    param([string[]]$Arguments, [string]$OsppPath)
+    $a = $Arguments -join ' '
+    if ($a -match 'dinstid') { $t = "Installation ID for: Office 21, Office21ProPlus2021MSDNR_Retail edition: " + ('2' * 63) }
+    elseif ($a -match '/act') { $t = "---Processing---`nERROR CODE: 0xC004C008`n---Exiting---" }
+    else { $t = @"
+---Processing--------------------------
+---------------------------------------
+PRODUCT ID: 00502-65321-66671-AA139
+SKU ID: 84e442c0-87a0-49b5-bcd1-b161b0b35e4b
+LICENSE NAME: Office 24, Office24ProPlus2024VL_MAK_AE2 edition
+LICENSE DESCRIPTION: Office 24, RETAIL(MAK) channel
+BETA EXPIRATION: 01-01-1601
+LICENSE STATUS:  ---OOB_GRACE---
+ERROR CODE: 0x4004F00C
+ERROR DESCRIPTION: The Software Licensing Service reported that the application is running within the valid grace period.
+REMAINING GRACE: 29 days  (43167 minute(s) before expiring)
+Last 5 characters of installed product key: 687GD
+---------------------------------------
+PRODUCT ID: 00469-55029-52251-AA557
+SKU ID: 8d77de46-78fb-428d-b8c4-c4a078e8912d
+LICENSE NAME: Office 21, Office21ProPlus2021MSDNR_Retail edition
+LICENSE DESCRIPTION: Office 21, RETAIL channel
+BETA EXPIRATION: 01-01-1601
+LICENSE STATUS:  ---NOTIFICATIONS---
+ERROR CODE: 0xC004F009
+ERROR DESCRIPTION: The Software Licensing Service reported that the grace period expired.
+Last 5 characters of installed product key: MP4Y9
+---------------------------------------
+---------------------------------------
+---Exiting-----------------------------
+"@ }
+    Write-StLog ("OSPP {0}`n{1}" -f (Hide-StSecret $a), (Hide-StSecret $t))
+    return $t
+}
+'@
+        $script:fakeReal = $fake
+        function Invoke-StAsyncForTest([string]$WorkText, [hashtable]$Params) {
+            $log = Join-Path $TestDrive ('proceso-' + [guid]::NewGuid().ToString('N') + '.log')
+            $sync = [hashtable]::Synchronized(@{ Steps = [hashtable]::Synchronized(@{}); Detail = ''; LogFile = $log })
+            $script = New-StAsyncScript -EngineText ($StEngine.ToString() + "`n" + $script:fakeReal) -WorkText $WorkText
+            $pool = [runspacefactory]::CreateRunspacePool(1, 2); $pool.Open()
+            $ps = [powershell]::Create(); $ps.RunspacePool = $pool
+            [void]$ps.AddScript($script).AddArgument($Params).AddArgument($sync).AddArgument($StConfig)
+            $h = $ps.BeginInvoke(); while (-not $h.IsCompleted) { Start-Sleep -Milliseconds 50 }
+            $out = @($ps.EndInvoke($h)); $ps.Dispose(); $pool.Close()
+            return @{ Res = (Get-StAsyncResult -Output $out); Log = (Get-Content -LiteralPath $log -Raw) }
+        }
+    }
+    It 'La tarea de activación entrega su resultado (antes llegaba vacío: "La tarea terminó sin respuesta")' {
+        $r = Invoke-StAsyncForTest 'Invoke-StActivateKey -ProductId $P.ProductId -Key $P.Key' @{ ProductId = '2024'; Key = 'ABCDE-12345-FGHIJ-67890-MP4Y9' }
+        ($r.Res -is [hashtable]) | Should -BeTrue
+        $r.Res.Ok | Should -BeTrue
+        $r.Res.Result.Result | Should -BeExactly 'phone'
+        $r.Res.Result.LicenseName | Should -BeExactly 'Office 21, Office21ProPlus2021MSDNR_Retail edition'
+        $r.Log | Should -Match 'OSPP /act'
+        $r.Log | Should -Not -Match 'ABCDE-12345'
+    }
+    It 'Obtiene el ID de instalación de la licencia de la clave' {
+        $r = Invoke-StAsyncForTest 'Get-StInstallationId -ProductId $P.ProductId -Key $P.Key' @{ ProductId = '2024'; Key = 'ABCDE-12345-FGHIJ-67890-MP4Y9' }
+        $r.Res.Ok | Should -BeTrue
+        $r.Res.Result | Should -BeExactly ('2' * 63)
+    }
+    It 'Un error dentro de la tarea llega como mensaje' {
+        $r = Invoke-StAsyncForTest 'throw "fallo de prueba"' @{}
+        $r.Res.Ok | Should -BeFalse
+        $r.Res.Error | Should -Match 'fallo de prueba'
+    }
+    It 'Una tarea sin salida igual entrega resultado' {
+        $r = Invoke-StAsyncForTest '$null = 1' @{}
+        $r.Res.Ok | Should -BeTrue
+    }
+}

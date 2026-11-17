@@ -12,7 +12,7 @@
 # ==============================================================================
 
 $StConfig = @{
-    Version     = '1.0.6'
+    Version     = '1.0.7'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1'
     RawBase     = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main'
@@ -101,6 +101,35 @@ function Get-StFirst {
     # PowerShell 5.1, dentro de una tarea en segundo plano, detiene la tarea completa sin avisar.
     param($Items)
     foreach ($item in @($Items)) { return $item }
+    return $null
+}
+
+function New-StAsyncScript {
+    # Arma el texto que corre en segundo plano: motor + trabajo, y siempre devuelve @{ Ok; Result; Error }.
+    param([string]$EngineText, [string]$WorkText)
+    return ("param(`$P, `$sync, `$StConfig)`n" + $EngineText + "`n" + @'
+try {
+    $__out = & {
+'@ + "`n" + $WorkText + "`n" + @'
+    }
+    @{ Ok = $true; Result = $__out; Error = $null }
+} catch {
+    Write-StLog ("ERROR: " + $_.Exception.Message)
+    @{ Ok = $false; Result = $null; Error = $_.Exception.Message }
+}
+'@)
+}
+
+function Get-StAsyncResult {
+    # Busca el @{ Ok; Result; Error } entre lo que devolvio la tarea.
+    # Ojo: no usar ".BaseObject" sobre el elemento: en una tabla hash PowerShell lo busca como clave y da $null
+    # (ese era el fallo "La tarea termino sin respuesta" de las versiones 1.0.0 a 1.0.6).
+    param($Output)
+    $list = @($Output)
+    for ($i = $list.Count - 1; $i -ge 0; $i--) {
+        $item = $list[$i]
+        if ($item -is [hashtable] -and $item.ContainsKey('Ok')) { return $item }
+    }
     return $null
 }
 
@@ -1819,17 +1848,7 @@ function New-StDialogField {
 # ----- Tareas en segundo plano -------------------------------------------------------------------
 function Start-StAsync {
     param([Parameter(Mandatory)][scriptblock]$Work, [hashtable]$Params = @{}, [scriptblock]$OnDone)
-    $script = "param(`$P, `$sync, `$StConfig)`n" + $St.EngineText + "`n" + @'
-try {
-    $__out = & {
-'@ + "`n" + $Work.ToString() + "`n" + @'
-    }
-    @{ Ok = $true; Result = $__out; Error = $null }
-} catch {
-    Write-StLog ("ERROR: " + $_.Exception.Message)
-    @{ Ok = $false; Result = $null; Error = $_.Exception.Message }
-}
-'@
+    $script = New-StAsyncScript -EngineText $St.EngineText -WorkText $Work.ToString()
     $ps = [powershell]::Create()
     $ps.RunspacePool = $St.Pool
     [void]$ps.AddScript($script).AddArgument($Params).AddArgument($St.Sync).AddArgument($StConfig)
@@ -1846,11 +1865,9 @@ function Invoke-StJobPump {
         try {
             $out = @($job.PS.EndInvoke($job.Handle))
             $diag.Add("Objetos devueltos: $($out.Count)")
-            for ($i = $out.Count - 1; $i -ge 0; $i--) {
-                $item = $out[$i]
-                if ($item -is [System.Management.Automation.PSObject]) { $item = $item.BaseObject }
-                if ($item -is [hashtable] -and $item.ContainsKey('Ok')) { $res = $item; break }
-                if ($null -ne $item) { $diag.Add("Objeto ${i}: $($item.GetType().FullName)") }
+            $res = Get-StAsyncResult -Output $out
+            if (-not ($res -is [hashtable])) {
+                foreach ($item in $out) { if ($null -ne $item) { $diag.Add("Objeto: $($item.GetType().FullName)") } }
             }
         } catch {
             $res = @{ Ok = $false; Result = $null; Error = $_.Exception.Message }

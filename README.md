@@ -83,6 +83,7 @@ GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows
 
 ## Versiones
 
+- **1.0.7** (2026-11-16): corrige «La tarea terminó sin respuesta»: la activación sí terminaba, pero al recoger su resultado se usaba `.BaseObject` sobre una tabla hash y quedaba vacío. Reproducido en CI con la salida real de OSPP y cubierto con pruebas del flujo completo en segundo plano.
 - **1.0.6** (2026-11-16): si una tarea en segundo plano se detiene sin resultado, la pantalla de error muestra el diagnóstico (estado, errores y últimas líneas del registro). La causa del fallo de activación visto en la primera prueba real sigue en investigación: la hipótesis de `Select-Object -First` de la 1.0.5 no se reprodujo.
 - **1.0.5** (2026-11-16): ODT sin ventana negra de consola; ZIP de diagnóstico con ZipFile.
 - **1.0.4** (2026-11-16): botón «¿Cómo funciona?» (barra superior e inicio) que explica que no es pirata, que Office se descarga sin modificar desde Microsoft y que la activación usa los métodos oficiales.
