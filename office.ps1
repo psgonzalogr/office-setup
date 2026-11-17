@@ -12,7 +12,7 @@
 # ==============================================================================
 
 $StConfig = @{
-    Version     = '1.0.3'
+    Version     = '1.0.4'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1'
     RawBase     = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main'
@@ -1164,6 +1164,12 @@ $StWindowXaml = @'
           <TextBlock Text="Instalador de Office" Foreground="#DBE5F1" FontSize="14.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+          <Button x:Name="BtnAbout" Style="{StaticResource BtnLink}" Margin="0,0,10,0" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="¿Cómo funciona este instalador?">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="&#xE946;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <TextBlock Text="¿Cómo funciona?" FontSize="13"/>
+            </StackPanel>
+          </Button>
           <Border CornerRadius="999" Background="#1F059669" BorderBrush="#66059669" BorderThickness="1" Padding="10,3" Margin="0,0,12,0" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="&#xE72E;" FontFamily="{StaticResource Icons}" FontSize="11" Foreground="#6EE7B7" VerticalAlignment="Center" Margin="0,0,6,0"/>
@@ -1189,6 +1195,12 @@ $StWindowXaml = @'
             <TextBlock Style="{StaticResource H1}" FontSize="38" Text="Instala Office en pocos pasos"/>
             <TextBlock Style="{StaticResource Lead}" MaxWidth="760" HorizontalAlignment="Left"
                        Text="Elige el producto que compraste. Descargamos Office directamente desde Microsoft, lo instalamos y te ayudamos a activarlo. No necesitas escribir comandos."/>
+            <Button x:Name="BtnAboutHome" Style="{StaticResource BtnLink}" HorizontalAlignment="Left" Margin="-8,8,0,0">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="&#xE72E;" FontFamily="{StaticResource Icons}" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="¿Cómo funciona este instalador? Es seguro y usa los métodos oficiales de Microsoft"/>
+              </StackPanel>
+            </Button>
             <UniformGrid Columns="3" Margin="0,24,0,0">
               <Button x:Name="BtnPick2024" Style="{StaticResource Card}" Margin="0,0,9,0">
                 <StackPanel>
@@ -2332,6 +2344,58 @@ function Confirm-StFlow {
     }
 }
 
+$StAboutSections = @(
+    @{ Icon = [char]0xE72E; Color = '#6EE7B7'; Title = 'No es un instalador pirata'
+       Text = 'Este instalador **no usa cracks, activadores KMS ni programas que modifiquen Windows u Office**. Solo instala y activa Office con tu licencia, igual que lo haría un técnico a mano. Su código es público y cualquiera puede revisarlo en GitHub.' },
+    @{ Icon = [char]0xE896; Color = '#93C5FD'; Title = 'Office se descarga directo desde Microsoft'
+       Text = 'Usamos la **Herramienta de implementación de Office (ODT)**, la misma que usan empresas y técnicos para instalar Office. Se descarga desde los servidores de Microsoft y el instalador **comprueba su firma digital de Microsoft** antes de usarla. Office llega **original, sin archivos modificados**.' },
+    @{ Icon = [char]0xE8D7; Color = '#FCA5A5'; Title = 'Se activa con los métodos oficiales de Microsoft'
+       Text = '**Office 2021 y 2024:** se registra tu clave de producto con la herramienta de licencias que trae Office. Primero se intenta la activación en línea y, si la clave lo requiere, la **activación por teléfono de Microsoft**: Office genera un ID de instalación y se ingresa un ID de confirmación. En vez de que tú llames y dictes números, el instalador obtiene ese ID con tu código SafeTech y lo ingresa por ti. Microsoft valida el ID antes de activar.' + "`n`n" + '**Microsoft 365:** inicias sesión en los servidores de Microsoft con la cuenta que te entregamos; el tutorial te guía paso a paso.' },
+    @{ Icon = [char]0xE8B7; Color = '#FCD34D'; Title = 'Qué cambia en tu computador'
+       Text = 'Antes de empezar se crea un **punto de restauración de Windows**. Se desinstalan las versiones anteriores de Office para evitar conflictos. **Tus documentos y archivos personales no se tocan.** Al terminar no queda ningún programa de SafeTech funcionando en segundo plano; solo un registro del proceso en C:\ProgramData\SafeTech.' },
+    @{ Icon = [char]0xE7EF; Color = '#AEBDD0'; Title = '¿Por qué pide permisos de administrador?'
+       Text = 'Instalar o desinstalar Office y registrar su licencia siempre requiere permisos de administrador, también cuando lo haces a mano. Por eso Windows te pregunta si permites los cambios.' }
+)
+
+function Show-StAbout {
+    $panel = New-StXamlElement @'
+<ScrollViewer MaxHeight="430" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,6,0">
+  <StackPanel x:Name="List"/>
+</ScrollViewer>
+'@
+    $list = $panel.FindName('List')
+    foreach ($sec in $StAboutSections) {
+        $row = New-StXamlElement @"
+<Border CornerRadius="14" Background="#0C1626" BorderBrush="#2A3C57" BorderThickness="1" Padding="14,12" Margin="0,0,0,10">
+  <Grid>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Border Width="30" Height="30" CornerRadius="9" Background="#20304A" VerticalAlignment="Top">
+      <TextBlock x:Name="Ico" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Foreground="$($sec.Color)" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Border>
+    <StackPanel Grid.Column="1">
+      <TextBlock x:Name="Ttl" Foreground="#F8FAFC" FontSize="15" FontWeight="Bold" TextWrapping="Wrap" Margin="0,4,0,6"/>
+      <TextBlock x:Name="Txt" Foreground="#DBE5F1" FontSize="13.5" TextWrapping="Wrap" LineHeight="21"/>
+    </StackPanel>
+  </Grid>
+</Border>
+"@
+        $row.FindName('Ico').Text = [string]$sec.Icon
+        $row.FindName('Ttl').Text = $sec.Title
+        Set-StRichText -Target $row.FindName('Txt') -Text $sec.Text
+        [void]$list.Children.Add($row)
+    }
+    $note = New-Object System.Windows.Controls.TextBlock
+    $note.TextWrapping = 'Wrap'
+    $note.FontSize = 12
+    $note.Foreground = '#7F93AE'
+    $note.Margin = '2,4,0,0'
+    $note.Text = 'SafeTech SpA es un vendedor independiente de licencias y servicio técnico en Antofagasta, Chile; no es distribuidor oficial de Microsoft. Microsoft, Office y Microsoft 365 son marcas de Microsoft Corporation.'
+    [void]$list.Children.Add($note)
+    $r = Show-StDialog -Kind 'info' -Kicker 'Transparencia' -Title '¿Cómo funciona este instalador?' -Message '' -Extra $panel -Buttons @('Entendido', 'Ver el código en GitHub')
+    if ($St.SelfTest) { return $r }
+    if ($r -eq 'Ver el código en GitHub') { Open-StUnelevated "https://github.com/$($StConfig.Repo)" }
+}
+
 function Show-StManualActivation {
     param([string]$ErrorText)
     $panel = New-Object System.Windows.Controls.StackPanel
@@ -2840,6 +2904,8 @@ $St.Window.Add_StateChanged({
 })
 $ui.BtnClose.Add_Click({ $St.Window.Close() })
 $ui.BtnHelpCenter.Add_Click({ Open-StUnelevated $StConfig.HelpUrl })
+$ui.BtnAbout.Add_Click({ Show-StAbout })
+$ui.BtnAboutHome.Add_Click({ Show-StAbout })
 $ui.BtnHelpWa.Add_Click({ Open-StUnelevated $StConfig.WhatsAppUrl })
 
 $ui.BtnPick2024.Add_Click({ Select-StProduct '2024' })
@@ -3030,6 +3096,8 @@ if ($StMode -eq 'selftest') {
     $f.Box.Style = $St.Window.FindResource('Field')
     $dlg = Show-StDialog -Kind 'warn' -Title 'No pudimos generar el ID de confirmación' -Message 'Código no válido. Verifica que esté escrito correctamente.' -Extra $f.Panel -Buttons @('Usar otro código', 'Activar manualmente', 'Cancelar')
     $dlg.Show(); Save-StShot $dlg '11-ventana-codigo'; $dlg.Close()
+    $dlg = Show-StAbout
+    $dlg.Show(); Save-StShot $dlg '12-como-funciona'; $dlg.Close()
     $St.Window.Close()
     Write-Host "Autoprueba completa: $out"
     return

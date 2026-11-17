@@ -83,6 +83,7 @@ GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows
 
 ## Versiones
 
+- **1.0.4** (2026-11-16): botón «¿Cómo funciona?» (barra superior e inicio) que explica que no es pirata, que Office se descarga sin modificar desde Microsoft y que la activación usa los métodos oficiales.
 - **1.0.3** (2026-11-16): ventana redimensionable desde los bordes y maximizable; botones rojos en «¿Ya tienes Office instalado?»; el tutorial destaca en negrita lo clave, marca en rojo los pasos obligatorios y rotula los avisos (Consejo, Importante, Muy importante).
 - **1.0.2** (2026-11-16): el tutorial pregunta si apareció «Vamos a garantizar la seguridad de la cuenta»; si no, se salta Authenticator (depende del proveedor de la cuenta) y tranquiliza al cliente.
 - **1.0.1** (2026-11-16): el tutorial de Microsoft 365 permite volver a la pantalla principal (enlace «Volver al inicio» y «Atrás» en el primer paso), salvo mientras Microsoft 365 se está instalando.
