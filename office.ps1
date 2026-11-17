@@ -1142,6 +1142,7 @@ $StResXaml = @'
 
 <Style x:Key="Ticket" TargetType="Button">
   <Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+  <Setter Property="Foreground" Value="#F8FAFC"/>
   <Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="VerticalContentAlignment" Value="Stretch"/>
   <Setter Property="RenderTransform"><Setter.Value><TranslateTransform Y="0"/></Setter.Value></Setter>
   <Setter Property="Template"><Setter.Value>
@@ -1280,9 +1281,9 @@ $StWindowXaml = @'
     </Border>
 
     <!-- Guía: SafeBOT + etapas -->
-    <Grid x:Name="GuideBar" Grid.Row="1" Margin="40,18,40,6" MaxWidth="1240">
+    <Grid x:Name="GuideBar" Grid.Row="1" Margin="40,12,40,4" MaxWidth="1240">
       <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <Image x:Name="ImgBot" Height="74" Width="58" Stretch="Uniform" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+      <Image x:Name="ImgBot" Height="66" Width="52" Stretch="Uniform" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
       <Grid Grid.Column="1" Margin="10,0,24,0" VerticalAlignment="Center" HorizontalAlignment="Left">
         <Path Data="M 12,0 L 0,10 L 12,20 Z" Fill="#17243A" Stroke="#2A3C57" StrokeThickness="1.5" VerticalAlignment="Center" HorizontalAlignment="Left"/>
         <Border Margin="10,0,0,0" CornerRadius="18" Background="#17243A" BorderBrush="#2A3C57" BorderThickness="1.5" Padding="20,12" MaxWidth="660">
@@ -1406,7 +1407,7 @@ $StWindowXaml = @'
                     <TextBlock Text="Word, Excel, PowerPoint y más" Style="{StaticResource Small}" FontSize="16" Margin="0,2,0,14"/>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                       <Border Width="24" Height="24" CornerRadius="12" Background="#26059669"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                      <TextBlock Text="Con la cuenta que te entregamos" FontSize="16" Foreground="#DBE5F1" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                      <TextBlock Text="Con tu cuenta de SafeTech" FontSize="16" Foreground="#DBE5F1" Margin="10,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal">
                       <Border Width="24" Height="24" CornerRadius="12" Background="#26059669"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
@@ -1519,8 +1520,8 @@ $StWindowXaml = @'
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel MaxWidth="900" Margin="40,8,40,18">
             <TextBlock x:Name="TxtConfirmTitle" Style="{StaticResource H1}" FontSize="30" Text="Antes de empezar"/>
-            <TextBlock x:Name="TxtConfirmLead" Style="{StaticResource Lead}" Text=""/>
-            <Border x:Name="PanelDetected" Style="{StaticResource Panel}" Margin="0,18,0,0" Padding="20,16">
+            <TextBlock x:Name="TxtConfirmLead" Style="{StaticResource Lead}" Text="" Visibility="Collapsed"/>
+            <Border x:Name="PanelDetected" Style="{StaticResource Panel}" Margin="0,14,0,0" Padding="18,12">
               <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                 <Border x:Name="DetectedIconBg" Width="48" Height="48" CornerRadius="14" Background="#26F59E0B" VerticalAlignment="Top">
@@ -1532,9 +1533,9 @@ $StWindowXaml = @'
                 </StackPanel>
               </Grid>
             </Border>
-            <StackPanel x:Name="StackConfirmList" Margin="0,18,0,0"/>
-            <CheckBox x:Name="ChkConfirm" Style="{StaticResource Check}" Margin="0,10,0,0" Content="Guardé mis documentos y leí estas indicaciones."/>
-            <WrapPanel Margin="0,22,0,0">
+            <StackPanel x:Name="StackConfirmList" Margin="0,14,0,0"/>
+            <CheckBox x:Name="ChkConfirm" Style="{StaticResource Check}" Margin="0,4,0,0" Content="Guardé mis documentos y leí estas indicaciones."/>
+            <WrapPanel Margin="0,16,0,0">
               <Button x:Name="BtnConfirmBack" Style="{StaticResource BtnSoft}" Content="Atrás" Margin="0,0,12,10"/>
               <Button x:Name="BtnConfirmAlt" Style="{StaticResource BtnSoft}" Content="Solo activar" Margin="0,0,12,10" Visibility="Collapsed"/>
               <Button x:Name="BtnConfirmStart" Style="{StaticResource BtnPrimary}" IsEnabled="False" Margin="0,0,0,10">
@@ -1670,7 +1671,7 @@ $StWindowXaml = @'
 
       <!-- TUTORIAL MICROSOFT 365 -->
       <Grid x:Name="PageTutorial" Visibility="Collapsed">
-        <Grid MaxWidth="1380" Margin="32,6,32,16">
+        <Grid MaxWidth="1380" Margin="32,18,32,16">
           <Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
           <Border Style="{StaticResource Panel}" Padding="12,16" Margin="0,0,26,0">
             <Grid>
@@ -1696,11 +1697,12 @@ $StWindowXaml = @'
           <Grid Grid.Column="1">
             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <Grid x:Name="TutColumns">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="1.2*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
               <ScrollViewer x:Name="TutScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel x:Name="TutContent" Margin="0,2,18,10">
                   <TextBlock x:Name="TxtTutTitle" Style="{StaticResource H1}" FontSize="28" Text=""/>
                   <StackPanel x:Name="StackTutBody" Margin="0,16,0,0"/>
+                  <WrapPanel x:Name="StackTutActions" Margin="0,6,0,4"/>
                   <Border x:Name="TutNote" CornerRadius="14" BorderThickness="1.5" Padding="18,14" Margin="0,8,0,0">
                     <Grid>
                       <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -1711,7 +1713,6 @@ $StWindowXaml = @'
                       </StackPanel>
                     </Grid>
                   </Border>
-                  <WrapPanel x:Name="StackTutActions" Margin="0,16,0,0"/>
                 </StackPanel>
               </ScrollViewer>
               <Border x:Name="TutImageFrame" Grid.Column="1" CornerRadius="16" BorderBrush="#2A3C57" BorderThickness="1.5" Background="#0C1626" Margin="10,0,0,10" Padding="10" VerticalAlignment="Top" HorizontalAlignment="Left" MaxHeight="{Binding ActualHeight, ElementName=TutColumns}">
@@ -1879,6 +1880,7 @@ function Show-StPage {
     $el.Visibility = 'Visible'
     $St.CurrentPage = $Name
     Update-StGuide -Page $Name
+    $St.UI.GuideBar.Visibility = $(if ($Name -eq 'Tutorial') { 'Collapsed' } else { 'Visible' })
     if ($St.NoAnim) { $el.Opacity = 1; return }
     $tt = New-Object System.Windows.Media.TranslateTransform 0, 18
     $el.RenderTransform = $tt
@@ -2294,7 +2296,7 @@ function Update-StStepLayout {
         $r = $St.StepRows[$id]
         if ($r.State -in @('done', 'skip')) { $r.Row.Visibility = 'Collapsed' }
         elseif ($r.State -in @('running', 'error') -or $i -eq $current) { $r.Row.Visibility = 'Visible' }
-        elseif ($shownPending -lt 3) { $r.Row.Visibility = 'Visible'; $shownPending++ }
+        elseif ($shownPending -lt 2) { $r.Row.Visibility = 'Visible'; $shownPending++ }
         else { $r.Row.Visibility = 'Collapsed'; $hidden++ }
         $i++
     }
@@ -2307,7 +2309,7 @@ function Update-StStepLayout {
     $fraction = $(if ($total -gt 0) { ($finished + 0.5 * [int]($finished -lt $total)) / $total } else { 0 })
     $trackWidth = $St.UI.ProgTrack.ActualWidth
     if ($trackWidth -le 0) { $trackWidth = 600 }
-    $target = [double]($trackWidth * [Math]::Min(1, $fraction))
+    $target = [double]$trackWidth * [Math]::Min([double]1, [double]$fraction)
     if ($St.NoAnim) { $St.UI.ProgFill.Width = $target }
     else {
         $anim = [System.Windows.Media.Animation.DoubleAnimation]::new([double]$St.UI.ProgFill.ActualWidth, $target, [System.Windows.Duration]::new([TimeSpan]::FromMilliseconds(450)))
@@ -2493,7 +2495,8 @@ function Show-StConfirmPage {
     $ui.BtnConfirmStart.IsEnabled = $false
     $ui.TxtConfirmStart.Text = 'Comenzar instalación'
     $ui.TxtConfirmTitle.Text = "Antes de instalar $($p.Name)"
-    $ui.TxtConfirmLead.Text = 'Léelo con calma. Después el instalador trabaja solo.'
+    $ui.TxtConfirmLead.Text = ''
+    $ui.TxtConfirmLead.Visibility = 'Collapsed'
     $St.ConfirmAction = 'install'
 
     $same = Test-StProductInstalled -ProductId $p.Id -State $state
@@ -2513,6 +2516,7 @@ function Show-StConfirmPage {
         & $setDetected 'ok' 'Microsoft 365 ya está instalado' 'No necesitas reinstalarlo. Solo falta conectar la cuenta que te entregó SafeTech.'
         $ui.TxtConfirmTitle.Text = 'Microsoft 365 ya está en tu equipo'
         $ui.TxtConfirmLead.Text = 'Puede ser una edición Personal, Familia, Empresa o Educación. Funciona con la cuenta entregada por SafeTech.'
+        $ui.TxtConfirmLead.Visibility = 'Visible'
         $items.Add('E73E|No se desinstala ni se cambia nada en tu Office.')
         $items.Add('E77B|No es necesario cerrar tu cuenta personal de OneDrive o Teams.')
         $items.Add('E8A5|Te guiaremos para agregar la cuenta de SafeTech en Word.')
@@ -2544,7 +2548,7 @@ function Show-StConfirmPage {
     foreach ($t in $items) {
         $parts = $t.Split('|', 2)
         $row = New-StXamlElement @"
-<Grid Margin="0,0,0,12">
+<Grid Margin="0,0,0,8">
   <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
   <Border Width="34" Height="34" CornerRadius="10" Background="#20304A" VerticalAlignment="Top">
     <TextBlock x:Name="I" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="16" Foreground="#C9D5E3" HorizontalAlignment="Center" VerticalAlignment="Center"/>
