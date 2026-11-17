@@ -1,6 +1,6 @@
 # Instalador de Office · SafeTech
 
-Aplicación para que los clientes de SafeTech instalen **Office 2024**, **Office 2021** o **Microsoft 365** con un solo comando, sin tocar la consola después. Se abre una ventana con el diseño de SafeTech (modo oscuro) que guía todo el proceso.
+Aplicación para que los clientes de SafeTech instalen **Office 2024**, **Office 2021** o **Microsoft 365** con un solo comando, sin tocar la consola después. Se abre maximizada, con el diseño oscuro de SafeTech, y SafeBOT guía cada paso. Está pensada para personas con poca experiencia en computadores: letra grande, una sola acción principal por pantalla y ayuda por WhatsApp siempre visible.
 
 ## Cómo se usa (cliente)
 
@@ -13,7 +13,9 @@ irm https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1 |
 
 3. Windows pregunta si se permiten cambios: responder **Sí**. El instalador se abre en una ventana nueva y la consola ya se puede cerrar.
 
-Alternativa sin consola: descargar y abrir [`Instalar-Office-SafeTech.cmd`](Instalar-Office-SafeTech.cmd) con doble clic.
+Alternativa sin consola: descargar [`Instalar-Office-SafeTech.cmd`](https://github.com/psgonzalogr/office-setup/releases/latest/download/Instalar-Office-SafeTech.cmd) y abrirlo con doble clic. Muestra lo que está haciendo y, si algo falla (por ejemplo, sin Internet), deja el mensaje en pantalla.
+
+Al abrirse aparece la bienvenida «Así funciona este instalador» (4 mensajes cortos: Office original, nada pirata, se activa con tu código, tus archivos no se tocan).
 
 ## Qué hace
 
@@ -83,6 +85,8 @@ GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows
 
 ## Versiones
 
+- **1.1.0** (2026-11-17): rediseño para usuarios con brecha digital. La app es el «comprobante» de la compra: talón rojo con el producto, perforación y sello final (ACTIVADO / CONECTADO). SafeBOT guía cada pantalla y una barra de 3 etapas muestra dónde vas. Ventana maximizada y redimensionable; el contenido crece en pantallas grandes. Bienvenida sin scroll al abrir. Letra base de 17 px, botones de 56 px, foco de teclado visible. Botones «Pegar» que reconocen la clave y el código aunque se pegue un trozo del correo. Avance con barra de progreso y pasos resumidos. Tutorial 365 en dos columnas con la captura siempre visible, confirmación «Ya anoté mi nueva contraseña». Error con botón verde «Pedir ayuda por WhatsApp» que guarda el informe y abre el chat. Lanzador `.cmd` corregido (saltos de línea de Windows, mensajes y pausa si falla) y probado en Windows real.
+- **1.0.8** (2026-11-16): el diagnóstico de errores muestra los pasos con fecha.
 - **1.0.7** (2026-11-16): corrige «La tarea terminó sin respuesta»: la activación sí terminaba, pero al recoger su resultado se usaba `.BaseObject` sobre una tabla hash y quedaba vacío. Reproducido en CI con la salida real de OSPP y cubierto con pruebas del flujo completo en segundo plano.
 - **1.0.6** (2026-11-16): si una tarea en segundo plano se detiene sin resultado, la pantalla de error muestra el diagnóstico (estado, errores y últimas líneas del registro). La causa del fallo de activación visto en la primera prueba real sigue en investigación: la hipótesis de `Select-Object -First` de la 1.0.5 no se reprodujo.
 - **1.0.5** (2026-11-16): ODT sin ventana negra de consola; ZIP de diagnóstico con ZipFile.

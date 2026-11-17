@@ -215,6 +215,19 @@ function ConvertTo-StAccessCode {
     return "ST-$clean"
 }
 
+function Find-StPurchaseData {
+    # Busca la clave y el código ST dentro de un texto pegado (por ejemplo, un trozo del correo).
+    param([string]$Text)
+    $r = @{ Key = $null; Code = $null }
+    if (-not $Text) { return $r }
+    $up = $Text.ToUpperInvariant()
+    $mk = [regex]::Match($up, '(?<![A-Z0-9])[A-Z0-9]{5}(-[A-Z0-9]{5}){4}(?![A-Z0-9])')
+    if ($mk.Success) { $r.Key = $mk.Value }
+    $mc = [regex]::Match($up, '(?<![A-Z0-9])ST\s*-?\s*([A-Z0-9]{6})(?![A-Z0-9])')
+    if ($mc.Success) { $r.Code = 'ST-' + $mc.Groups[1].Value }
+    return $r
+}
+
 function Test-StAccessCode {
     param([string]$Code)
     return ($Code -cmatch '^ST-[A-Z0-9]{6}$')
@@ -2387,19 +2400,6 @@ function Set-StStub {
     if (-not $Product) { return }
     if ($Product.Id -eq '365') { $Label.Text = 'MICROSOFT'; $Year.Text = '365' }
     else { $Label.Text = 'OFFICE'; $Year.Text = $Product.Year }
-}
-
-function Find-StPurchaseData {
-    # Busca la clave y el código ST dentro de un texto pegado (por ejemplo, un trozo del correo).
-    param([string]$Text)
-    $r = @{ Key = $null; Code = $null }
-    if (-not $Text) { return $r }
-    $up = $Text.ToUpperInvariant()
-    $mk = [regex]::Match($up, '(?<![A-Z0-9])[A-Z0-9]{5}(-[A-Z0-9]{5}){4}(?![A-Z0-9])')
-    if ($mk.Success) { $r.Key = $mk.Value }
-    $mc = [regex]::Match($up, '(?<![A-Z0-9])ST\s*-?\s*([A-Z0-9]{6})(?![A-Z0-9])')
-    if ($mc.Success) { $r.Code = 'ST-' + $mc.Groups[1].Value }
-    return $r
 }
 
 function Invoke-StPaste {
