@@ -1354,14 +1354,16 @@ $StWindowXaml = @'
                   <StackPanel Grid.Column="1" Margin="24,20,18,0">
                     <TextBlock Text="Office 2024" FontSize="26" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
                     <TextBlock Text="Word, Excel, PowerPoint y más" Style="{StaticResource Small}" FontSize="16" Margin="0,2,0,14"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                      <TextBlock Text="Licencia para siempre" FontSize="16" Foreground="#DBE5F1" Margin="10,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="210"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                      <TextBlock Text="Se activa solo con tu código" FontSize="16" Foreground="#DBE5F1" Margin="10,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="210"/>
-                    </StackPanel>
+                    <Grid Margin="0,0,0,8">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669" VerticalAlignment="Top"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                      <TextBlock Grid.Column="1" Text="Licencia para siempre" FontSize="16" Foreground="#DBE5F1" Margin="10,1,0,0" TextWrapping="Wrap"/>
+                    </Grid>
+                    <Grid>
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669" VerticalAlignment="Top"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                      <TextBlock Grid.Column="1" Text="Se activa con tu código" FontSize="16" Foreground="#DBE5F1" Margin="10,1,0,0" TextWrapping="Wrap"/>
+                    </Grid>
                   </StackPanel>
                   <Border Grid.Column="1" VerticalAlignment="Bottom" Margin="24,0,18,18" CornerRadius="12" Background="{StaticResource RedGrad}" Height="54">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -1386,14 +1388,16 @@ $StWindowXaml = @'
                   <StackPanel Grid.Column="1" Margin="24,20,18,0">
                     <TextBlock Text="Office 2021" FontSize="26" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
                     <TextBlock Text="Word, Excel, PowerPoint y más" Style="{StaticResource Small}" FontSize="16" Margin="0,2,0,14"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                      <TextBlock Text="Licencia para siempre" FontSize="16" Foreground="#DBE5F1" Margin="10,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="210"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                      <TextBlock Text="Se activa solo con tu código" FontSize="16" Foreground="#DBE5F1" Margin="10,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="210"/>
-                    </StackPanel>
+                    <Grid Margin="0,0,0,8">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669" VerticalAlignment="Top"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                      <TextBlock Grid.Column="1" Text="Licencia para siempre" FontSize="16" Foreground="#DBE5F1" Margin="10,1,0,0" TextWrapping="Wrap"/>
+                    </Grid>
+                    <Grid>
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669" VerticalAlignment="Top"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                      <TextBlock Grid.Column="1" Text="Se activa con tu código" FontSize="16" Foreground="#DBE5F1" Margin="10,1,0,0" TextWrapping="Wrap"/>
+                    </Grid>
                   </StackPanel>
                   <Border Grid.Column="1" VerticalAlignment="Bottom" Margin="24,0,18,18" CornerRadius="12" Background="{StaticResource RedGrad}" Height="54">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -1418,14 +1422,16 @@ $StWindowXaml = @'
                   <StackPanel Grid.Column="1" Margin="24,20,18,0">
                     <TextBlock Text="Microsoft 365" FontSize="26" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI"/>
                     <TextBlock Text="Word, Excel, PowerPoint y más" Style="{StaticResource Small}" FontSize="16" Margin="0,2,0,14"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                      <TextBlock Text="Con tu cuenta de SafeTech" FontSize="16" Foreground="#DBE5F1" Margin="10,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="210"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                      <TextBlock Text="Te guiamos paso a paso" FontSize="16" Foreground="#DBE5F1" Margin="10,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="210"/>
-                    </StackPanel>
+                    <Grid Margin="0,0,0,8">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669" VerticalAlignment="Top"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                      <TextBlock Grid.Column="1" Text="Con tu cuenta de SafeTech" FontSize="16" Foreground="#DBE5F1" Margin="10,1,0,0" TextWrapping="Wrap"/>
+                    </Grid>
+                    <Grid>
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <Border Width="24" Height="24" CornerRadius="12" Background="#26059669" VerticalAlignment="Top"><TextBlock Text="&#xE73E;" FontFamily="{StaticResource Icons}" FontSize="12" Foreground="#6EE7B7" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                      <TextBlock Grid.Column="1" Text="Te guiamos paso a paso" FontSize="16" Foreground="#DBE5F1" Margin="10,1,0,0" TextWrapping="Wrap"/>
+                    </Grid>
                   </StackPanel>
                   <Border Grid.Column="1" VerticalAlignment="Bottom" Margin="24,0,18,18" CornerRadius="12" Background="{StaticResource RedGrad}" Height="54">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
