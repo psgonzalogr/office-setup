@@ -215,6 +215,13 @@ function ConvertTo-StAccessCode {
     return "ST-$clean"
 }
 
+function Get-StScale([double]$Width, [double]$Height) {
+    # Diseñado para 1280x760 con letra de 17 px. En pantallas chicas se achica un poco;
+    # en las grandes NO se agranda (a 1920x1080 la letra quedaba excesivamente grande).
+    $scale = [Math]::Min($Width / 1280, $Height / 760)
+    return [Math]::Max(0.8, [Math]::Min(1.0, $scale))
+}
+
 function Find-StPurchaseData {
     # Busca la clave y el código ST dentro de un texto pegado (por ejemplo, un trozo del correo).
     param([string]$Text)
@@ -2018,13 +2025,6 @@ function Update-StGuide {
             Set-StJourney 0
         }
     }
-}
-
-function Get-StScale([double]$Width, [double]$Height) {
-    # Diseñado para 1280x760 con letra de 17 px. En pantallas chicas se achica un poco;
-    # en las grandes NO se agranda (a 1920x1080 la letra quedaba excesivamente grande).
-    $scale = [Math]::Min($Width / 1280, $Height / 760)
-    return [Math]::Max(0.8, [Math]::Min(1.0, $scale))
 }
 
 function Update-StScale {
