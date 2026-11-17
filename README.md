@@ -83,6 +83,7 @@ GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows
 
 ## Versiones
 
+- **1.0.2** (2026-11-16): el tutorial pregunta si apareció «Vamos a garantizar la seguridad de la cuenta»; si no, se salta Authenticator (depende del proveedor de la cuenta) y tranquiliza al cliente.
 - **1.0.1** (2026-11-16): el tutorial de Microsoft 365 permite volver a la pantalla principal (enlace «Volver al inicio» y «Atrás» en el primer paso), salvo mientras Microsoft 365 se está instalando.
 - **1.0.0** (2026-11-16): primera versión. Instalación de Office 2024/2021/365 con ODT, activación telefónica automática con getcid.safe-tech.cl, activación manual de respaldo, tutorial integrado de Microsoft 365, ZIP de diagnóstico.
 

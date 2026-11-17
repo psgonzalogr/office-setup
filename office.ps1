@@ -12,7 +12,7 @@
 # ==============================================================================
 
 $StConfig = @{
-    Version     = '1.0.1'
+    Version     = '1.0.2'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1'
     RawBase     = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main'
@@ -893,7 +893,7 @@ $St = @{
     NoAnim      = $false
     StartTime   = $null
     Act         = @{}
-    Tut         = @{ Index = 0; Started = $false }
+    Tut         = @{ Index = 0; Started = $false; Auth = $null }
     CodeState   = 'empty'
     KeyFormatting = $false
     CacheDir    = (Join-Path $env:TEMP 'SafeTechOffice\cache')
@@ -2203,7 +2203,7 @@ function Start-StInstallFlow {
             if ($St.Tut.Started) { $msg = 'Ya puedes continuar el tutorial: abre Word e inicia sesión con tu cuenta.' }
             [void](Show-StDialog -Kind 'success' -Kicker 'Instalación lista' -Title 'Microsoft 365 quedó instalado' -Message $msg -Buttons @('Continuar con el tutorial'))
             $target = $St.Tut.Index
-            if ($St.Tut.Started -and $St.Tut.Index -ge 6) { $target = 7 }
+            if ($St.Tut.Started -and ($St.Tut.Index -ge 6 -or ($St.Tut.Auth -eq $false -and $St.Tut.Index -ge 3))) { $target = 7 }
             Show-StTutorial -Index $target
         }
     }
@@ -2449,7 +2449,7 @@ function Start-StActivateOnly {
 $StTutorial = @(
     @{ Short = 'Prepárate'; Title = 'Ten a mano tu cuenta y tu celular'
        Body = @('El correo y la contraseña de Microsoft 365 que te envió SafeTech.',
-                'Tu celular con Internet: Microsoft te pedirá instalar la app Microsoft Authenticator.',
+                'Tu celular con Internet, por si Microsoft te pide instalar la app Microsoft Authenticator (algunas cuentas lo piden y otras no).',
                 'Papel o una nota para guardar la contraseña nueva que vas a crear.')
        Note = 'Si este computador es de tu empresa, colegio o universidad, consulta antes con quien lo administra: la cuenta puede entrar en conflicto con sus políticas.'; NoteKind = 'warn'
        Image = $null; Actions = @(); NeedsOffice = $false },
@@ -2466,13 +2466,15 @@ $StTutorial = @(
                 'Usa mayúsculas, minúsculas, números y un símbolo. Ejemplo: MiClaveSegura123!')
        Note = 'Guarda tu nueva contraseña. SafeTech no puede verla ni recuperarla después.'; NoteKind = 'warn'
        Image = 'assets/tutorial/03-cambiar-contrasena.jpg'; Actions = @(); NeedsOffice = $false },
-    @{ Short = 'Seguridad'; Title = 'Microsoft te pedirá proteger la cuenta'
-       Body = @('Verás el mensaje «Vamos a garantizar la seguridad de la cuenta».',
-                'Haz clic en Siguiente.')
-       Note = 'No elijas «Usar otra cuenta». Continúa siempre con la cuenta entregada por SafeTech.'; NoteKind = 'warn'
-       Image = 'assets/tutorial/04-garantizar-seguridad.jpg'; Actions = @(); NeedsOffice = $false },
+    @{ Short = '¿Te pidió seguridad?'; Title = '¿Te apareció este mensaje?'
+       Body = @('Después de cambiar la contraseña, algunas cuentas muestran «Vamos a garantizar la seguridad de la cuenta» y piden instalar Microsoft Authenticator.',
+                'Otras cuentas no lo piden y entran directo. Depende de la cuenta que te entregamos.',
+                'Elige lo que te pasó a ti.')
+       Note = 'Las dos situaciones son normales. Si no te apareció, tu cuenta está bien y te saltas esta parte.'; NoteKind = 'info'
+       Image = 'assets/tutorial/04-garantizar-seguridad.jpg'; Actions = @('authYes', 'authNo'); NeedsOffice = $false },
     @{ Short = 'Authenticator'; Title = 'Instala Microsoft Authenticator en tu celular'
-       Body = @('En tu celular abre Google Play (Android) o App Store (iPhone).',
+       Body = @('En el mensaje «Vamos a garantizar la seguridad de la cuenta», haz clic en Siguiente. No elijas «Usar otra cuenta».',
+                'En tu celular abre Google Play (Android) o App Store (iPhone).',
                 'Busca «Microsoft Authenticator» e instálala. El desarrollador debe ser Microsoft Corporation.',
                 'Vuelve al computador y haz clic en Siguiente.')
        Note = 'No uses la opción «Configurar una aplicación de autenticación diferente». Este tutorial es para Microsoft Authenticator.'; NoteKind = 'info'
@@ -2539,7 +2541,12 @@ function Initialize-StTutorialNav {
 "@
         $row.FindName('Lbl').Text = $s.Short
         $row.Tag = $i - 1
-        $row.Add_Click({ param($sender, $e) Set-StTutorialStep -Index ([int]$sender.Tag) })
+        $row.Add_Click({
+            param($sender, $e)
+            $target = [int]$sender.Tag
+            if (Test-StAuthSkipped $target) { $St.Tut.Auth = $true }
+            Set-StTutorialStep -Index $target
+        })
         [void]$St.UI.StackTutSteps.Children.Add($row)
         $St.TutRows += $row
     }
@@ -2558,6 +2565,21 @@ function Show-StTutorial {
 
 function Test-StInstalling365 {
     return [bool]($St.Mode -eq 'install' -and $St.Product -and $St.Product.Id -eq '365' -and $St.Busy)
+}
+
+function Test-StAuthSkipped {
+    param([int]$Index)
+    return ($St.Tut.Auth -eq $false -and $Index -ge 4 -and $Index -le 6)
+}
+
+function Set-StTutorialAuth {
+    param([bool]$Shown)
+    $St.Tut.Auth = $Shown
+    if ($Shown) { Set-StTutorialStep -Index 4; return }
+    [void](Show-StDialog -Kind 'success' -Kicker 'Todo bien' -Title 'Tu cuenta no necesita Authenticator' `
+        -Message 'Algunas cuentas piden Microsoft Authenticator y otras no; depende de la cuenta. Que no te haya aparecido es normal y no afecta la activación de Office. Nos saltamos esa parte.' `
+        -Buttons @('Continuar'))
+    if (Test-StTutorialBlocked 7) { Set-StTutorialStep -Index 3 } else { Set-StTutorialStep -Index 7 }
 }
 
 function Test-StTutorialBlocked {
@@ -2600,6 +2622,8 @@ function Set-StTutorialStep {
     if ($Index -eq 0 -and $St.SignInIssues -and $St.SignInIssues.Count -gt 0) {
         $warn = 'Revisamos tu Windows y encontramos algo que podría impedir el inicio de sesión: ' + ($St.SignInIssues -join ' ') + ' Si Word no te deja iniciar sesión, escríbenos.'
         $ui.TxtTutNote.Text = $s.Note + "`n`n" + $warn
+    } elseif ($Index -eq 3 -and $St.Tut.Auth -eq $false) {
+        $ui.TxtTutNote.Text = 'Respondiste que no te apareció: está todo bien. Presiona «Siguiente» para continuar en Word.'
     } else {
         $ui.TxtTutNote.Text = $s.Note
     }
@@ -2620,6 +2644,8 @@ function Set-StTutorialStep {
             'copyPortal' { $b.Content = 'Copiar el enlace'; $b.Style = $St.Window.FindResource('BtnSoft') }
             'word' { $b.Content = 'Abrir Word'; $b.Style = $St.Window.FindResource($(if ($s.Actions[0] -eq 'word') { 'BtnPrimary' } else { 'BtnSoft' })) }
             'check' { $b.Content = 'Comprobar la activación'; $b.Style = $St.Window.FindResource('BtnPrimary') }
+            'authYes' { $b.Content = 'Sí, me apareció'; $b.Style = $St.Window.FindResource($(if ($St.Tut.Auth -eq $false) { 'BtnSoft' } else { 'BtnPrimary' })) }
+            'authNo' { $b.Content = 'No me apareció'; $b.Style = $St.Window.FindResource($(if ($St.Tut.Auth -eq $false) { 'BtnPrimary' } else { 'BtnSoft' })) }
         }
         $b.Add_Click({ param($sender, $e) Invoke-StTutorialAction ([string]$sender.Tag) $sender })
         [void]$ui.StackTutActions.Children.Add($b)
@@ -2651,6 +2677,11 @@ function Set-StTutorialStep {
             $lbl.Foreground = $conv.ConvertFromString('#AEBDD0'); $lbl.FontWeight = 'Normal'
             if (Test-StTutorialBlocked $i) { $lbl.Foreground = $conv.ConvertFromString('#5D7391') }
         }
+        if ($i -ne $Index -and (Test-StAuthSkipped $i)) {
+            $dot.Fill = $conv.ConvertFromString('#00000000'); $dot.Stroke = $conv.ConvertFromString('#2A3C57')
+            $num.Foreground = $conv.ConvertFromString('#5D7391'); $num.Text = [string][char]0xE738; $num.FontFamily = 'Segoe Fluent Icons, Segoe MDL2 Assets'
+            $lbl.Foreground = $conv.ConvertFromString('#5D7391'); $lbl.FontWeight = 'Normal'
+        }
     }
     # En el primer paso, «Atrás» vuelve a la pantalla principal (salvo mientras se instala Microsoft 365).
     $ui.BtnTutBack.IsEnabled = ($Index -gt 0 -or -not (Test-StInstalling365))
@@ -2680,6 +2711,8 @@ function Invoke-StTutorialAction {
         'portal' { Open-StUnelevated $StConfig.PortalUrl }
         'copyPortal' { try { [System.Windows.Clipboard]::SetText($StConfig.PortalUrl); $Button.Content = 'Enlace copiado' } catch { } }
         'word' { [void](Open-StWord) }
+        'authYes' { Set-StTutorialAuth $true }
+        'authNo' { Set-StTutorialAuth $false }
         'check' {
             if (-not (Test-StProductInstalled -ProductId '365')) {
                 [void](Show-StDialog -Kind 'warn' -Title 'No encontramos Microsoft 365' -Message 'Microsoft 365 no aparece instalado en este computador.' -Buttons @('Entendido'))
@@ -2695,8 +2728,13 @@ function Invoke-StTutorialAction {
 function Complete-StTutorial {
     $St.UI.TxtDoneTitle.Text = '¡Microsoft 365 quedó listo!'
     $St.UI.TxtDoneText.Text = 'Ya puedes usar Word, Excel, PowerPoint y Outlook con la cuenta que te entregamos.'
-    Set-StDoneList @('Aplicaciones de Microsoft 365 instaladas', 'Cuenta de SafeTech conectada en Office', 'Microsoft Authenticator configurado en tu celular')
-    $St.UI.TxtDoneNote.Text = 'Guarda tu nueva contraseña y no borres Microsoft Authenticator de tu celular. La garantía dura 1 año desde la compra.'
+    if ($St.Tut.Auth -eq $false) {
+        Set-StDoneList @('Aplicaciones de Microsoft 365 instaladas', 'Cuenta de SafeTech conectada en Office', 'Contraseña nueva creada')
+        $St.UI.TxtDoneNote.Text = 'Guarda tu nueva contraseña: SafeTech no puede recuperarla. La garantía dura 1 año desde la compra.'
+    } else {
+        Set-StDoneList @('Aplicaciones de Microsoft 365 instaladas', 'Cuenta de SafeTech conectada en Office', 'Microsoft Authenticator configurado en tu celular')
+        $St.UI.TxtDoneNote.Text = 'Guarda tu nueva contraseña y no borres Microsoft Authenticator de tu celular. La garantía dura 1 año desde la compra.'
+    }
     $St.UI.DoneNote.Visibility = 'Visible'
     if ($St.StepRows.ContainsKey('account')) { Set-StUiStep 'account' 'done' }
     Show-StPage 'Done'
@@ -2802,11 +2840,21 @@ $ui.BtnTutorialEarly.Add_Click({ Show-StTutorial -Index $St.Tut.Index })
 $ui.BtnTutProgress.Add_Click({ Show-StPage 'Progress' })
 $ui.BtnTutBack.Add_Click({
     if ($St.Tut.Index -le 0) { if (-not (Test-StInstalling365)) { Show-StPage 'Home' } }
+    elseif ($St.Tut.Index -eq 7 -and $St.Tut.Auth -eq $false) { Set-StTutorialStep -Index 3 }
     else { Set-StTutorialStep -Index ($St.Tut.Index - 1) }
 })
 $ui.BtnTutHome.Add_Click({ if (-not (Test-StInstalling365)) { Show-StPage 'Home' } })
 $ui.BtnTutNext.Add_Click({
-    if ($St.Tut.Index -ge $StTutorial.Count - 1) { Complete-StTutorial } else { Set-StTutorialStep -Index ($St.Tut.Index + 1) }
+    $i = $St.Tut.Index
+    if ($i -ge $StTutorial.Count - 1) { Complete-StTutorial }
+    elseif ($i -eq 3 -and $null -eq $St.Tut.Auth) {
+        $c = Show-StDialog -Kind 'question' -Kicker 'Una pregunta' -Title '¿Te apareció «Vamos a garantizar la seguridad de la cuenta»?' `
+            -Message 'Algunas cuentas lo muestran después de cambiar la contraseña y otras no. Las dos cosas son normales.' `
+            -Buttons @('Sí, me apareció', 'No me apareció')
+        if ($c -eq 'Sí, me apareció') { Set-StTutorialAuth $true } elseif ($c -eq 'No me apareció') { Set-StTutorialAuth $false }
+    }
+    elseif ($i -eq 3 -and $St.Tut.Auth -eq $false) { Set-StTutorialStep -Index 7 }
+    else { Set-StTutorialStep -Index ($i + 1) }
 })
 
 $ui.BtnDoneWord.Add_Click({ [void](Open-StWord) })
@@ -2897,6 +2945,8 @@ if ($StMode -eq 'selftest') {
     Save-StShot $root '05-avance-365'
     $St.Mode = 'tutorial'
     Show-StTutorial -Index 1; Save-StShot $root '06-tutorial-paso2'
+    Set-StTutorialStep -Index 3; Save-StShot $root '06b-tutorial-pregunta'
+    $St.Tut.Auth = $false
     Set-StTutorialStep -Index 8; Save-StShot $root '07-tutorial-paso9'
     $St.Product = Get-StProduct '2024'
     $St.UI.TxtDoneTitle.Text = '¡Office 2024 quedó listo!'
