@@ -11,11 +11,14 @@
 #  SafeTech SpA - https://safe-tech.cl
 # ==============================================================================
 
+# Para probar una rama antes de publicarla: $env:SAFETECH_OFFICE_BRANCH = 'nombre-de-rama'
+$StBranch = 'main'
+if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
     Version     = '1.2.0'
     Repo        = 'psgonzalogr/office-setup'
-    ScriptUrl   = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1'
-    RawBase     = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main'
+    ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
+    RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
     ApiBase     = 'https://getcid.safe-tech.cl'
     OdtUrl      = 'https://officecdn.microsoft.com/pr/wsus/setup.exe'
     PortalUrl   = 'https://portal.office.com'
@@ -64,6 +67,7 @@ if ($StMode -eq 'app') {
     if ($env:SAFETECH_OFFICE_CHILD -ne '1' -or -not $stIsAdmin -or -not $stPsOk) {
         $stInner = @"
 `$env:SAFETECH_OFFICE_CHILD = '1'
+`$env:SAFETECH_OFFICE_BRANCH = '$StBranch'
 `$env:SAFETECH_OFFICE_URL = '$($StConfig.ScriptUrl)'
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
 try {
