@@ -1117,7 +1117,7 @@ $StWindowXaml = @'
   <Window.Resources>
     __RESOURCES__
   </Window.Resources>
-  <Border BorderBrush="#2A3C57" BorderThickness="1">
+  <Border BorderBrush="#2A3C57" BorderThickness="1" Background="#09111F">
   <Grid x:Name="Root">
     <Grid.RowDefinitions>
       <RowDefinition Height="58"/>
@@ -2867,11 +2867,11 @@ if ($StMode -eq 'selftest') {
     Save-StShot $root '09-error'
     $St.Act = @{ Iid = '123456712345671234567123456712345671234567123456712345671234567' }
     $dlg = Show-StDialog -Kind 'success' -Kicker 'INSTALACIÓN LISTA' -Title 'Office 2024 quedó instalado' -Message 'Ahora lo activaremos automáticamente con tu clave y tu código SafeTech. No necesitas abrir Word ni escribir números.' -Buttons @('Activar ahora')
-    $dlg.Show(); Save-StShot $dlg.Content '10-ventana-emergente'; $dlg.Close()
+    $dlg.Show(); Save-StShot $dlg '10-ventana-emergente'; $dlg.Close()
     $f = New-StDialogField -Label 'Código de activación SafeTech' -Placeholder 'ST-XXXXXX' -MaxLength 12 -Hint 'Lo encuentras en el correo de tu compra.'
     $f.Box.Style = $St.Window.FindResource('Field')
     $dlg = Show-StDialog -Kind 'warn' -Title 'No pudimos generar el ID de confirmación' -Message 'Código no válido. Verifica que esté escrito correctamente.' -Extra $f.Panel -Buttons @('Usar otro código', 'Activar manualmente', 'Cancelar')
-    $dlg.Show(); Save-StShot $dlg.Content '11-ventana-codigo'; $dlg.Close()
+    $dlg.Show(); Save-StShot $dlg '11-ventana-codigo'; $dlg.Close()
     $St.Window.Close()
     Write-Host "Autoprueba completa: $out"
     return
