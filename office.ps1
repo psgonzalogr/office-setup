@@ -12,7 +12,7 @@
 # ==============================================================================
 
 $StConfig = @{
-    Version     = '1.0.5'
+    Version     = '1.0.6'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1'
     RawBase     = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main'
@@ -460,9 +460,10 @@ function Invoke-StOspp {
     $cscript = Join-Path $env:SystemRoot 'System32\cscript.exe'
     $ErrorActionPreference = 'Continue'
     $out = & $cscript //Nologo $OsppPath @Arguments 2>&1 | ForEach-Object { "$_" }
+    $exit = $LASTEXITCODE
     $ErrorActionPreference = 'Stop'
     $text = (@($out) -join "`n")
-    Write-StLog ("OSPP {0}`n{1}" -f (Hide-StSecret ($Arguments -join ' ')), (Hide-StSecret $text))
+    Write-StLog ("OSPP {0} (salida {1}, {2} lineas, {3} caracteres)`n{4}" -f (Hide-StSecret ($Arguments -join ' ')), $exit, @($out).Count, $text.Length, (Hide-StSecret $text))
     return $text
 }
 
@@ -1499,7 +1500,7 @@ $StWindowXaml = @'
             <TextBlock Style="{StaticResource Lead}" TextAlignment="Center" Text="No te preocupes: puedes reintentar. Si se repite, crea el ZIP de diagnóstico y envíanoslo."/>
             <Border Style="{StaticResource Panel}" Margin="0,22,0,0" Padding="18">
               <TextBox x:Name="TxtErrDetail" IsReadOnly="True" TextWrapping="Wrap" Background="#00000000" BorderThickness="0"
-                       Foreground="#DBE5F1" FontSize="13.5" MaxHeight="180" VerticalScrollBarVisibility="Auto" Text=""/>
+                       Foreground="#DBE5F1" FontSize="13" FontFamily="Consolas, Segoe UI" MaxHeight="260" VerticalScrollBarVisibility="Auto" Text=""/>
             </Border>
             <WrapPanel HorizontalAlignment="Center" Margin="0,22,0,0">
               <Button x:Name="BtnErrRetry" Style="{StaticResource BtnPrimary}" Content="Reintentar" Margin="0,0,10,10"/>
@@ -1841,16 +1842,40 @@ function Invoke-StJobPump {
         if (-not $job.Handle.IsCompleted) { continue }
         [void]$St.Jobs.Remove($job)
         $res = $null
+        $diag = New-Object System.Collections.Generic.List[string]
         try {
-            $out = $job.PS.EndInvoke($job.Handle)
-            if ($out -and $out.Count -gt 0) { $res = $out[$out.Count - 1] }
-            if ($res -is [System.Management.Automation.PSObject]) { $res = $res.BaseObject }
+            $out = @($job.PS.EndInvoke($job.Handle))
+            $diag.Add("Objetos devueltos: $($out.Count)")
+            for ($i = $out.Count - 1; $i -ge 0; $i--) {
+                $item = $out[$i]
+                if ($item -is [System.Management.Automation.PSObject]) { $item = $item.BaseObject }
+                if ($item -is [hashtable] -and $item.ContainsKey('Ok')) { $res = $item; break }
+                if ($null -ne $item) { $diag.Add("Objeto ${i}: $($item.GetType().FullName)") }
+            }
         } catch {
             $res = @{ Ok = $false; Result = $null; Error = $_.Exception.Message }
-        } finally {
-            $job.PS.Dispose()
         }
-        if (-not ($res -is [hashtable])) { $res = @{ Ok = $false; Result = $null; Error = 'La tarea en segundo plano se detuvo sin informar el motivo. Revisa el registro o crea el ZIP de diagnóstico.' } }
+        if (-not ($res -is [hashtable])) {
+            try {
+                $info = $job.PS.InvocationStateInfo
+                $diag.Add("Estado: $($info.State)")
+                if ($info.Reason) { $diag.Add("Motivo: $($info.Reason.GetType().Name): $($info.Reason.Message)") }
+                foreach ($e in @($job.PS.Streams.Error)) {
+                    $diag.Add("Error: $($e.Exception.GetType().Name): $($e.Exception.Message) | $($e.InvocationInfo.PositionMessage)")
+                }
+                foreach ($w in @($job.PS.Streams.Warning)) { $diag.Add("Aviso: $w") }
+            } catch { $diag.Add("Sin datos del proceso: $($_.Exception.Message)") }
+            $tail = ''
+            try {
+                if ($St.Sync.LogFile -and (Test-Path -LiteralPath $St.Sync.LogFile)) {
+                    $tail = (@(Get-Content -LiteralPath $St.Sync.LogFile -Encoding UTF8 -Tail 25) -join "`n")
+                }
+            } catch { }
+            $detail = "La tarea en segundo plano se detuvo sin entregar un resultado.`n`nDIAGNÓSTICO (v$($StConfig.Version))`n" + ($diag -join "`n") + "`n`nÚLTIMAS LÍNEAS DEL REGISTRO`n" + $tail
+            Write-StLog ("Tarea sin resultado. " + ($diag -join ' | '))
+            $res = @{ Ok = $false; Result = $null; Error = $detail }
+        }
+        try { $job.PS.Dispose() } catch { }
         if ($job.OnDone) {
             try { & $job.OnDone $res.Ok $res.Result $res.Error }
             catch { Write-StLog "Error de interfaz: $($_.Exception.Message)"; Show-StError -Title 'Ocurrió un error inesperado' -Detail $_.Exception.Message }

@@ -83,6 +83,8 @@ GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows
 
 ## Versiones
 
+- **1.0.6** (2026-11-16): si una tarea en segundo plano se detiene sin resultado, la pantalla de error muestra el diagnóstico (estado, errores y últimas líneas del registro). La causa del fallo de activación visto en la primera prueba real sigue en investigación: la hipótesis de `Select-Object -First` de la 1.0.5 no se reprodujo.
+- **1.0.5** (2026-11-16): ODT sin ventana negra de consola; ZIP de diagnóstico con ZipFile.
 - **1.0.4** (2026-11-16): botón «¿Cómo funciona?» (barra superior e inicio) que explica que no es pirata, que Office se descarga sin modificar desde Microsoft y que la activación usa los métodos oficiales.
 - **1.0.3** (2026-11-16): ventana redimensionable desde los bordes y maximizable; botones rojos en «¿Ya tienes Office instalado?»; el tutorial destaca en negrita lo clave, marca en rojo los pasos obligatorios y rotula los avisos (Consejo, Importante, Muy importante).
 - **1.0.2** (2026-11-16): el tutorial pregunta si apareció «Vamos a garantizar la seguridad de la cuenta»; si no, se salta Authenticator (depende del proveedor de la cuenta) y tranquiliza al cliente.
