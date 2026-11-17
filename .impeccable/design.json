@@ -1,0 +1,691 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-17T03:53:42+00:00",
+  "title": "Design System: Instalador de Office SafeTech",
+  "extensions": {
+    "colorMeta": {
+      "noche": {
+        "role": "neutral",
+        "displayName": "Noche SafeTech",
+        "canonical": "#09111F",
+        "tonalRamp": [
+          "#11213B",
+          "#1E3867",
+          "#2A5092",
+          "#3768BE",
+          "#5D87D0",
+          "#88A7DD",
+          "#B8CAEA",
+          "#EBF0F9"
+        ]
+      },
+      "pozo": {
+        "role": "neutral",
+        "displayName": "Pozo",
+        "canonical": "#0C1626",
+        "tonalRamp": [
+          "#12223A",
+          "#203A65",
+          "#2D538F",
+          "#3B6CBA",
+          "#608ACD",
+          "#8BA9DA",
+          "#B9CCE9",
+          "#ECF1F9"
+        ]
+      },
+      "pizarra": {
+        "role": "neutral",
+        "displayName": "Pizarra",
+        "canonical": "#111C2F",
+        "tonalRamp": [
+          "#142138",
+          "#233A61",
+          "#32538B",
+          "#416BB4",
+          "#6589C7",
+          "#8FA9D6",
+          "#BCCBE7",
+          "#ECF1F8"
+        ]
+      },
+      "comprobante": {
+        "role": "neutral",
+        "displayName": "Pizarra del comprobante",
+        "canonical": "#17243A",
+        "tonalRamp": [
+          "#162237",
+          "#263B5F",
+          "#365487",
+          "#466DAF",
+          "#698BC4",
+          "#91AAD4",
+          "#BDCCE5",
+          "#EDF1F8"
+        ]
+      },
+      "pizarra-alta": {
+        "role": "neutral",
+        "displayName": "Pizarra alta",
+        "canonical": "#20304A",
+        "tonalRamp": [
+          "#172335",
+          "#283C5D",
+          "#395584",
+          "#4A6FAB",
+          "#6D8DC0",
+          "#94ABD1",
+          "#BFCDE3",
+          "#EDF1F7"
+        ]
+      },
+      "linea": {
+        "role": "neutral",
+        "displayName": "Línea",
+        "canonical": "#2A3C57",
+        "tonalRamp": [
+          "#192434",
+          "#2B3E59",
+          "#3D587F",
+          "#5072A5",
+          "#728FBB",
+          "#98ADCD",
+          "#C1CEE1",
+          "#EEF1F7"
+        ]
+      },
+      "linea-fuerte": {
+        "role": "neutral",
+        "displayName": "Línea fuerte",
+        "canonical": "#405776",
+        "tonalRamp": [
+          "#1B2532",
+          "#2F3F56",
+          "#425A7A",
+          "#56759F",
+          "#7792B5",
+          "#9CAFC9",
+          "#C3CFDF",
+          "#EEF2F6"
+        ]
+      },
+      "borde-control": {
+        "role": "neutral",
+        "displayName": "Borde de control",
+        "canonical": "#6B82A3",
+        "tonalRamp": [
+          "#1D252F",
+          "#334052",
+          "#485A74",
+          "#5E7597",
+          "#7E92AF",
+          "#A1AFC4",
+          "#C6CFDC",
+          "#EFF2F5"
+        ]
+      },
+      "anillo-inactivo": {
+        "role": "neutral",
+        "displayName": "Anillo inactivo",
+        "canonical": "#8FA3BE",
+        "tonalRamp": [
+          "#1C2530",
+          "#314054",
+          "#455B77",
+          "#5A769B",
+          "#7B92B2",
+          "#9EAFC7",
+          "#C5CFDD",
+          "#EFF2F6"
+        ]
+      },
+      "texto": {
+        "role": "neutral",
+        "displayName": "Texto",
+        "canonical": "#F8FAFC",
+        "tonalRamp": [
+          "#172636",
+          "#28425D",
+          "#395E84",
+          "#497AAB",
+          "#6D96C0",
+          "#94B2D1",
+          "#BFD1E3",
+          "#EDF2F7"
+        ]
+      },
+      "texto-suave": {
+        "role": "neutral",
+        "displayName": "Texto suave",
+        "canonical": "#DBE5F1",
+        "tonalRamp": [
+          "#152537",
+          "#25405F",
+          "#355B88",
+          "#4576B0",
+          "#6892C4",
+          "#91AFD4",
+          "#BDCFE5",
+          "#EDF2F8"
+        ]
+      },
+      "texto-lead": {
+        "role": "neutral",
+        "displayName": "Texto lead",
+        "canonical": "#C9D5E3",
+        "tonalRamp": [
+          "#1A2532",
+          "#2D4157",
+          "#405C7C",
+          "#5477A1",
+          "#7594B8",
+          "#9AB1CB",
+          "#C3D0E0",
+          "#EEF2F6"
+        ]
+      },
+      "apagado": {
+        "role": "neutral",
+        "displayName": "Apagado",
+        "canonical": "#AEBDD0",
+        "tonalRamp": [
+          "#1C2530",
+          "#314054",
+          "#455B77",
+          "#5A779B",
+          "#7B93B2",
+          "#9EB0C7",
+          "#C5D0DD",
+          "#EFF2F6"
+        ]
+      },
+      "rojo-marca": {
+        "role": "primary",
+        "displayName": "Rojo SafeTech",
+        "canonical": "#DC2626",
+        "tonalRamp": [
+          "#420B0B",
+          "#721212",
+          "#A21A1A",
+          "#D32222",
+          "#E24B4B",
+          "#EA7B7B",
+          "#F2B0B0",
+          "#FBE9E9"
+        ]
+      },
+      "rojo-profundo": {
+        "role": "primary",
+        "displayName": "Rojo profundo",
+        "canonical": "#991B1B",
+        "tonalRamp": [
+          "#410B0B",
+          "#711414",
+          "#A01C1C",
+          "#D02525",
+          "#E04D4D",
+          "#E87D7D",
+          "#F1B1B1",
+          "#FBE9E9"
+        ]
+      },
+      "rojo-talon-fin": {
+        "role": "primary",
+        "displayName": "Fin del talón",
+        "canonical": "#8E1818",
+        "tonalRamp": [
+          "#410B0B",
+          "#711313",
+          "#A11B1B",
+          "#D12323",
+          "#E14C4C",
+          "#E97C7C",
+          "#F2B0B0",
+          "#FBE9E9"
+        ]
+      },
+      "rojo-texto": {
+        "role": "primary",
+        "displayName": "Rojo legible",
+        "canonical": "#FCA5A5",
+        "tonalRamp": [
+          "#4A0202",
+          "#800404",
+          "#B70606",
+          "#ED0808",
+          "#F83535",
+          "#FA6B6B",
+          "#FCA6A6",
+          "#FEE6E6"
+        ]
+      },
+      "talon-etiqueta": {
+        "role": "primary",
+        "displayName": "Etiqueta del talón",
+        "canonical": "#FECACA",
+        "tonalRamp": [
+          "#4B0101",
+          "#820202",
+          "#B90303",
+          "#F00505",
+          "#FB3232",
+          "#FC6969",
+          "#FDA5A5",
+          "#FFE6E6"
+        ]
+      },
+      "verde-logrado": {
+        "role": "secondary",
+        "displayName": "Verde logrado",
+        "canonical": "#059669",
+        "tonalRamp": [
+          "#024A34",
+          "#04805A",
+          "#06B780",
+          "#08EDA6",
+          "#35F8BC",
+          "#6BFACE",
+          "#A6FCE1",
+          "#E6FEF7"
+        ]
+      },
+      "verde-sello": {
+        "role": "secondary",
+        "displayName": "Verde sello",
+        "canonical": "#34D399",
+        "tonalRamp": [
+          "#0E3F2D",
+          "#186D4E",
+          "#229B6F",
+          "#2CC990",
+          "#53DAA9",
+          "#81E4C0",
+          "#B4EFD9",
+          "#EAFAF4"
+        ]
+      },
+      "verde-texto": {
+        "role": "secondary",
+        "displayName": "Verde texto",
+        "canonical": "#6EE7B7",
+        "tonalRamp": [
+          "#0B422C",
+          "#13724C",
+          "#1BA26C",
+          "#23D28D",
+          "#4CE1A6",
+          "#7CE9BE",
+          "#B0F2D8",
+          "#E9FBF4"
+        ]
+      },
+      "ambar": {
+        "role": "tertiary",
+        "displayName": "Ámbar aviso",
+        "canonical": "#F59E0B",
+        "tonalRamp": [
+          "#492F03",
+          "#7F5205",
+          "#B57507",
+          "#EB970A",
+          "#F7AF36",
+          "#F9C56C",
+          "#FBDCA7",
+          "#FEF5E7"
+        ]
+      },
+      "ambar-claro": {
+        "role": "tertiary",
+        "displayName": "Ámbar claro (y foco)",
+        "canonical": "#FCD34D",
+        "tonalRamp": [
+          "#4B3A01",
+          "#826402",
+          "#BA8F03",
+          "#F1B904",
+          "#FCCC31",
+          "#FCDA69",
+          "#FDE9A5",
+          "#FFF9E6"
+        ]
+      },
+      "ambar-error": {
+        "role": "tertiary",
+        "displayName": "Ámbar error",
+        "canonical": "#B45309",
+        "tonalRamp": [
+          "#492204",
+          "#7E3A06",
+          "#B45309",
+          "#E96C0C",
+          "#F58A38",
+          "#F8A96D",
+          "#FBCCA8",
+          "#FEF1E7"
+        ]
+      },
+      "azul-info": {
+        "role": "tertiary",
+        "displayName": "Azul información",
+        "canonical": "#2563EB",
+        "tonalRamp": [
+          "#061A46",
+          "#0B2E79",
+          "#1041AD",
+          "#1554E0",
+          "#3F76ED",
+          "#739BF2",
+          "#ABC3F7",
+          "#E8EEFD"
+        ]
+      },
+      "azul-info-texto": {
+        "role": "tertiary",
+        "displayName": "Azul información texto",
+        "canonical": "#93C5FD",
+        "tonalRamp": [
+          "#01244B",
+          "#023F82",
+          "#0359B9",
+          "#0474F0",
+          "#3291FB",
+          "#69AEFC",
+          "#A5CFFD",
+          "#E6F2FF"
+        ]
+      },
+      "whatsapp": {
+        "role": "tertiary",
+        "displayName": "Verde WhatsApp",
+        "canonical": "#25D366",
+        "tonalRamp": [
+          "#0B411F",
+          "#147137",
+          "#1CA14E",
+          "#25D065",
+          "#4DE084",
+          "#7DE8A5",
+          "#B1F1C9",
+          "#E9FBF0"
+        ]
+      },
+      "whatsapp-tinta": {
+        "role": "tertiary",
+        "displayName": "Tinta WhatsApp",
+        "canonical": "#052E16",
+        "tonalRamp": [
+          "#084521",
+          "#0D7839",
+          "#13AA51",
+          "#18DD6A",
+          "#42EA88",
+          "#75F0A8",
+          "#ACF6CB",
+          "#E8FDF0"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Título de la elección «¿Qué compraste?» (H1)."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Títulos de comprobante, avance, error y tutorial (H1 reducido a 28–32 px)."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Títulos de ventanas emergentes (H2)."
+      },
+      "lead": {
+        "displayName": "Lead",
+        "purpose": "Una sola bajada bajo el título."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Texto que explica y listas."
+      },
+      "small": {
+        "displayName": "Small",
+        "purpose": "Ayudas, notas, contadores; piso del texto corrido."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Rótulos de campo y texto de botones."
+      },
+      "field": {
+        "displayName": "Campo",
+        "purpose": "Clave y código, como vienen en el correo."
+      },
+      "talon-numero": {
+        "displayName": "Número del talón",
+        "purpose": "2024 / 2021 / 365 sobre el talón rojo."
+      },
+      "talon-etiqueta": {
+        "displayName": "Etiqueta del talón",
+        "purpose": "OFFICE / MICROSOFT en mayúsculas sobre el talón."
+      },
+      "sello": {
+        "displayName": "Sello",
+        "purpose": "ACTIVADO / INSTALADO / PENDIENTE en mayúsculas."
+      }
+    },
+    "shadows": [
+      {
+        "name": "brillo-accion",
+        "value": "0 6px 22px rgba(127,29,29,0.45)",
+        "purpose": "Bajo el botón principal rojo (WPF DropShadowEffect #7F1D1D, BlurRadius 22, ShadowDepth 6, Opacity 0.45)."
+      },
+      {
+        "name": "boleto-levantado",
+        "value": "0 10px 30px rgba(0,0,0,0.35)",
+        "purpose": "Bajo los boletos de elección."
+      },
+      {
+        "name": "ventana-emergente",
+        "value": "0 10px 40px rgba(0,0,0,0.55)",
+        "purpose": "Bajo la tarjeta de la ventana emergente."
+      }
+    ],
+    "motion": [
+      {
+        "name": "entrada-pagina",
+        "value": "360ms QuinticEase EaseOut; opacidad 0→1, Y 18→0",
+        "purpose": "Cambio de página."
+      },
+      {
+        "name": "sello-avance",
+        "value": "300ms BackEase EaseOut amplitud 0.35; escala 1.7→1",
+        "purpose": "Sello PENDIENTE/ACTIVADO en la tarjeta del reloj."
+      },
+      {
+        "name": "sello-listo",
+        "value": "320ms BackEase EaseOut amplitud 0.35, retraso 260ms; escala 1.6→1, opacidad 0→1 en 180ms",
+        "purpose": "Sello que cae sobre el comprobante del «¡Listo!»."
+      },
+      {
+        "name": "barra-avance",
+        "value": "450ms QuinticEase EaseOut",
+        "purpose": "Relleno de la barra de avance (420ms en el tutorial)."
+      },
+      {
+        "name": "giro-paso",
+        "value": "900ms lineal, infinito",
+        "purpose": "Arco rojo del paso en curso."
+      },
+      {
+        "name": "presion",
+        "value": "escala 0.97",
+        "purpose": "Botones principal y suave al presionar."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "diseno",
+        "value": "1280x760 (escala 1)"
+      },
+      {
+        "name": "escala-min",
+        "value": "0.8"
+      },
+      {
+        "name": "escala-max",
+        "value": "1.4"
+      },
+      {
+        "name": "objetivo-sin-scroll",
+        "value": "1366x768"
+      },
+      {
+        "name": "ventana-minima",
+        "value": "960x620"
+      }
+    ],
+    "focus": {
+      "value": "anillo 3px #FCD34D, separado 5px (6px en boletos), esquina = esquina del control + 3px",
+      "purpose": "Foco de teclado de todo control."
+    }
+  },
+  "components": [
+    {
+      "name": "Botón principal",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "La acción que hace avanzar; una por decisión (BtnPrimary).",
+      "html": "<button class=\"ds-btn-primary\">Continuar <span aria-hidden=\"true\">&rarr;</span></button>",
+      "css": ".ds-btn-primary { font-family: \"Segoe UI Variable Text\",\"Segoe UI\",sans-serif; font-size: 17px; font-weight: 600; color: #fff; min-height: 56px; padding: 12px 28px; border: none; border-radius: 14px; background: linear-gradient(135deg,#DC2626,#991B1B); box-shadow: 0 6px 22px rgba(127,29,29,.45); cursor: pointer; transition: transform .1s; } .ds-btn-primary:hover { background: linear-gradient(135deg,#E23434,#A11D1D); } .ds-btn-primary:active { transform: scale(.97); } .ds-btn-primary:focus-visible { outline: 3px solid #FCD34D; outline-offset: 5px; } .ds-btn-primary:disabled { opacity: .38; }"
+    },
+    {
+      "name": "Botón suave",
+      "kind": "button",
+      "refersTo": "button-soft",
+      "description": "Atrás, Pegar y alternativas (BtnSoft).",
+      "html": "<button class=\"ds-btn-soft\">Atrás</button>",
+      "css": ".ds-btn-soft { font-family: \"Segoe UI Variable Text\",\"Segoe UI\",sans-serif; font-size: 17px; font-weight: 600; color: #F8FAFC; min-height: 56px; padding: 12px 24px; background: #17243A; border: 2px solid #6B82A3; border-radius: 14px; cursor: pointer; } .ds-btn-soft:hover { background: #20304A; border-color: #AEBDD0; } .ds-btn-soft:active { transform: scale(.97); } .ds-btn-soft:focus-visible { outline: 3px solid #FCD34D; outline-offset: 5px; }"
+    },
+    {
+      "name": "Botón WhatsApp",
+      "kind": "button",
+      "refersTo": "button-whatsapp",
+      "description": "Solo para pedir ayuda humana (BtnWa).",
+      "html": "<button class=\"ds-btn-wa\">Escríbenos por WhatsApp</button>",
+      "css": ".ds-btn-wa { font-family: \"Segoe UI Variable Text\",\"Segoe UI\",sans-serif; font-size: 16px; font-weight: 600; color: #052E16; min-height: 48px; padding: 6px 18px; background: #25D366; border: none; border-radius: 14px; cursor: pointer; } .ds-btn-wa:hover { background: #3BE07A; } .ds-btn-wa:focus-visible { outline: 3px solid #FCD34D; outline-offset: 5px; }"
+    },
+    {
+      "name": "Enlace",
+      "kind": "button",
+      "refersTo": "button-link",
+      "description": "Acciones terciarias como «Volver al inicio» (BtnLink).",
+      "html": "<button class=\"ds-btn-link\">Centro de Ayuda</button>",
+      "css": ".ds-btn-link { font-family: \"Segoe UI Variable Text\",\"Segoe UI\",sans-serif; font-size: 16px; font-weight: 600; color: #FCA5A5; min-height: 44px; padding: 8px 10px; background: transparent; border: 2px solid transparent; border-radius: 10px; cursor: pointer; } .ds-btn-link:hover { background: rgba(220,38,38,.15); } .ds-btn-link:focus-visible { border-color: #FCD34D; }"
+    },
+    {
+      "name": "Campo de clave",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Clave y código, en Consolas 21 px (Field).",
+      "html": "<input class=\"ds-field\" placeholder=\"XXXXX-XXXXX-XXXXX-XXXXX-XXXXX\">",
+      "css": ".ds-field { font-family: Consolas,\"Segoe UI\",monospace; font-size: 21px; color: #F8FAFC; height: 58px; padding: 0 18px; width: 100%; background: #0C1626; border: 2px solid #6B82A3; border-radius: 14px; outline: none; } .ds-field::placeholder { color: #8FA3BE; } .ds-field:hover { border-color: #AEBDD0; } .ds-field:focus-visible, .ds-field:focus { border-color: #FCD34D; background: #111C2F; }"
+    },
+    {
+      "name": "Boleto de elección",
+      "kind": "card",
+      "refersTo": "ticket",
+      "description": "Comprobante clicable con talón rojo, perforación y muescas (Ticket).",
+      "html": "<button class=\"ds-ticket\"><span class=\"ds-ticket-stub\"><small>OFFICE</small><b>2024</b></span><span class=\"ds-ticket-body\"><span class=\"ds-ticket-name\">Office 2024</span><span class=\"ds-ticket-sub\">Word, Excel, PowerPoint y más</span><span class=\"ds-ticket-cta\">Instalar Office 2024 &rarr;</span></span><i class=\"ds-notch ds-notch-t\"></i><i class=\"ds-notch ds-notch-b\"></i></button>",
+      "css": ".ds-ticket { position: relative; display: grid; grid-template-columns: 108px 1fr; width: 380px; height: 256px; padding: 0; text-align: left; color: #F8FAFC; background: #17243A; border: 2px solid #2A3C57; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.35); cursor: pointer; overflow: visible; transition: transform .15s, border-color .15s; font-family: \"Segoe UI Variable Text\",\"Segoe UI\",sans-serif; } .ds-ticket:hover { border-color: #DC2626; transform: translateY(-4px); } .ds-ticket:focus-visible { outline: 3px solid #FCD34D; outline-offset: 6px; } .ds-ticket-stub { display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 18px 0 0 18px; background: linear-gradient(180deg,#DC2626,#8E1818); border-right: 2px dashed #405776; } .ds-ticket-stub small { color: #FECACA; font-size: 13px; font-weight: 700; } .ds-ticket-stub b { color: #fff; font-size: 32px; font-weight: 900; } .ds-ticket-body { display: flex; flex-direction: column; padding: 20px 18px 18px 24px; } .ds-ticket-name { font-family: \"Segoe UI Variable Display\",\"Segoe UI\",sans-serif; font-size: 26px; font-weight: 600; } .ds-ticket-sub { color: #AEBDD0; font-size: 16px; } .ds-ticket-cta { margin-top: auto; height: 54px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: linear-gradient(135deg,#DC2626,#991B1B); color: #fff; font-size: 17px; font-weight: 600; } .ds-notch { position: absolute; left: 96px; width: 24px; height: 24px; border-radius: 50%; background: #09111F; } .ds-notch-t { top: -12px; } .ds-notch-b { bottom: -12px; }"
+    },
+    {
+      "name": "Sello",
+      "kind": "custom",
+      "refersTo": "sello-activado",
+      "description": "Estado del comprobante: cae rotado al terminar cada etapa.",
+      "html": "<span class=\"ds-stamp\">ACTIVADO</span> <span class=\"ds-stamp ds-stamp-pend\">PENDIENTE</span>",
+      "css": ".ds-stamp { display: inline-block; font-family: \"Segoe UI\",sans-serif; font-size: 24px; font-weight: 900; color: #34D399; border: 3px solid #34D399; border-radius: 12px; padding: 6px 16px; transform: rotate(-9deg); animation: ds-stamp-drop .32s cubic-bezier(.34,1.56,.64,1) .26s both; } .ds-stamp-pend { font-size: 17px; color: #FCD34D; border-color: #F59E0B; border-radius: 10px; padding: 4px 12px; transform: rotate(-6deg); } @keyframes ds-stamp-drop { from { opacity: 0; scale: 1.6; } to { opacity: 1; scale: 1; } }"
+    },
+    {
+      "name": "Fila de casilla",
+      "kind": "input",
+      "refersTo": "check-row",
+      "description": "Confirmación de una línea, toda la fila es clicable (Check).",
+      "html": "<label class=\"ds-check\"><input type=\"checkbox\" checked><span>Guardé mis documentos y leí estas indicaciones.</span></label>",
+      "css": ".ds-check { display: flex; align-items: center; gap: 16px; min-height: 58px; padding: 14px 18px; background: #17243A; border: 2px solid #405776; border-radius: 14px; color: #F8FAFC; font: 17px \"Segoe UI Variable Text\",\"Segoe UI\",sans-serif; cursor: pointer; } .ds-check:hover { background: #20304A; } .ds-check:has(input:checked) { border-color: #059669; } .ds-check:focus-within { border-color: #FCD34D; } .ds-check input { appearance: none; width: 28px; height: 28px; margin: 0; border: 2px solid #8FA3BE; border-radius: 8px; } .ds-check input:checked { background: #059669; border-color: #059669; }"
+    },
+    {
+      "name": "Etapas",
+      "kind": "nav",
+      "refersTo": "",
+      "description": "Tres etapas en la franja de guía: hecho, actual, pendiente.",
+      "html": "<ol class=\"ds-journey\"><li class=\"done\"><i>&#10003;</i>Elegir</li><li class=\"cur\"><i>2</i>Tus datos</li><li><i>3</i>Instalar y activar</li></ol>",
+      "css": ".ds-journey { display: flex; gap: 60px; list-style: none; margin: 0; padding: 0; font: 16px \"Segoe UI Variable Text\",\"Segoe UI\",sans-serif; color: #AEBDD0; } .ds-journey li { display: flex; flex-direction: column; align-items: center; gap: 6px; } .ds-journey i { font-style: normal; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; border: 2px solid #8FA3BE; font-weight: 700; } .ds-journey .done { color: #C9D5E3; } .ds-journey .done i { background: #059669; border-color: #059669; color: #fff; } .ds-journey .cur { color: #F8FAFC; font-weight: 600; } .ds-journey .cur i { background: linear-gradient(135deg,#DC2626,#991B1B); border-color: #DC2626; color: #fff; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "El comprobante timbrado",
+    "overview": "La app es el comprobante de compra de SafeTech convertido en objeto. Sobre la noche SafeTech, cada pantalla importante es una pieza de pizarra con un talón rojo a la izquierda que muestra en grande lo que el cliente compró (2024, 2021, 365). Una línea punteada con muescas separa el talón del cuerpo. El cliente completa el comprobante con sus dos datos, tal como vienen en el correo, y al terminar cada etapa un sello rotado cae encima: ámbar «PENDIENTE» mientras se trabaja y verde «ACTIVADO» o «INSTALADO» al final.\n\nEl tono es tranquilo y grande, sin letra chica. El texto base mide 17 px, las acciones principales 56 px de alto y hay una sola acción roja evidente por decisión. SafeBOT acompaña desde arriba con una sola frase en un globo, y a su derecha tres etapas numeradas muestran dónde va el cliente. La ayuda humana (WhatsApp verde) vive siempre en el pie.\n\nLa metáfora solo enmarca. El comprobante aparece en la elección (tres boletos), en los datos, en la confirmación, en la tarjeta del tiempo transcurrido y en el «¡Listo!». Las pantallas de error, el tutorial y las ventanas emergentes no usan talón: son pizarra sobria con íconos en cuadros de color.",
+    "keyCharacteristics": [
+      "Solo modo oscuro: noche #09111F con capas de pizarra, sin superficies claras.",
+      "Talón rojo con degradado vertical, perforación punteada y muescas: la firma de la app.",
+      "Sellos rotados con borde grueso y letra Black en mayúsculas como único marcador de estado del comprobante.",
+      "Rojo para actuar y para lo actual, verde para lo logrado, ámbar para avisos y pendientes.",
+      "Letra grande (17 px base) y objetivos de clic de 56 px.",
+      "Foco de teclado ámbar, grueso y separado del control."
+    ],
+    "rules": [
+      {
+        "name": "The Tres Semáforos Rule",
+        "body": "Rojo es actuar o «aquí estás», verde es «ya está hecho» y ámbar es «atención» o «falta». Un color de estado nunca toma el papel de otro: el paso que falló y la página de error se pintan en ámbar. La única excepción es el cuadro de ícono de las ventanas emergentes de error y de clave, que usa rojo al 15 % con ícono rojo legible.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tinte al 15 Rule",
+        "body": "Los fondos de estado son el mismo color semántico con transparencia: relleno al 15 % (alfa 26) en cuadros de ícono, al 10 % (alfa 1A) en paneles de aviso, y borde al 50 % (alfa 80). No se inventan tonos opacos intermedios.",
+        "section": "colors"
+      },
+      {
+        "name": "The Diecisiete Rule",
+        "body": "El texto que se lee mide 17 px; 16 px es el piso para ayudas y notas. Por debajo de 16 px solo van chips de estado (14 px semibold), números dentro de círculos y la etiqueta del talón.",
+        "section": "typography"
+      },
+      {
+        "name": "The Clave Como en el Correo Rule",
+        "body": "Clave y código se escriben en Consolas de 21 px con marcador de posición del formato real (XXXXX-… y ST-XXXXXX); no se usa letra proporcional en esos campos.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sin Scroll en 1366 Rule",
+        "body": "Toda página debe caber sin desplazamiento en 1366×768 a la escala calculada; si no cabe, se acorta el texto o se resume la lista, no se agrega una barra.",
+        "section": "layout"
+      },
+      {
+        "name": "The Plano Salvo Para Tomar Rule",
+        "body": "Paneles, comprobantes de página y tarjetas informativas no llevan sombra; solo la llevan el botón principal, los boletos que se eligen y las ventanas emergentes.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Muesca Verdadera Rule",
+        "body": "La muesca se pinta siempre con el color exacto del fondo sobre el que está el comprobante (noche #09111F); si el comprobante se coloca sobre otra superficie, la muesca cambia con ella.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** poner el talón rojo con perforación y muescas en cada comprobante, mostrando el número del producto elegido.",
+      "**Do** usar `BtnPrimary` para la acción que hace avanzar, con 56 px de alto, y `BtnSoft` para «Atrás» y alternativas.",
+      "**Do** marcar el estado del comprobante con un sello rotado: ámbar «PENDIENTE» mientras se trabaja, verde «ACTIVADO» o «INSTALADO» al terminar.",
+      "**Do** dar a todo control el anillo de foco ámbar de 3 px separado del borde.",
+      "**Do** escribir texto corrido a 17 px y ayudas a 16 px como mínimo, en los colores texto, texto suave, texto lead o apagado.",
+      "**Do** pintar avisos y errores en ámbar con el tinte al 10–15 % y el borde al 50 %.",
+      "**Do** mantener el botón verde de WhatsApp visible en el pie en todas las páginas.",
+      "**Do** usar solo íconos de Segoe Fluent Icons (con MDL2 de respaldo) dentro de cuadros o círculos de color."
+    ],
+    "donts": [
+      "**Don't** usar el rojo de marca para adornos, para el paso que falló ni como color de texto; el rojo es actuar o «aquí estás», y como texto se usa rojo legible (#FCA5A5).",
+      "**Don't** poner sombra en paneles, comprobantes de página o tarjetas informativas.",
+      "**Don't** usar fondos claros ni un modo claro.",
+      "**Don't** usar fuentes que no vengan con Windows.",
+      "**Don't** poner rótulos en mayúsculas pequeñas sobre los títulos (kicker); el título y una bajada bastan. Las únicas mayúsculas son la palabra del talón y el texto de los sellos.",
+      "**Don't** usar el verde de WhatsApp para nada que no sea pedir ayuda humana."
+    ]
+  }
+}

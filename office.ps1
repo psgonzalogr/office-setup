@@ -1111,7 +1111,7 @@ $StResXaml = @'
 <Style x:Key="BtnLink" TargetType="Button">
   <Setter Property="Foreground" Value="#FCA5A5"/><Setter Property="FontWeight" Value="SemiBold"/>
   <Setter Property="FontSize" Value="16"/><Setter Property="Cursor" Value="Hand"/>
-  <Setter Property="Padding" Value="10,8"/><Setter Property="MinHeight" Value="44"/>
+  <Setter Property="Padding" Value="10,8"/><Setter Property="MinHeight" Value="48"/>
   <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
   <Setter Property="Template"><Setter.Value>
     <ControlTemplate TargetType="Button">
@@ -1615,7 +1615,7 @@ $StWindowXaml = @'
                   <Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                   <Border CornerRadius="18,0,0,18" Background="{StaticResource StubGrad}">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                      <TextBlock x:Name="TxtProgStubLabel" Text="OFFICE" Foreground="#FECACA" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"/>
+                      <TextBlock x:Name="TxtProgStubLabel" Text="OFFICE" Foreground="#FECACA" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center"/>
                       <TextBlock x:Name="TxtProgStubYear" Text="2024" Foreground="White" FontSize="26" FontWeight="Black" HorizontalAlignment="Center"/>
                     </StackPanel>
                   </Border>
