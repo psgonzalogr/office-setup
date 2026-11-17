@@ -323,7 +323,8 @@ Last 5 characters of installed product key: MP4Y9
             [void]$ps.AddScript($script).AddArgument($Params).AddArgument($sync).AddArgument($StConfig)
             $h = $ps.BeginInvoke(); while (-not $h.IsCompleted) { Start-Sleep -Milliseconds 50 }
             $out = @($ps.EndInvoke($h)); $ps.Dispose(); $pool.Close()
-            return @{ Res = (Get-StAsyncResult -Output $out); Log = (Get-Content -LiteralPath $log -Raw) }
+            $logText = ''; if (Test-Path -LiteralPath $log) { $logText = Get-Content -LiteralPath $log -Raw }
+            return @{ Res = (Get-StAsyncResult -Output $out); Log = $logText }
         }
     }
     It 'La tarea de activación entrega su resultado (antes llegaba vacío: "La tarea terminó sin respuesta")' {
