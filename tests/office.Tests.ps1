@@ -444,3 +444,18 @@ Describe 'Ventana maximizada (Windows real, solo en CI)' {
         }
     }
 }
+
+Describe 'Final de la instalación de Microsoft' {
+    It 'Explica qué hacer con «¡Hemos terminado!» y aclara el nombre Microsoft 365' {
+        $t = Get-StInstallHint -ProductId '2024'
+        $t | Should -Match 'Hemos terminado'
+        $t | Should -Match 'Cerrar'
+        $t | Should -Match 'Office 2024'
+        Get-StInstallHint -ProductId '365' | Should -Not -Match 'Aunque diga'
+    }
+    It 'Cerrar la ventana final no toca otros programas si no hay ventana de Microsoft' {
+        $before = @(Get-Process | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero }).Count
+        Close-StOdtWindows -WaitSeconds 1 | Should -Be 0
+        @(Get-Process | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero }).Count | Should -Be $before
+    }
+}

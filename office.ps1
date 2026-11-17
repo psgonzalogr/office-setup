@@ -12,7 +12,7 @@
 # ==============================================================================
 
 $StConfig = @{
-    Version     = '1.1.2'
+    Version     = '1.2.0'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1'
     RawBase     = 'https://raw.githubusercontent.com/psgonzalogr/office-setup/main'
@@ -83,12 +83,20 @@ try {
         try {
             Start-Process -FilePath $stPs -Verb RunAs -ArgumentList @(
                 '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-WindowStyle', 'Hidden', '-EncodedCommand', $stEncoded) | Out-Null
-            Write-Host '  Listo: el instalador se abrio en una ventana nueva. Ya puedes cerrar esta ventana.' -ForegroundColor Green
+            Write-Host '  Listo: el instalador se esta abriendo en una ventana nueva.' -ForegroundColor Green
+            Write-Host ''
+            # Esta consola ya no hace falta: se cierra sola a los 10 segundos para no confundir al cliente.
+            for ($stLeft = 10; $stLeft -ge 1; $stLeft--) {
+                Write-Host ("`r  Esta ventana se cerrara sola en {0,2} segundos..." -f $stLeft) -NoNewline -ForegroundColor Gray
+                Start-Sleep -Seconds 1
+            }
+            [Environment]::Exit(0)
         } catch {
             Write-Host '  No se otorgaron los permisos de administrador.' -ForegroundColor Yellow
             Write-Host '  Vuelve a ejecutar el comando y responde "Si" cuando Windows lo pregunte.' -ForegroundColor Yellow
         }
         Write-Host ''
+        if ($env:SAFETECH_OFFICE_LAUNCHER -eq 'cmd') { exit 1 }
         return
     }
 }
@@ -456,6 +464,45 @@ function Invoke-StOdt {
     return $proc.ExitCode
 }
 
+function Get-StInstallHint {
+    # Lo que se le dice al cliente mientras corre la ventana de Microsoft.
+    param([string]$ProductId)
+    $prod = Get-StProduct $ProductId
+    $t = 'Se abrió la ventana de Microsoft con el avance. Si al final dice «¡Hemos terminado!», presiona «Cerrar» (o espera: la cerramos por ti).'
+    if ($prod.NeedsKey) { $t += " Aunque diga «Microsoft 365», se está instalando tu $($prod.Name)." }
+    return $t
+}
+
+function Close-StOdtWindows {
+    # Al terminar, Microsoft deja abierta su ventana «¡Hemos terminado!» aunque setup.exe ya salió,
+    # y tapa la ventana del instalador. Se cierra igual que con su botón «Cerrar» (WM_CLOSE).
+    # Solo toca ventanas de los programas de Click-to-Run, nunca Word, Excel, etc.
+    param([int]$WaitSeconds = 20)
+    $roots = @()
+    foreach ($base in @($env:CommonProgramFiles, ${env:CommonProgramFiles(x86)}, $env:CommonProgramW6432)) {
+        if ($base) { $roots += (Join-Path $base 'microsoft shared\ClickToRun') }
+    }
+    $deadline = (Get-Date).AddSeconds($WaitSeconds)
+    $closed = 0
+    do {
+        foreach ($p in @(Get-Process -ErrorAction SilentlyContinue)) {
+            if ($p.MainWindowHandle -eq [IntPtr]::Zero) { continue }
+            $path = $null
+            try { $path = $p.Path } catch { }
+            if (-not $path) { continue }
+            $match = $false
+            foreach ($r in $roots) { if ($path.StartsWith($r, [StringComparison]::OrdinalIgnoreCase)) { $match = $true } }
+            if (-not $match) { continue }
+            Write-StLog ("Cerrando la ventana final de Microsoft: {0} «{1}»" -f $p.ProcessName, $p.MainWindowTitle)
+            try { if ($p.CloseMainWindow()) { $closed++ } } catch { }
+        }
+        if ($closed -gt 0) { break }
+        Start-Sleep -Milliseconds 700
+    } while ((Get-Date) -lt $deadline)
+    if ($closed -eq 0) { Write-StLog 'No apareció una ventana final de Microsoft para cerrar.' }
+    return $closed
+}
+
 function Get-StOdtMessage {
     param([int]$Code)
     switch ($Code) {
@@ -696,12 +743,14 @@ function Invoke-StInstall {
         Set-StStep 'remove' 'skip'
     }
 
-    Set-StStep 'install' 'running' 'Se abrió la ventana de Microsoft con el avance: déjala trabajar, se cierra sola.'
+    Set-StStep 'install' 'running' (Get-StInstallHint -ProductId $ProductId)
     Start-StClickToRunService
     $code = Invoke-StOdt -Setup $setup -Xml $installXml -Label "Instalacion de $($prod.FullName)"
     if ($code -ne 0) {
         throw ("{0} (código {1})`n`nRevisa tu conexión a Internet y vuelve a intentarlo. Si se repite, crea el ZIP de diagnóstico y envíalo a SafeTech." -f (Get-StOdtMessage $code), $code)
     }
+    Set-StStep 'install' 'running' 'Microsoft terminó. Cerrando su ventana y comprobando...'
+    [void](Close-StOdtWindows)
     Set-StStep 'install' 'done'
 
     Set-StStep 'verify' 'running' 'Comprobando que Office quedó instalado...'
@@ -1040,6 +1089,10 @@ $St = @{
     KeyFormatting = $false
     CacheDir    = (Join-Path $env:TEMP 'SafeTechOffice\cache')
     LogDir      = $null
+    SoundOn     = $true
+    CuesDone    = @{}
+    VoicePlayer = $null
+    PendingVoice = $null
 }
 $sync = $St.Sync
 if (-not [System.Windows.SystemParameters]::ClientAreaAnimation) { $St.NoAnim = $true }
@@ -1356,6 +1409,12 @@ $StWindowXaml = @'
           <TextBlock Text="Instalador de Office" Foreground="#DBE5F1" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+          <Button x:Name="BtnSound" Style="{StaticResource BtnSoft}" MinHeight="48" Padding="16,6" FontSize="16" Margin="0,0,10,0" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Activa o apaga los sonidos y la voz de SafeBOT">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock x:Name="TxtSoundIcon" Text="&#xE767;" FontFamily="{StaticResource Icons}" FontSize="16" VerticalAlignment="Center" Margin="0,0,9,0"/>
+              <TextBlock x:Name="TxtSound" Text="Sonido activado" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
           <Button x:Name="BtnAbout" Style="{StaticResource BtnSoft}" MinHeight="48" Padding="16,6" FontSize="16" Margin="0,0,14,0" WindowChrome.IsHitTestVisibleInChrome="True">
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="&#xE946;" FontFamily="{StaticResource Icons}" FontSize="16" VerticalAlignment="Center" Margin="0,0,9,0"/>
@@ -1372,7 +1431,7 @@ $StWindowXaml = @'
     <!-- Guía: SafeBOT + etapas -->
     <Grid x:Name="GuideBar" Grid.Row="1" Margin="40,12,40,4" MaxWidth="1240">
       <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <Image x:Name="ImgBot" Height="66" Width="52" Stretch="Uniform" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+      <ContentControl x:Name="BotHost" Height="72" Width="56" VerticalAlignment="Center" Focusable="False"/>
       <Grid Grid.Column="1" Margin="10,0,24,0" VerticalAlignment="Center" HorizontalAlignment="Left">
         <Path Data="M 12,0 L 0,10 L 12,20 Z" Fill="#17243A" Stroke="#2A3C57" StrokeThickness="1.5" VerticalAlignment="Center" HorizontalAlignment="Left"/>
         <Border Margin="10,0,0,0" CornerRadius="18" Background="#17243A" BorderBrush="#2A3C57" BorderThickness="1.5" Padding="20,12" MaxWidth="660">
@@ -1715,7 +1774,7 @@ $StWindowXaml = @'
                     <TextBlock Text="&#xE7BA;" FontFamily="{StaticResource Icons}" FontSize="18" Foreground="#FCD34D" VerticalAlignment="Center"/>
                     <TextBlock Text="Mientras tanto" FontWeight="SemiBold" FontSize="18" Margin="10,0,0,0"/>
                   </StackPanel>
-                  <TextBlock Style="{StaticResource Body}" FontSize="16" Margin="0,8,0,0" Text="No apagues ni reinicies el computador. Si aparece una ventana de Microsoft, déjala trabajar: se cierra sola."/>
+                  <TextBlock x:Name="TxtWhile" Style="{StaticResource Body}" FontSize="16" Margin="0,8,0,0" Text="No apagues ni reinicies el computador."/>
                 </StackPanel>
               </Border>
             </StackPanel>
@@ -1930,6 +1989,61 @@ $StDialogXaml = @'
 </Window>
 '@
 
+# ----- SafeBOT vectorial y animado (mismo dibujo plano de los videos de SafeTech) ------------------
+# Lienzo de 400x520 con partes separadas: cuerpo, brazo que saluda, cabeza y dos juegos de ojos.
+$StBotXaml = @'
+<Viewbox xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Stretch="Uniform">
+  <Canvas x:Name="BotRoot" Width="400" Height="520" RenderTransformOrigin="0.5,1">
+    <Canvas.RenderTransform>
+      <TransformGroup>
+        <ScaleTransform x:Name="BotSquash" ScaleX="1" ScaleY="1"/>
+        <TranslateTransform x:Name="BotBob" Y="0"/>
+        <TranslateTransform x:Name="BotJump" Y="0"/>
+      </TransformGroup>
+    </Canvas.RenderTransform>
+    <Rectangle Canvas.Left="58" Canvas.Top="352" Width="44" Height="108" RadiusX="22" RadiusY="22" Fill="#E9E9E6"/>
+    <Rectangle Canvas.Left="58" Canvas.Top="352" Width="44" Height="30" RadiusX="15" RadiusY="15" Fill="#DC2626"/>
+    <Ellipse Canvas.Left="56" Canvas.Top="434" Width="48" Height="48" Fill="#F4F4F2"/>
+    <Path Data="M110,340 H290 Q312,340 310,362 L300,478 Q298,500 276,500 H124 Q102,500 100,478 L90,362 Q88,340 110,340 Z" Fill="#F4F4F2"/>
+    <Path Data="M100,470 Q102,500 124,500 H276 Q298,500 300,470 Z" Fill="#D9D9D5"/>
+    <Rectangle Canvas.Left="168" Canvas.Top="476" Width="64" Height="10" RadiusX="5" RadiusY="5" Fill="#DC2626"/>
+    <TextBlock Canvas.Left="120" Canvas.Top="366" Width="160" TextAlignment="Center" FontFamily="Segoe UI Black, Segoe UI" FontWeight="Black" FontSize="64"><Run Text="S" Foreground="#172033"/><Run Text="T" Foreground="#DC2626"/></TextBlock>
+    <Rectangle Canvas.Left="172" Canvas.Top="312" Width="56" Height="34" RadiusX="10" RadiusY="10" Fill="#3A3F47"/>
+    <Canvas x:Name="BotArm">
+      <Canvas.RenderTransform><RotateTransform x:Name="BotArmRot" CenterX="320" CenterY="364" Angle="0"/></Canvas.RenderTransform>
+      <Rectangle Canvas.Left="298" Canvas.Top="352" Width="44" Height="108" RadiusX="22" RadiusY="22" Fill="#E9E9E6"/>
+      <Rectangle Canvas.Left="298" Canvas.Top="352" Width="44" Height="30" RadiusX="15" RadiusY="15" Fill="#DC2626"/>
+      <Ellipse Canvas.Left="296" Canvas.Top="434" Width="48" Height="48" Fill="#F4F4F2"/>
+    </Canvas>
+    <Canvas x:Name="BotHead">
+      <Canvas.RenderTransform><RotateTransform x:Name="BotHeadRot" CenterX="200" CenterY="316" Angle="0"/></Canvas.RenderTransform>
+      <Path Data="M70,120 L44,22 Q42,10 54,14 L104,92 Z" Fill="#F4F4F2"/>
+      <Path Data="M48,36 L44,22 Q42,10 54,14 L72,42 Z" Fill="#DC2626"/>
+      <Path Data="M330,120 L356,22 Q358,10 346,14 L296,92 Z" Fill="#F4F4F2"/>
+      <Path Data="M352,36 L356,22 Q358,10 346,14 L328,42 Z" Fill="#DC2626"/>
+      <Ellipse Canvas.Left="18" Canvas.Top="156" Width="88" Height="88" Fill="#3A3F47"/>
+      <Ellipse Canvas.Left="32" Canvas.Top="170" Width="60" Height="60" Fill="#F4F4F2"/>
+      <Ellipse Canvas.Left="42" Canvas.Top="180" Width="40" Height="40" Stroke="#DC2626" StrokeThickness="8"/>
+      <Ellipse Canvas.Left="294" Canvas.Top="156" Width="88" Height="88" Fill="#3A3F47"/>
+      <Ellipse Canvas.Left="308" Canvas.Top="170" Width="60" Height="60" Fill="#F4F4F2"/>
+      <Ellipse Canvas.Left="318" Canvas.Top="180" Width="40" Height="40" Stroke="#DC2626" StrokeThickness="8"/>
+      <Rectangle Canvas.Left="72" Canvas.Top="56" Width="256" Height="262" RadiusX="118" RadiusY="118" Fill="#F4F4F2"/>
+      <Path Data="M80,250 Q110,316 200,318 Q290,316 320,250 Q300,300 200,304 Q100,300 80,250 Z" Fill="#E2E2DE"/>
+      <Path Data="M160,58 H240 L232,102 H168 Z" Fill="#DC2626"/>
+      <Rectangle Canvas.Left="104" Canvas.Top="126" Width="192" Height="150" RadiusX="66" RadiusY="66" Fill="#0D0F14"/>
+      <Rectangle Canvas.Left="118" Canvas.Top="138" Width="60" Height="18" RadiusX="9" RadiusY="9" Fill="#FFFFFF" Opacity="0.10"/>
+      <Canvas x:Name="BotEyes">
+        <Canvas.RenderTransform><ScaleTransform x:Name="BotEyesScale" CenterX="200" CenterY="201" ScaleX="1" ScaleY="1"/></Canvas.RenderTransform>
+        <Rectangle Canvas.Left="148" Canvas.Top="176" Width="30" Height="50" RadiusX="15" RadiusY="15" Fill="#FF5A5A"/>
+        <Rectangle Canvas.Left="222" Canvas.Top="176" Width="30" Height="50" RadiusX="15" RadiusY="15" Fill="#FF5A5A"/>
+      </Canvas>
+      <Path x:Name="BotEyesHappy" Data="M145,212 Q163,182 181,212 M219,212 Q237,182 255,212" Stroke="#FF5A5A" StrokeThickness="12" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0"/>
+    </Canvas>
+  </Canvas>
+</Viewbox>
+'@
+
+
 # ----- Utilidades de interfaz -------------------------------------------------------------
 function New-StXamlElement {
     param([string]$Xaml)
@@ -2006,7 +2120,10 @@ function Show-StPage {
     $el = $St.UI["Page$Name"]
     $el.Visibility = 'Visible'
     $St.CurrentPage = $Name
+    Invoke-StBotAction -Action $(if ($Name -eq 'Done') { 'happy' } else { 'normal' })
     Update-StGuide -Page $Name
+    if ($Name -eq 'Data') { Invoke-StCue 'datos' -Once }
+    if ($Name -eq 'Confirm') { Invoke-StCue 'confirmar' -Once }
     $St.UI.GuideBar.Visibility = $(if ($Name -eq 'Tutorial') { 'Collapsed' } else { 'Visible' })
     if ($St.NoAnim) { $el.Opacity = 1; return }
     $tt = New-Object System.Windows.Media.TranslateTransform 0, 18
@@ -2025,7 +2142,185 @@ function Show-StPage {
 # ----- Guía de SafeBOT y etapas ----------------------------------------------------------------
 function Set-StGuide {
     param([string]$Text)
+    if ($St.UI.TxtGuide.Text -ne $Text) { Invoke-StBotAction -Action 'nod' }
     $St.UI.TxtGuide.Text = $Text
+}
+
+# ----- SafeBOT animado ------------------------------------------------------------------------------
+function New-StBot {
+    try {
+        $view = [Windows.Markup.XamlReader]::Parse($StBotXaml)
+        $bot = @{ View = $view }
+        foreach ($n in @('BotRoot', 'BotSquash', 'BotBob', 'BotJump', 'BotArmRot', 'BotHeadRot', 'BotEyes', 'BotEyesScale', 'BotEyesHappy')) {
+            $bot[$n] = $view.FindName($n)
+        }
+        return $bot
+    } catch {
+        try { Write-StLog "No se pudo dibujar a SafeBOT: $($_.Exception.Message)" } catch { }
+        return $null
+    }
+}
+
+function New-StKeyAnim {
+    # Cuadros "milisegundos=valor" con transición suave; la duración total es el último tiempo.
+    param([string[]]$Frames, [switch]$Forever, [int]$BeginMs = 0)
+    $a = New-Object System.Windows.Media.Animation.DoubleAnimationUsingKeyFrames
+    foreach ($f in $Frames) {
+        $parts = $f.Split('=')
+        $k = New-Object System.Windows.Media.Animation.EasingDoubleKeyFrame
+        $k.KeyTime = [System.Windows.Media.Animation.KeyTime]::FromTimeSpan([TimeSpan]::FromMilliseconds([double]$parts[0]))
+        $k.Value = [double]$parts[1]
+        $e = New-Object System.Windows.Media.Animation.SineEase
+        $e.EasingMode = 'EaseInOut'
+        $k.EasingFunction = $e
+        [void]$a.KeyFrames.Add($k)
+    }
+    if ($Forever) { $a.RepeatBehavior = [System.Windows.Media.Animation.RepeatBehavior]::Forever }
+    if ($BeginMs -gt 0) { $a.BeginTime = [TimeSpan]::FromMilliseconds($BeginMs) }
+    return $a
+}
+
+function Start-StBotIdle {
+    # Respira (sube y baja muy poco) y pestañea de vez en cuando.
+    param($Bot)
+    if (-not $Bot -or $St.NoAnim) { return }
+    $Bot.BotBob.BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, (New-StKeyAnim @('0=0', '1700=-16', '3400=0') -Forever))
+    $Bot.BotEyesScale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty,
+        (New-StKeyAnim @('0=1', '3600=1', '3680=0.1', '3760=1', '6900=1', '6980=0.1', '7060=1', '7140=1', '7220=0.1', '7300=1', '9000=1') -Forever))
+}
+
+function Invoke-StBotAction {
+    # wave = saluda, jump = salta de alegría, nod = asiente al hablar, shake = niega suave,
+    # happy / normal = cambia los ojos.
+    param($Bot, [ValidateSet('wave', 'jump', 'celebrate', 'nod', 'shake', 'happy', 'normal')][string]$Action, [int]$BeginMs = 0)
+    if (-not $Bot) { $Bot = $St.Bot }
+    if (-not $Bot) { return }
+    try {
+        if ($Action -eq 'happy' -or $Action -eq 'celebrate') { $Bot.BotEyes.Opacity = 0; $Bot.BotEyesHappy.Opacity = 1 }
+        if ($Action -eq 'normal') { $Bot.BotEyes.Opacity = 1; $Bot.BotEyesHappy.Opacity = 0 }
+        if ($St.NoAnim -or $Action -eq 'happy' -or $Action -eq 'normal') { return }
+        $angle = [System.Windows.Media.RotateTransform]::AngleProperty
+        $wave = @('0=0', '350=-140', '600=-112', '850=-140', '1100=-112', '1350=-140', '1800=0')
+        switch ($Action) {
+            'wave' { $Bot.BotArmRot.BeginAnimation($angle, (New-StKeyAnim $wave -BeginMs $BeginMs)) }
+            'nod' { $Bot.BotHeadRot.BeginAnimation($angle, (New-StKeyAnim @('0=0', '180=-5', '400=4', '600=0') -BeginMs $BeginMs)) }
+            'shake' { $Bot.BotHeadRot.BeginAnimation($angle, (New-StKeyAnim @('0=0', '120=7', '260=-7', '400=5', '540=-4', '680=0') -BeginMs $BeginMs)) }
+            { $_ -eq 'jump' -or $_ -eq 'celebrate' } {
+                $Bot.BotJump.BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty,
+                    (New-StKeyAnim @('0=0', '140=10', '420=-80', '700=0', '820=6', '940=0') -BeginMs $BeginMs))
+                $Bot.BotSquash.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty,
+                    (New-StKeyAnim @('0=1', '140=0.9', '320=1.05', '700=1', '820=0.94', '940=1') -BeginMs $BeginMs))
+                if ($Action -eq 'celebrate') { $Bot.BotArmRot.BeginAnimation($angle, (New-StKeyAnim $wave -BeginMs ($BeginMs + 700))) }
+            }
+        }
+    } catch { }
+}
+
+function New-StBotForDialog {
+    # SafeBOT propio para una ventana emergente: respira, pestañea y saluda al aparecer.
+    $b = New-StBot
+    if (-not $b) { return $null }
+    Start-StBotIdle $b
+    Invoke-StBotAction -Bot $b -Action 'wave' -BeginMs 450
+    return $b.View
+}
+
+# ----- Sonidos y voz de SafeBOT -------------------------------------------------------------------
+# Sonidos cortos en assets/sonidos y frases de SafeBOT en assets/voz (se descargan al abrir).
+# Si una frase todavía no existe, solo suena el aviso. El botón de la barra superior los apaga.
+$StCues = @{
+    'bienvenida'    = @{ Voice = 'bienvenida' }
+    'datos'         = @{ Voice = 'datos' }
+    'confirmar'     = @{ Voice = 'confirmar' }
+    'instalando'    = @{ Voice = 'instalando' }
+    'instalado'     = @{ Sound = 'exito'; Voice = 'instalado'; Bot = 'jump' }
+    'instalado-365' = @{ Sound = 'exito'; Voice = 'instalado-365'; Bot = 'jump' }
+    'activado'      = @{ Sound = 'logro'; Voice = 'activado'; Bot = 'celebrate' }
+    'conectado'     = @{ Sound = 'logro'; Voice = 'conectado'; Bot = 'celebrate' }
+    'error'         = @{ Sound = 'error'; Voice = 'error'; Bot = 'shake' }
+    'codigo'        = @{ Sound = 'aviso'; Voice = 'codigo'; Bot = 'shake' }
+    'atencion'      = @{ Sound = 'aviso'; Bot = 'nod' }
+}
+$StVoiceDir = 'assets/voz/v1'
+
+function Get-StCueAssets {
+    $list = @('assets/sonidos/aviso.wav', 'assets/sonidos/exito.wav', 'assets/sonidos/logro.wav', 'assets/sonidos/error.wav')
+    foreach ($c in $StCues.Values) { if ($c.Voice) { $list += "$StVoiceDir/$($c.Voice).mp3" } }
+    return @($list | Select-Object -Unique)
+}
+
+function Get-StAssetFile {
+    # Ruta local de un recurso ya descargado (no descarga: no debe frenar la ventana).
+    param([string]$RelPath)
+    if ($env:SAFETECH_OFFICE_ASSETS) { $f = Join-Path $env:SAFETECH_OFFICE_ASSETS $RelPath }
+    else { $f = Join-Path $St.CacheDir ($RelPath -replace '[\\/]', '_') }
+    if (Test-Path -LiteralPath $f) { return $f }
+    return $null
+}
+
+function Set-StSound {
+    param([bool]$On, [switch]$Save)
+    $St.SoundOn = $On
+    $St.UI.TxtSound.Text = $(if ($On) { 'Sonido activado' } else { 'Sonido apagado' })
+    $St.UI.TxtSoundIcon.Text = [string][char]$(if ($On) { 0xE767 } else { 0xE74F })
+    if (-not $On -and $St.VoicePlayer) { try { $St.VoicePlayer.Stop() } catch { } }
+    if (-not $Save) { return }
+    $mark = Join-Path $StConfig.DataDir 'sonido-apagado'
+    try {
+        if ($On) { Remove-Item -LiteralPath $mark -ErrorAction SilentlyContinue }
+        else { New-Item -ItemType Directory -Force -Path $StConfig.DataDir | Out-Null; Set-Content -LiteralPath $mark -Value '1' }
+    } catch { }
+}
+
+function Start-StVoice {
+    param([string]$Voice)
+    if (-not $Voice -or -not $St.SoundOn) { return }
+    $f = Get-StAssetFile "$StVoiceDir/$Voice.mp3"
+    if (-not $f) { return }
+    try {
+        if (-not $St.VoicePlayer) { $St.VoicePlayer = New-Object System.Windows.Media.MediaPlayer }
+        $St.VoicePlayer.Stop()
+        $St.VoicePlayer.Open((New-Object Uri $f))
+        $St.VoicePlayer.Volume = 1.0
+        $St.VoicePlayer.Play()
+        Invoke-StBotAction -Action 'nod'
+    } catch { }
+}
+
+function Invoke-StCue {
+    # Un aviso: SafeBOT reacciona, suena un tono y, si existe, habla.
+    param([string]$Name, [switch]$Once)
+    $cue = $StCues[$Name]
+    if (-not $cue) { return }
+    if ($Once) {
+        if ($St.CuesDone[$Name]) { return }
+        $St.CuesDone[$Name] = $true
+    }
+    if ($cue.Bot) { Invoke-StBotAction -Action $cue.Bot }
+    if (-not $St.SoundOn -or $St.SelfTest) { return }
+    $delay = 0
+    if ($cue.Sound) {
+        $w = Get-StAssetFile "assets/sonidos/$($cue.Sound).wav"
+        if ($w) {
+            try { $St.SoundPlayer = New-Object System.Media.SoundPlayer $w; $St.SoundPlayer.Play(); $delay = 900 } catch { }
+        }
+    }
+    if (-not $cue.Voice) { return }
+    if ($delay -eq 0) { Start-StVoice $cue.Voice; return }
+    $St.PendingVoice = $cue.Voice
+    $St.VoiceTimer.Stop()
+    $St.VoiceTimer.Interval = [TimeSpan]::FromMilliseconds($delay)
+    $St.VoiceTimer.Start()
+}
+
+function Show-StWindowFront {
+    # Trae la ventana al frente (por ejemplo, cuando termina la ventana de Microsoft).
+    try {
+        if ($St.Window.WindowState -eq 'Minimized') { $St.Window.WindowState = 'Maximized' }
+        $St.Window.Topmost = $true
+        [void]$St.Window.Activate()
+        $St.Window.Topmost = $false
+    } catch { }
 }
 
 function Set-StJourney {
@@ -2158,9 +2453,13 @@ function Show-StDialog {
     if ($Image) {
         $ib = $dlg.FindName('DlgIconBg')
         $ib.Background = $conv.ConvertFromString('#00000000'); $ib.Width = 64; $ib.Height = 80
-        $img = New-Object System.Windows.Controls.Image
-        $img.Source = $Image; $img.Stretch = 'Uniform'
-        $ib.Child = $img
+        if ($Image -is [System.Windows.UIElement]) {
+            $ib.Child = $Image
+        } else {
+            $img = New-Object System.Windows.Controls.Image
+            $img.Source = $Image; $img.Stretch = 'Uniform'
+            $ib.Child = $img
+        }
     }
     $dlg.FindName('DlgTitle').Text = $Title
     $msg = $dlg.FindName('DlgMessage')
@@ -2487,6 +2786,7 @@ function Show-StError {
     param([string]$Title = 'No pudimos completar la instalación', [string]$Detail, [string]$RetryLabel = 'Reintentar', [scriptblock]$OnRetry)
     $St.Busy = $false
     Stop-StProgressAnimation
+    Invoke-StCue 'error'
     $St.UI.TxtErrTitle.Text = $Title
     $St.UI.TxtErrDetail.Text = $Detail
     $St.UI.BtnErrRetry.Content = $RetryLabel
@@ -2692,6 +2992,7 @@ function Start-StInstallFlow {
     $ids = @('check', 'restore', 'download', 'clean', 'remove', 'install', 'verify')
     if ($p.NeedsKey) { $ids += @('act_key', 'act_iid', 'act_cid', 'act_confirm') } else { $ids += 'account' }
     Initialize-StSteps $ids
+    $St.UI.TxtWhile.Text = 'No apagues ni reinicies el computador. Verás una ventana de Microsoft con el avance: cuando diga «¡Hemos terminado!», presiona «Cerrar» o espera, la cerramos por ti.'
     $St.UI.TxtProgTitle.Text = "Instalando $($p.Name)"
     $St.UI.TxtProgDetail.Text = 'Preparando...'
     $St.Sync.Detail = 'Preparando...'
@@ -2703,6 +3004,7 @@ function Start-StInstallFlow {
     $St.InstallDone = $false
     Set-StProgStamp -Text 'PENDIENTE' -Kind 'pending'
     Show-StPage 'Progress'
+    Invoke-StCue 'instalando'
 
     $work = Join-Path $StConfig.DataDir 'trabajo'
     Start-StAsync -Params @{ ProductId = $p.Id; WorkDir = $work } -Work {
@@ -2718,12 +3020,13 @@ function Start-StInstallFlow {
         }
         $St.InstallDone = $true
         Set-StProgStamp -Text 'INSTALADO' -Kind 'done' -Animate
+        Show-StWindowFront
         if ($St.Product.NeedsKey) {
-            $choice = Show-StDialog -Kind 'success' -Kicker 'Instalación lista' -Title "$($St.Product.Name) quedó instalado" `
-                -Message 'Ahora lo activaremos automáticamente con tu clave y tu código SafeTech. No necesitas abrir Word ni escribir números.' `
-                -Buttons @('Activar ahora')
+            # Sin ventana intermedia: la activación sigue sola (antes un aviso quedaba escondido detrás de Microsoft).
+            Invoke-StCue 'instalado'
             Start-StActivationFlow -KeepSteps
         } else {
+            Invoke-StCue 'instalado-365'
             Stop-StProgressAnimation
             Set-StUiStep 'account' 'running' 'Microsoft 365 quedó instalado. Ahora conecta tu cuenta con el tutorial.'
             $St.UI.TxtChipInstall.Text = 'Office instalado'
@@ -2754,6 +3057,7 @@ function Start-StActivationFlow {
     $St.Act.Cid = $null
     if (-not $KeepSteps) {
         Initialize-StSteps @('act_key', 'act_iid', 'act_cid', 'act_confirm')
+        $St.UI.TxtWhile.Text = 'No apagues el computador. La activación suele tardar menos de un minuto.'
         $St.StartTime = Get-Date
         $St.UI.PanelTutorialPromo.Visibility = 'Collapsed'
     }
@@ -2826,6 +3130,7 @@ function Request-StCidFlow {
             $msg = "El código no es válido o ya se usó.`n$message"
             while ($true) {
                 $f = New-StDialogField -Label 'Código de activación SafeTech' -Placeholder 'ST-XXXXXX' -Value $St.Act.Code -MaxLength 40 -Hint $hint
+                Invoke-StCue 'codigo'
                 $choice = Show-StDialog -Kind 'warn' -Title 'Tu código SafeTech no funcionó' -Message $msg -Extra $f.Panel `
                     -Buttons @('Cancelar', 'Probar este código') -Primary 'Probar este código' -LinkLabel 'Activar de otra forma' -Width 640
                 if ($choice -eq 'Activar de otra forma') { Show-StManualActivation; return }
@@ -2836,6 +3141,7 @@ function Request-StCidFlow {
                 $msg = 'Escribe el código tal como aparece en tu correo.'
             }
         }
+        Invoke-StCue 'atencion'
         $choice = Show-StDialog -Kind 'warn' -Title 'No pudimos conectarnos con SafeTech' `
             -Message ($message + "`n`nRevisa tu Internet y vuelve a intentarlo. No se gastó ningún crédito si no llegó la respuesta.") `
             -Buttons @('Cancelar', 'Reintentar') -Primary 'Reintentar' -LinkLabel 'Activar de otra forma' -Width 640
@@ -2930,10 +3236,11 @@ function Show-StAbout {
         [void]$cards.Children.Add($row)
         $i++
     }
+    if ($Welcome) { Invoke-StCue 'bienvenida' -Once }
     $label = $(if ($Welcome) { 'Entendido, empezar' } else { 'Entendido' })
     $title = $(if ($Welcome) { '¡Hola! Así funciona este instalador' } else { '¿Cómo funciona este instalador?' })
     return (Show-StDialog -Kind 'info' -Title $title -Message 'Léelo con calma: son solo 4 cosas.' -Extra $panel -Buttons @($label) -Width 920 `
-        -Image $St.BotImage -LinkLabel 'Ver detalles técnicos' -OnLink { Show-StAboutDetails })
+        -Image (New-StBotForDialog) -LinkLabel 'Ver detalles técnicos' -OnLink { Show-StAboutDetails })
 }
 
 function Show-StAboutDetails {
@@ -3067,6 +3374,8 @@ function Show-StDonePage {
     $St.UI.TxtDoneStamp.Text = $Stamp
     $St.UI.DoneNote.Visibility = 'Visible'
     Show-StPage 'Done'
+    Show-StWindowFront
+    Invoke-StCue $(if ($Stamp -eq 'ACTIVADO') { 'activado' } else { 'conectado' })
     if ($St.NoAnim) { return }
     # El sello cae sobre el comprobante.
     $St.UI.DoneStamp.Opacity = 0
@@ -3505,14 +3814,19 @@ $St.Pool.Open()
 # Logo e icono
 $logo = Get-StImage 'assets/logo-safetech-dark.png'
 if ($logo) { $St.UI.ImgLogo.Source = $logo } else { $St.UI.ImgLogo.Visibility = 'Collapsed'; $St.UI.LogoFallback.Visibility = 'Visible' }
-$bot = Get-StImage 'assets/safebot.png'
-if ($bot) { $St.UI.ImgBot.Source = $bot; $St.BotImage = $bot } else { $St.UI.ImgBot.Visibility = 'Collapsed' }
+$St.Bot = New-StBot
+if ($St.Bot) { $St.UI.BotHost.Content = $St.Bot.View; Start-StBotIdle $St.Bot } else { $St.UI.BotHost.Visibility = 'Collapsed' }
 $icon = Get-StImage 'assets/icono.png'
 if ($icon) { $St.Window.Icon = $icon }
 
-# Descarga en segundo plano las imagenes del tutorial
+# Sonido: la voz espera a que termine el tono de aviso.
+$St.VoiceTimer = New-Object System.Windows.Threading.DispatcherTimer
+$St.VoiceTimer.Add_Tick({ $St.VoiceTimer.Stop(); Start-StVoice $St.PendingVoice })
+Set-StSound -On (-not (Test-Path -LiteralPath (Join-Path $StConfig.DataDir 'sonido-apagado')))
+
+# Descarga en segundo plano los sonidos, la voz y las imagenes del tutorial
 if (-not $env:SAFETECH_OFFICE_ASSETS -and $StMode -eq 'app') {
-    $assetList = @($StTutorial | Where-Object { $_.Image } | ForEach-Object { $_.Image })
+    $assetList = @(Get-StCueAssets) + @($StTutorial | Where-Object { $_.Image } | ForEach-Object { $_.Image })
     Start-StAsync -Params @{ Paths = $assetList; Cache = $St.CacheDir } -Work { Save-StAssets -Paths $P.Paths -CacheDir $P.Cache }
 }
 if ($StMode -eq 'app') {
@@ -3533,6 +3847,7 @@ $St.Window.Add_ContentRendered({
 $ui.BtnClose.Add_Click({ $St.Window.Close() })
 $ui.BtnHelpCenter.Add_Click({ Open-StUnelevated $StConfig.HelpUrl })
 $ui.BtnAbout.Add_Click({ Show-StAbout })
+$ui.BtnSound.Add_Click({ Set-StSound -On (-not $St.SoundOn) -Save; if ($St.SoundOn) { Invoke-StCue 'atencion' } })
 $ui.BtnHelpWa.Add_Click({ Open-StWhatsApp -Message 'Hola SafeTech, necesito ayuda con el instalador de Office.' })
 
 $ui.BtnPick2024.Add_Click({ Select-StProduct '2024' })
@@ -3759,7 +4074,8 @@ if ($StMode -eq 'selftest') {
     Initialize-StSteps @('check', 'restore', 'download', 'clean', 'remove', 'install', 'verify', 'act_key', 'act_iid', 'act_cid', 'act_confirm')
     foreach ($id in @('check', 'restore', 'download', 'clean')) { Set-StUiStep $id 'done' }
     Set-StUiStep 'remove' 'skip'
-    Set-StUiStep 'install' 'running' 'Se abrió la ventana de Microsoft con el avance: déjala trabajar, se cierra sola.'
+    Set-StUiStep 'install' 'running' (Get-StInstallHint -ProductId '2024')
+    $St.UI.TxtWhile.Text = 'No apagues ni reinicies el computador. Verás una ventana de Microsoft con el avance: cuando diga «¡Hemos terminado!», presiona «Cerrar» o espera, la cerramos por ti.'
     $St.UI.TxtProgTitle.Text = 'Instalando Office 2024'
     $St.UI.TxtElapsed.Text = '07:42'
     Set-StProgStamp -Text 'PENDIENTE' -Kind 'pending'
