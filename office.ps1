@@ -4138,7 +4138,10 @@ if ($StMode -eq 'selftest') {
         $sp = New-Object System.Media.SoundPlayer $w; $sp.Load(); $sp.Dispose()
     }
     $null = New-Object System.Windows.Media.MediaPlayer
-    Write-Host 'Sonidos: cargan bien.'
+    foreach ($c in $StCues.Values) {
+        if ($c.Voice -and -not (Get-StAssetFile "$StVoiceDir/$($c.Voice).mp3")) { throw "Falta la voz $($c.Voice)." }
+    }
+    Write-Host 'Sonidos y voces: están todos.'
     # Hoja de poses para revisar el dibujo: normal, pestañeo, saludo, salto feliz, cabeza inclinada.
     $row = New-Object System.Windows.Controls.StackPanel
     $row.Orientation = 'Horizontal'; $row.Background = $St.Window.Background
