@@ -15,7 +15,7 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.3.4'
+    Version     = '1.4.0'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
@@ -371,15 +371,16 @@ function Test-StRequirements {
 }
 
 function New-StRestorePoint {
+    param([string]$Description = 'SafeTech - antes de instalar Office')
     $key = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore'
     try {
         New-ItemProperty -Path $key -Name 'SystemRestorePointCreationFrequency' -Value 0 -PropertyType DWord -Force | Out-Null
         try {
-            Checkpoint-Computer -Description 'SafeTech - antes de instalar Office' -RestorePointType 'MODIFY_SETTINGS' -ErrorAction Stop
+            Checkpoint-Computer -Description $Description -RestorePointType 'MODIFY_SETTINGS' -ErrorAction Stop
         } catch {
             Write-StLog "Primer intento de punto de restauracion fallo: $($_.Exception.Message). Se intentara activar Restaurar sistema."
             Enable-ComputerRestore -Drive "$env:SystemDrive\" -ErrorAction Stop
-            Checkpoint-Computer -Description 'SafeTech - antes de instalar Office' -RestorePointType 'MODIFY_SETTINGS' -ErrorAction Stop
+            Checkpoint-Computer -Description $Description -RestorePointType 'MODIFY_SETTINGS' -ErrorAction Stop
         }
         Write-StLog 'Punto de restauracion creado.'
         return $true
@@ -864,6 +865,266 @@ function Invoke-StInstall {
 }
 
 # ----- Activacion telefonica asistida ----------------------------------------------------
+# ----- Desinstalación profunda (segundo plano) ----------------------------------------------
+# Quita Office por completo: programas (Click-to-Run, MSI y Microsoft Store), licencias, cuentas
+# conectadas, servicio, tareas, accesos directos, carpetas y registro que quedan.
+# NUNCA toca documentos ni correo (.pst/.ost), ni la configuración personal (plantillas, firmas,
+# diccionario, autocorrección, perfiles de Outlook), ni OneDrive, Teams u OneNote de la Tienda.
+
+function Get-StUninstallTargets {
+    # Rutas y claves que borra la limpieza. Solo rutas absolutas y propias de Office.
+    $dirs = New-Object System.Collections.Generic.List[string]
+    $add = { param($d) if ($d -and [IO.Path]::IsPathRooted($d) -and -not $dirs.Contains($d)) { $dirs.Add($d) } }
+    foreach ($b in @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:ProgramW6432)) {
+        if ($b) { & $add (Join-Path $b 'Microsoft Office') }
+    }
+    foreach ($b in @($env:CommonProgramFiles, ${env:CommonProgramFiles(x86)}, $env:CommonProgramW6432)) {
+        if (-not $b) { continue }
+        foreach ($n in @('ClickToRun', 'OFFICE16', 'OFFICE15', 'OfficeSoftwareProtectionPlatform')) { & $add (Join-Path $b "microsoft shared\$n") }
+    }
+    if ($env:ProgramData) {
+        & $add (Join-Path $env:ProgramData 'Microsoft\ClickToRun')
+        & $add (Join-Path $env:ProgramData 'Microsoft\Office')
+    }
+    $keys = @(
+        'HKLM:\SOFTWARE\Microsoft\Office\ClickToRun', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun',
+        'HKLM:\SOFTWARE\Microsoft\Office\16.0', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office\16.0',
+        'HKLM:\SOFTWARE\Microsoft\Office\15.0', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office\15.0',
+        'HKLM:\SOFTWARE\Microsoft\AppVISV', 'HKLM:\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform'
+    )
+    # Por usuario: solo licencias, cuentas y Click-to-Run. La configuración personal se queda.
+    $userKeys = @('Software\Microsoft\Office\16.0\Common\Licensing', 'Software\Microsoft\Office\16.0\Common\Identity',
+                  'Software\Microsoft\Office\16.0\Registration', 'Software\Microsoft\Office\15.0\Common\Licensing',
+                  'Software\Microsoft\Office\15.0\Common\Identity', 'Software\Microsoft\Office\15.0\Registration',
+                  'Software\Microsoft\Office\ClickToRun')
+    $userDirs = @('AppData\Local\Microsoft\Office\Licenses', 'AppData\Local\Microsoft\Office\16.0\Licensing',
+                  'AppData\Local\Microsoft\Office\15.0\Licensing')
+    return [pscustomobject]@{ Dirs = @($dirs); Keys = $keys; UserKeys = $userKeys; UserDirs = $userDirs }
+}
+
+function Get-StUserProfiles {
+    # Perfiles de personas (no de sistema): SID y carpeta.
+    $list = @()
+    foreach ($k in @(Get-ChildItem -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList' -ErrorAction SilentlyContinue)) {
+        if ($k.PSChildName -notmatch '^S-1-5-21-[\d-]+$') { continue }
+        $path = (Get-ItemProperty -LiteralPath $k.PSPath -ErrorAction SilentlyContinue).ProfileImagePath
+        if ($path) { $path = [Environment]::ExpandEnvironmentVariables($path) }
+        if ($path -and (Test-Path -LiteralPath $path)) { $list += [pscustomobject]@{ Sid = $k.PSChildName; Path = $path } }
+    }
+    return $list
+}
+
+function Remove-StPathSafe {
+    # Borra una carpeta o clave de la lista. Si algo está en uso, sigue con el resto y lo informa.
+    param([string]$Path)
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return $true }
+    try {
+        Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+        Write-StLog "Borrado: $Path"
+        return $true
+    } catch {
+        Write-StLog "No se pudo borrar por completo (en uso): $Path - $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Stop-StOfficeEverything {
+    # Programas de Office y los procesos de Click-to-Run (para poder borrar sus archivos).
+    Stop-StOfficeApps
+    foreach ($n in @('OfficeClickToRun', 'OfficeC2RClient', 'IntegratedOffice', 'AppVShNotify', 'msoia', 'msoadfsb', 'msosync', 'OfficeSvcMgr', 'SDXHelper', 'FileCoAuth')) {
+        foreach ($p in @(Get-Process -Name $n -ErrorAction SilentlyContinue)) {
+            Write-StLog "Cerrando $($p.ProcessName) (PID $($p.Id))"
+            try { $p.Kill() } catch { }
+        }
+    }
+}
+
+function Remove-StC2RWithArp {
+    # Plan B si la herramienta de Microsoft no pudo: el desinstalador propio de cada producto Click-to-Run.
+    foreach ($root in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) {
+        foreach ($k in @(Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue)) {
+            $p = Get-ItemProperty -LiteralPath $k.PSPath -ErrorAction SilentlyContinue
+            if (-not $p -or -not $p.PSObject.Properties['UninstallString']) { continue }
+            $u = [string]$p.UninstallString
+            if ($u -notmatch '^"?(?<exe>[^"]*OfficeClickToRun\.exe)"?\s+(?<args>.*)$') { continue }
+            $exe = $Matches.exe; $args2 = $Matches.args -replace '(?i)\s*DisplayLevel=\S+', ''
+            if (-not (Test-Path -LiteralPath $exe)) { continue }
+            Write-StLog "Desinstalando con el desinstalador de Office: $($p.DisplayName)"
+            try {
+                $proc = Start-Process -FilePath $exe -ArgumentList "$args2 DisplayLevel=False" -Wait -PassThru -WindowStyle Hidden
+                Write-StLog "  terminó con código $($proc.ExitCode)"
+            } catch { Write-StLog "  falló: $($_.Exception.Message)" }
+        }
+    }
+}
+
+function Remove-StOfficeMsi {
+    # Office instalado con MSI (2007 a 2016): un msiexec /x por cada producto principal.
+    foreach ($root in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) {
+        foreach ($k in @(Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue)) {
+            if ($k.PSChildName -notmatch '^\{[0-9A-F-]+0FF1CE\}$') { continue }
+            $p = Get-ItemProperty -LiteralPath $k.PSPath -ErrorAction SilentlyContinue
+            if (-not $p -or -not $p.PSObject.Properties['DisplayName']) { continue }
+            if ($p.PSObject.Properties['SystemComponent'] -and $p.SystemComponent -eq 1) { continue }
+            if ([string]$p.DisplayName -notmatch '^Microsoft (Office|Visio|Project|Word|Excel|PowerPoint|Outlook|Access|Publisher|OneNote)') { continue }
+            Write-StLog "Desinstalando (MSI) $($p.DisplayName) $($k.PSChildName)"
+            try {
+                $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList "/x $($k.PSChildName) /qn /norestart" -Wait -PassThru -WindowStyle Hidden
+                Write-StLog "  msiexec terminó con código $($proc.ExitCode)"
+            } catch { Write-StLog "  falló: $($_.Exception.Message)" }
+        }
+    }
+}
+
+function Remove-StOfficeShortcuts {
+    # Accesos directos que apuntan a Office (menú Inicio y escritorios). Nada más.
+    param([string[]]$OfficeDirs)
+    $places = @()
+    if ($env:ProgramData) { $places += (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs') }
+    if ($env:PUBLIC) { $places += (Join-Path $env:PUBLIC 'Desktop') }
+    foreach ($u in (Get-StUserProfiles)) {
+        $places += (Join-Path $u.Path 'AppData\Roaming\Microsoft\Windows\Start Menu\Programs')
+        $places += (Join-Path $u.Path 'Desktop')
+        $places += (Join-Path $u.Path 'AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar')
+    }
+    $shell = $null
+    try { $shell = New-Object -ComObject WScript.Shell } catch { return 0 }
+    $n = 0
+    foreach ($place in $places) {
+        if (-not (Test-Path -LiteralPath $place)) { continue }
+        $tools = Join-Path $place 'Microsoft Office Tools'
+        if (Test-Path -LiteralPath $tools) { if (Remove-StPathSafe $tools) { $n++ } }
+        $deep = $place -match 'Start Menu'
+        foreach ($f in @(Get-ChildItem -LiteralPath $place -Filter '*.lnk' -Recurse:$deep -ErrorAction SilentlyContinue)) {
+            $target = $null
+            try { $target = $shell.CreateShortcut($f.FullName).TargetPath } catch { }
+            if (-not $target) { continue }
+            $match = $false
+            foreach ($d in $OfficeDirs) { if ($target.StartsWith($d + '\', [StringComparison]::OrdinalIgnoreCase)) { $match = $true } }
+            if ($match) { if (Remove-StPathSafe $f.FullName) { $n++ } }
+        }
+    }
+    return $n
+}
+
+function Get-StStoreOffice {
+    # Office de escritorio instalado desde la Microsoft Store (viene en algunos equipos nuevos).
+    try { return @(Get-AppxPackage -AllUsers -Name 'Microsoft.Office.Desktop*' -ErrorAction Stop) } catch { return @() }
+}
+
+function Get-StOfficeLeftovers {
+    # Lo que todavía queda de Office (para comprobar al final).
+    $t = Get-StUninstallTargets
+    $left = @()
+    $state = Get-StOfficeState
+    foreach ($f in $state.Friendly) { $left += "Programa: $f" }
+    foreach ($d in $t.Dirs) { if (Test-Path -LiteralPath $d) { $left += $d } }
+    if (Get-Service -Name 'ClickToRunSvc' -ErrorAction SilentlyContinue) { $left += 'Servicio ClickToRunSvc' }
+    foreach ($a in (Get-StStoreOffice)) { $left += "Tienda: $($a.Name)" }
+    return $left
+}
+
+function Invoke-StDeepUninstall {
+    param([Parameter(Mandatory)][string]$WorkDir)
+    Write-StLog "Inicio de desinstalacion profunda de Office - instalador v$($StConfig.Version)"
+    $targets = Get-StUninstallTargets
+    $state = Get-StOfficeState
+    $found = (@($state.Friendly) -join ', ')
+    Write-StLog ("Office encontrado: {0}" -f $(if ($found) { $found } else { 'ninguno (se limpian los restos)' }))
+
+    Set-StStep 'u_prepare' 'running' 'Creando un punto de restauración de Windows. Puede tardar unos minutos...'
+    [void](New-StRestorePoint -Description 'SafeTech - antes de desinstalar Office')
+    $setup = $null
+    if ($state.C2RIds.Count -gt 0) {
+        Set-StStep 'u_prepare' 'running' 'Descargando la herramienta oficial de Microsoft...'
+        $setup = Get-StOdtSetup -WorkDir $WorkDir
+    }
+    Set-StStep 'u_prepare' 'done'
+
+    Set-StStep 'u_close' 'running' 'Cerrando Word, Excel y los demás programas de Office...'
+    Stop-StOfficeApps
+    Set-StStep 'u_close' 'done'
+
+    Set-StStep 'u_licenses' 'running' 'Quitando licencias y cuentas conectadas a Office...'
+    try { Clear-StOfficeLicenses } catch { Write-StLog "Limpieza de licencias con OSPP: $($_.Exception.Message)" }
+    try {
+        # Cuentas guardadas por Office en el Administrador de credenciales (solo las que empiezan con MicrosoftOffice).
+        foreach ($line in @(& cmdkey.exe /list)) {
+            if ($line -match '(?i)(Destino|Target):\s*(?:LegacyGeneric:target=)?(?<t>MicrosoftOffice1\d\S*)') {
+                $t = ($line -replace '^.*?:\s*', '').Trim()
+                $kind = $Matches.t.Split(':')[0]
+                Start-Process -FilePath 'cmdkey.exe' -ArgumentList "/delete:$t" -Wait -WindowStyle Hidden
+                Write-StLog "Credencial de Office borrada: $kind"
+            }
+        }
+    } catch { Write-StLog "Credenciales: $($_.Exception.Message)" }
+    Set-StStep 'u_licenses' 'done'
+
+    Set-StStep 'u_remove' 'running' $(if ($found) { "Desinstalando $found. No apagues el computador..." } else { 'Buscando versiones de Office para quitar...' })
+    if ($setup) {
+        $xml = New-StOdtXml -Path (Join-Path $WorkDir 'quitar-office.xml') -Remove
+        Start-StClickToRunService
+        $code = Invoke-StOdt -Setup $setup -Xml $xml -Label 'Desinstalacion profunda (Click-to-Run)'
+        if ($code -ne 0) {
+            Start-Sleep -Seconds 8
+            Start-StClickToRunService
+            [void](Invoke-StOdt -Setup $setup -Xml $xml -Label 'Segundo intento (Click-to-Run)')
+        }
+        if ((Get-StOfficeState).C2RIds.Count -gt 0) { Remove-StC2RWithArp }
+    }
+    if ($state.MsiNames.Count -gt 0) {
+        Set-StStep 'u_remove' 'running' 'Quitando versiones antiguas de Office (puede tardar varios minutos)...'
+        Remove-StOfficeMsi
+    }
+    foreach ($a in (Get-StStoreOffice)) {
+        Write-StLog "Quitando Office de la Microsoft Store: $($a.PackageFullName)"
+        try { Remove-AppxPackage -Package $a.PackageFullName -AllUsers -ErrorAction Stop } catch { Write-StLog "  falló: $($_.Exception.Message)" }
+    }
+    Set-StStep 'u_remove' 'done'
+
+    Set-StStep 'u_cleanup' 'running' 'Borrando restos: carpetas, registro, tareas y accesos directos...'
+    Stop-StOfficeEverything
+    $svc = Get-Service -Name 'ClickToRunSvc' -ErrorAction SilentlyContinue
+    if ($svc) {
+        try { Stop-Service -Name 'ClickToRunSvc' -Force -ErrorAction Stop } catch { }
+        try { Start-Process -FilePath 'sc.exe' -ArgumentList 'delete ClickToRunSvc' -Wait -WindowStyle Hidden; Write-StLog 'Servicio ClickToRunSvc eliminado.' }
+        catch { Write-StLog "Servicio ClickToRunSvc: $($_.Exception.Message)" }
+    }
+    $tasks = @()
+    try { $tasks = @(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskPath -like '\Microsoft\Office\*' }) } catch { Write-StLog "Tareas: $($_.Exception.Message)" }
+    foreach ($task in $tasks) {
+        try { Unregister-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -Confirm:$false -ErrorAction Stop; Write-StLog "Tarea borrada: $($task.TaskPath)$($task.TaskName)" } catch { }
+    }
+    $officeDirs = @($targets.Dirs | Where-Object { $_ -match '\\Microsoft Office$' })
+    $n = Remove-StOfficeShortcuts -OfficeDirs $officeDirs
+    Write-StLog "Accesos directos de Office borrados: $n"
+    foreach ($d in $targets.Dirs) { [void](Remove-StPathSafe $d) }
+    foreach ($k in $targets.Keys) { [void](Remove-StPathSafe $k) }
+    foreach ($root in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) {
+        foreach ($k in @(Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue)) {
+            $p = Get-ItemProperty -LiteralPath $k.PSPath -ErrorAction SilentlyContinue
+            if ($p -and $p.PSObject.Properties['UninstallString'] -and [string]$p.UninstallString -match 'OfficeClickToRun\.exe') { [void](Remove-StPathSafe $k.PSPath) }
+        }
+    }
+    foreach ($u in (Get-StUserProfiles)) {
+        $hive = "Registry::HKEY_USERS\$($u.Sid)"
+        if (Test-Path -LiteralPath $hive) { foreach ($k in $targets.UserKeys) { [void](Remove-StPathSafe "$hive\$k") } }
+        foreach ($d in $targets.UserDirs) { [void](Remove-StPathSafe (Join-Path $u.Path $d)) }
+    }
+    Set-StStep 'u_cleanup' 'done'
+
+    Set-StStep 'u_verify' 'running' 'Comprobando que no quedó nada de Office...'
+    $left = @(Get-StOfficeLeftovers)
+    if ($left.Count -gt 0) {
+        Write-StLog ("Quedan restos (se borran al reiniciar y volver a ejecutar): " + ($left -join ' | '))
+        Set-StStep 'u_verify' 'done' 'Quedan algunos archivos en uso: se terminan de borrar al reiniciar.'
+    } else {
+        Set-StStep 'u_verify' 'done' 'No quedó nada de Office.'
+    }
+    Write-StLog 'Desinstalacion profunda terminada.'
+    return [pscustomobject]@{ Ok = $true; Removed = $found; Leftovers = $left }
+}
+
 function Invoke-StActivateKey {
     param([Parameter(Mandatory)][string]$ProductId, [Parameter(Mandatory)][string]$Key)
     $prod = Get-StProduct $ProductId
@@ -1706,6 +1967,14 @@ $StWindowXaml = @'
             <Border Grid.Row="2" Style="{StaticResource Panel}" Margin="0,18,0,0" Padding="24,12">
               <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <Border Grid.Row="1" Grid.ColumnSpan="2" BorderBrush="#26FFFFFF" BorderThickness="0,1,0,0" Margin="0,12,0,0" Padding="0,10,0,0">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Small}" FontSize="16" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,20,0" Text="¿Office falla o quieres quitarlo? Lo desinstalamos por completo. Tus documentos y correos no se tocan."/>
+                    <Button x:Name="BtnDeepUninstall" Grid.Column="1" Style="{StaticResource BtnSoft}" MinHeight="44" Padding="18,8"/>
+                  </Grid>
+                </Border>
                 <StackPanel VerticalAlignment="Center" Margin="0,0,20,0">
                   <TextBlock Text="¿Ya tienes Office instalado en este computador?" FontWeight="SemiBold" FontSize="18" TextWrapping="Wrap"/>
                   <TextBlock Style="{StaticResource Small}" FontSize="16" Text="Puedes activarlo o conectar tu cuenta sin volver a instalar." Margin="0,2,0,0"/>
@@ -2413,6 +2682,7 @@ $StCues = @{
     'codigo'        = @{ Sound = 'aviso'; Voice = 'codigo'; Bot = 'shake' }
     'atencion'      = @{ Sound = 'aviso'; Bot = 'nod' }
     'como-funciona' = @{ Voice = 'como-funciona' }
+    'desinstalado'  = @{ Sound = 'exito'; Bot = 'jump' }
 }
 # Al cambiar los audios, subir la carpeta (v3, v4...): los equipos guardan los anteriores en caché.
 $StVoiceDir = 'assets/voz/v4'
@@ -2578,6 +2848,11 @@ function Update-StGuide {
             Set-StJourney 2 $label2
         }
         'Progress' {
+            if ($St.Mode -eq 'uninstall') {
+                Set-StGuide 'Estoy quitando Office por completo. Tus documentos y correos no se tocan.'
+                Set-StJourney 0
+                return
+            }
             if ($St.Mode -eq 'activate' -or ($St.InstallDone -and $p -and $p.NeedsKey)) {
                 Set-StGuide 'Estoy activando Office con tu código. Tarda menos de un minuto.'
             } else {
@@ -2586,6 +2861,11 @@ function Update-StGuide {
             Set-StJourney 3 $label2
         }
         'Done' {
+            if ($St.Mode -eq 'uninstall') {
+                Set-StGuide 'Listo: Office se fue por completo. Si quieres, ahora puedes instalarlo de nuevo.'
+                Set-StJourney 0
+                return
+            }
             Set-StGuide '¡Lo logramos! Gracias por confiar en SafeTech.'
             Set-StJourney 4 $label2
         }
@@ -2815,6 +3095,12 @@ $StStepDefs = @{
     act_cid     = @('Generar el ID de confirmación', 'Con tu código SafeTech, sin copiar números')
     act_confirm = @('Confirmar la activación', 'Microsoft valida el ID y activa Office')
     account     = @('Conectar tu cuenta', 'Tutorial guiado, paso a paso')
+    u_prepare   = @('Preparar', 'Punto de restauración y herramienta oficial de Microsoft')
+    u_close     = @('Cerrar Office', 'Word, Excel y los demás programas abiertos')
+    u_licenses  = @('Quitar licencias y cuentas', 'Claves, activaciones y cuentas conectadas a Office')
+    u_remove    = @('Desinstalar Office', 'Todas las versiones que haya en este computador')
+    u_cleanup   = @('Borrar los restos', 'Carpetas, registro, tareas y accesos directos')
+    u_verify    = @('Comprobar', 'Que no quede nada de Office')
 }
 
 function Initialize-StSteps {
@@ -3045,6 +3331,7 @@ function Show-StDataPage {
 function Set-StStub {
     param($Label, $Year, $Product)
     if (-not $Product) { return }
+    if ($Product.Id -eq 'uninstall') { $Label.Text = 'QUITAR'; $Year.Text = [string][char]0x2715; return }
     if ($Product.Id -eq '365') { $Label.Text = 'MICROSOFT'; $Year.Text = '365' }
     else { $Label.Text = 'OFFICE'; $Year.Text = $Product.Year }
 }
@@ -3600,7 +3887,9 @@ function Show-StDonePage {
     $St.UI.DoneNote.Visibility = 'Visible'
     Show-StPage 'Done'
     Show-StWindowFront
-    Invoke-StCue $(if ($Stamp -eq 'ACTIVADO') { 'activado' } else { 'conectado' })
+    if ($St.Mode -eq 'uninstall') { Set-StBtn $St.UI.BtnDoneWord 0xE777 'Reiniciar ahora' }
+    else { Set-StBtn $St.UI.BtnDoneWord 0xE8A5 'Abrir Word' }
+    Invoke-StCue $(switch ($Stamp) { 'ACTIVADO' { 'activado' } 'LIMPIO' { 'desinstalado' } default { 'conectado' } })
     if ($St.NoAnim) { return }
     # El sello cae sobre el comprobante.
     $St.UI.DoneStamp.Opacity = 0
@@ -3656,6 +3945,79 @@ function Start-StActivateOnly {
     $St.Product = Get-StProduct $pick
     $St.Mode = 'activate'
     Show-StDataPage
+}
+
+# ----- Flujo: desinstalación profunda --------------------------------------------------------------
+function Show-StUninstallConfirm {
+    param([string]$Found)
+    $intro = $(if ($Found) { "Encontramos: $Found." } else { 'No vemos Office instalado, pero igual limpiaremos lo que haya quedado de instalaciones anteriores.' })
+    $panel = New-StXamlElement @'
+<StackPanel Margin="0,4,0,0">
+  <TextBlock Foreground="#DBE5F1" FontSize="17" FontWeight="SemiBold" Text="Se borra:"/>
+  <TextBlock Foreground="#C9D5E3" FontSize="16" TextWrapping="Wrap" Margin="0,4,0,10" Text="Word, Excel, PowerPoint, Outlook y todos los programas de Office (cualquier versión), sus licencias y claves, las cuentas conectadas a Office, y las carpetas, tareas y registros que quedan."/>
+  <TextBlock Foreground="#6EE7B7" FontSize="17" FontWeight="SemiBold" Text="No se toca:"/>
+  <TextBlock Foreground="#C9D5E3" FontSize="16" TextWrapping="Wrap" Margin="0,4,0,0" Text="Tus documentos, fotos y correos guardados, ni tus firmas, plantillas y diccionario de Office. Tampoco OneDrive ni Teams."/>
+</StackPanel>
+'@
+    return (Show-StDialog -Kind 'warn' -Kicker 'Desinstalación completa' -Title '¿Quitar Office por completo?' `
+        -Message "$intro Después tendrás que volver a instalarlo y activarlo para usarlo. Tarda entre 5 y 20 minutos." `
+        -Extra $panel -Buttons @('Cancelar', 'Sí, desinstalar todo') -Primary 'Sí, desinstalar todo' -Width 760)
+}
+
+function Set-StUninstallDone {
+    param([int]$Leftovers)
+    $St.UI.TxtDoneTitle.Text = 'Listo: Office quedó desinstalado'
+    $St.UI.TxtDoneText.Text = $(if ($Leftovers -gt 0) { 'Reinicia el computador para terminar de borrar algunos archivos que estaban en uso.' } else { 'No quedó nada de Office en este computador. Te recomendamos reiniciar antes de instalarlo de nuevo.' })
+    Set-StDoneList @('E74D|Office **desinstalado** (todas las versiones)', 'E8D7|Licencias y cuentas de Office **quitadas**', 'E8B7|Tus documentos y correos **intactos**', 'E777|Reinicia antes de volver a instalar')
+    $St.UI.TxtDoneNote.Text = 'Para instalar de nuevo, abre otra vez el instalador de SafeTech después de reiniciar.'
+}
+
+function Start-StDeepUninstall {
+    $state = Get-StOfficeState
+    $choice = Show-StUninstallConfirm -Found (@($state.Friendly) -join ', ')
+    if ($choice -ne 'Sí, desinstalar todo') { return }
+
+    Initialize-StLogs
+    $St.Mode = 'uninstall'
+    $St.Product = @{ Id = 'uninstall'; Name = 'Office'; Year = ''; NeedsKey = $false }
+    Initialize-StSteps @('u_prepare', 'u_close', 'u_licenses', 'u_remove', 'u_cleanup', 'u_verify')
+    $St.UI.TxtWhile.Text = 'No apagues ni reinicies el computador hasta que termine. Si tienes documentos abiertos en Word o Excel, guárdalos antes: los cerraremos.'
+    $St.UI.TxtProgTitle.Text = 'Desinstalando Office'
+    $St.UI.TxtProgDetail.Text = 'Preparando...'
+    $St.Sync.Detail = 'Preparando...'
+    $St.UI.TxtElapsedNote.Text = 'Suele tardar entre 5 y 20 minutos.'
+    $St.UI.PanelTutorialPromo.Visibility = 'Collapsed'
+    $St.UI.ChipInstall.Visibility = 'Collapsed'
+    $St.StartTime = Get-Date
+    $St.Busy = $true
+    Set-StProgStamp -Text 'PENDIENTE' -Kind 'pending'
+    Show-StPage 'Progress'
+
+    $work = Join-Path $StConfig.DataDir 'trabajo'
+    Start-StAsync -Params @{ WorkDir = $work } -Work {
+        Invoke-StDeepUninstall -WorkDir $P.WorkDir
+    } -OnDone {
+        param($ok, $r, $err)
+        $St.Busy = $false
+        Update-StProgressUi
+        Stop-StProgressAnimation
+        if (-not $ok) {
+            foreach ($id in $St.StepOrder) { if ($St.Sync.Steps[$id] -eq 'running') { Set-StUiStep $id 'error' } }
+            Show-StError -Title 'No pudimos terminar la desinstalación' -Detail $err -RetryLabel 'Intentar de nuevo' -OnRetry { Start-StDeepUninstall }
+            return
+        }
+        Set-StProgStamp -Text 'LIMPIO' -Kind 'done' -Animate
+        Set-StUninstallDone -Leftovers @($r.Leftovers).Count
+        Show-StDonePage -Stamp 'LIMPIO'
+    }
+}
+
+function Restart-StComputer {
+    $c = Show-StDialog -Kind 'question' -Title '¿Reiniciar ahora?' -Message 'Guarda lo que tengas abierto. El computador se reiniciará en unos segundos.' -Buttons @('Cancelar', 'Reiniciar') -Primary 'Reiniciar'
+    if ($c -ne 'Reiniciar') { return }
+    Write-StLog 'Reinicio pedido por el cliente tras la desinstalacion.'
+    try { Start-Process -FilePath 'shutdown.exe' -ArgumentList '/r /t 5' -WindowStyle Hidden } catch { }
+    $St.Window.Close()
 }
 
 # ----- Tutorial de Microsoft 365 -------------------------------------------------------------------
@@ -4099,6 +4461,7 @@ Set-StBtn $ui.BtnConfirmBack 0xE72B 'Atrás'
 Set-StBtn $ui.BtnConfirmAlt 0xE8D7 'Solo activar'
 Set-StBtn $ui.BtnTutorialEarly 0xE77B 'Preparar mi cuenta'
 Set-StBtn $ui.BtnDoneClose 0xE8BB 'Cerrar el instalador'
+Set-StBtn $ui.BtnDeepUninstall 0xE74D 'Desinstalar Office por completo'
 Set-StBtn $ui.BtnErrRetry 0xE72C 'Reintentar'
 Set-StBtn $ui.BtnErrHome 0xE80F 'Volver al inicio'
 Set-StBtn $ui.BtnErrZip 0xE74E 'Guardar informe para soporte en el Escritorio'
@@ -4197,7 +4560,8 @@ $ui.BtnTutNext.Add_Click({
     else { Set-StTutorialStep -Index ($i + 1) }
 })
 
-$ui.BtnDoneWord.Add_Click({ [void](Open-StWord) })
+$ui.BtnDoneWord.Add_Click({ if ($St.Mode -eq 'uninstall') { Restart-StComputer } else { [void](Open-StWord) } })
+$ui.BtnDeepUninstall.Add_Click({ Start-StDeepUninstall })
 $ui.BtnDoneClose.Add_Click({ $St.Window.Close() })
 $ui.BtnErrHome.Add_Click({ $St.Busy = $false; Show-StPage 'Home' })
 $ui.BtnErrRetry.Add_Click({ if ($St.ErrRetry) { & $St.ErrRetry } })
@@ -4239,8 +4603,10 @@ $ui.BtnErrWa.Add_Click({
 $St.Window.Add_Closing({
     param($s, $e)
     if ($St.Busy -and -not $St.SelfTest) {
-        $c = Show-StDialog -Kind 'warn' -Title 'La instalación sigue en curso' `
-            -Message 'Si cierras el instalador ahora, Office podría quedar a medio instalar o sin activar. ¿Quieres esperar a que termine?' `
+        $busyTitle = $(if ($St.Mode -eq 'uninstall') { 'La desinstalación sigue en curso' } else { 'La instalación sigue en curso' })
+        $busyMsg = $(if ($St.Mode -eq 'uninstall') { 'Si cierras ahora, Office podría quedar a medio desinstalar. ¿Quieres esperar a que termine?' } else { 'Si cierras el instalador ahora, Office podría quedar a medio instalar o sin activar. ¿Quieres esperar a que termine?' })
+        $c = Show-StDialog -Kind 'warn' -Title $busyTitle `
+            -Message $busyMsg `
             -Buttons @('Seguir esperando', 'Cerrar de todas formas')
         if ($c -ne 'Cerrar de todas formas') { $e.Cancel = $true }
     }
@@ -4369,6 +4735,23 @@ if ($StMode -eq 'selftest') {
     $dlg.Show(); Save-StShot $dlg '11-ventana-codigo'; $dlg.Close()
     $dlg = Show-StAbout -Welcome
     $dlg.Show(); Save-StShot $dlg '12-bienvenida'; $dlg.Close()
+    # Desinstalación profunda: confirmación, avance y final.
+    $dlg = Show-StUninstallConfirm -Found 'Microsoft 365 Apps para empresas, Microsoft Office Professional Plus 2016'
+    $dlg.Show(); Save-StShot $dlg '13-desinstalar-confirmar'; $dlg.Close()
+    $St.Mode = 'uninstall'
+    $St.Product = @{ Id = 'uninstall'; Name = 'Office'; Year = ''; NeedsKey = $false }
+    Initialize-StSteps @('u_prepare', 'u_close', 'u_licenses', 'u_remove', 'u_cleanup', 'u_verify')
+    foreach ($id in @('u_prepare', 'u_close', 'u_licenses')) { Set-StUiStep $id 'done' }
+    Set-StUiStep 'u_remove' 'running' 'Desinstalando Microsoft 365 Apps para empresas. No apagues el computador...'
+    $St.UI.TxtProgTitle.Text = 'Desinstalando Office'
+    $St.UI.TxtElapsedNote.Text = 'Suele tardar entre 5 y 20 minutos.'
+    $St.UI.TxtWhile.Text = 'No apagues ni reinicies el computador hasta que termine. Si tienes documentos abiertos en Word o Excel, guárdalos antes: los cerraremos.'
+    $St.UI.PanelTutorialPromo.Visibility = 'Collapsed'
+    Set-StProgStamp -Text 'PENDIENTE' -Kind 'pending'
+    Show-StPage 'Progress'; Save-StShotAt '14-desinstalar-avance'
+    Set-StUninstallDone -Leftovers 0
+    Show-StDonePage -Stamp 'LIMPIO'; Save-StShotAt '15-desinstalar-listo'
+    $St.Mode = 'install'; $St.Product = Get-StProduct '2024'
 
     # SafeBOT: las animaciones deben correr sin errores.
     $St.NoAnim = $false

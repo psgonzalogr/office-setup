@@ -468,3 +468,39 @@ Describe 'Final de la instalación de Microsoft' {
         @(Get-Process | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero }).Count | Should -Be $before
     }
 }
+
+Describe 'Desinstalación profunda' {
+    It 'Solo apunta a carpetas propias de Office, con ruta completa' {
+        $t = Get-StUninstallTargets
+        $t.Dirs.Count | Should -BeGreaterThan 3
+        foreach ($d in $t.Dirs) {
+            [IO.Path]::IsPathRooted($d) | Should -BeTrue
+            $d | Should -Match '\\(Microsoft Office|ClickToRun|OFFICE1[56]|OfficeSoftwareProtectionPlatform|Microsoft\\Office)$'
+        }
+        $t.Dirs | Should -Contain (Join-Path $env:ProgramFiles 'Microsoft Office')
+    }
+    It 'Nunca toca documentos, correo ni la configuración personal' {
+        $t = Get-StUninstallTargets
+        $all = @($t.Dirs) + @($t.Keys) + @($t.UserKeys) + @($t.UserDirs)
+        foreach ($x in $all) {
+            $x | Should -Not -Match '(?i)Documents|Documentos|Desktop|Escritorio|Outlook|\.pst|\.ost|Templates|Signatures|Proof|UProof|\\Word$|\\Excel$|Roaming'
+        }
+        foreach ($k in $t.UserKeys) { $k | Should -Match '(Licensing|Identity|Registration|ClickToRun)$' }
+    }
+    It 'Borra una carpeta y sigue si no existe' {
+        $d = Join-Path $env:TEMP ("st-prueba-" + [guid]::NewGuid())
+        New-Item -ItemType Directory -Path (Join-Path $d 'sub') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $d 'sub\a.txt') -Value 'x'
+        Remove-StPathSafe $d | Should -BeTrue
+        Test-Path -LiteralPath $d | Should -BeFalse
+        Remove-StPathSafe $d | Should -BeTrue
+    }
+    It 'Encuentra los perfiles de usuario' {
+        $u = @(Get-StUserProfiles)
+        $u.Count | Should -BeGreaterThan 0
+        foreach ($p in $u) { $p.Sid | Should -Match '^S-1-5-21-' }
+    }
+    It 'Revisa los restos sin fallar' {
+        { Get-StOfficeLeftovers } | Should -Not -Throw
+    }
+}

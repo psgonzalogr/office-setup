@@ -52,6 +52,19 @@ Si el código falla, se puede ingresar otro código, reintentar o **activar manu
 
 El código se valida mientras se escribe con `getcid.safe-tech.cl/check-code` y muestra los créditos disponibles.
 
+### Desinstalación profunda
+
+Botón «Desinstalar Office por completo» en la pantalla de inicio (franja «¿Ya tienes Office?»). Pide confirmación con lo que se borra y lo que no, y luego:
+
+1. Crea un punto de restauración.
+2. Cierra Word, Excel, etc.
+3. Retira claves y activaciones (`ospp.vbs /unpkey`, `/remhst`) y las cuentas de Office guardadas en el Administrador de credenciales (`MicrosoftOffice1x*`).
+4. Desinstala todas las versiones: Click-to-Run con la Herramienta de implementación (`Remove All`; si falla, con el desinstalador propio de cada producto), MSI 2007–2016 con `msiexec /x` y Office de escritorio de la Microsoft Store.
+5. Borra los restos: servicio `ClickToRunSvc`, tareas `\Microsoft\Office\`, accesos directos que apuntan a Office, carpetas (`Microsoft Office`, `microsoft shared\ClickToRun`, `OFFICE15/16`, `ProgramData\Microsoft\ClickToRun` y `\Office`), registro de máquina (`Office\ClickToRun`, `Office\15.0/16.0`, `AppVISV`, `OfficeSoftwareProtectionPlatform`) y, por usuario, solo licencias, identidad y registro de Office.
+6. Comprueba que no quedó nada. Si algo estaba en uso, pide reiniciar.
+
+**No toca nunca:** documentos, correos (`.pst`/`.ost`), la configuración personal de Office (plantillas, firmas, diccionario, autocorrección, perfiles de Outlook), OneDrive, Teams ni OneNote de la Tienda.
+
 ## Seguridad
 
 - **No contiene secretos.** No usa el token de getcid.dev; solo llama a los endpoints públicos de `getcid.safe-tech.cl` con el código del cliente.
@@ -85,6 +98,7 @@ GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows
 
 ## Versiones
 
+- **1.4.0** (2026-11-18): desinstalación profunda de Office desde la pantalla de inicio: quita todas las versiones (Click-to-Run, MSI y Microsoft Store), licencias, cuentas conectadas, servicio, tareas, accesos directos, carpetas y registro, sin tocar documentos, correos ni la configuración personal. Termina con «Reiniciar ahora».
 - **1.3.4** (2026-11-18): tras activar Office 2021 o 2024 se pasa directo a la pantalla final (se quitó el aviso «¡quedó activado!» que repetía lo mismo y decía «por teléfono»). La ventana «¡Hemos terminado!» de Microsoft ahora sí se encuentra y se cierra (se buscaba solo como ventana principal y con un permiso que fallaba), se comprueba que se cerró y ya no reaparece encima de Word; tampoco se esperan 20 segundos en vano. La barra avanza poco a poco durante la descarga de Office en vez de quedar fija a la mitad del paso 6. Texto de la instalación más corto.
 - **1.3.3** (2026-11-17): la primera voz (la bienvenida) ya no suena más baja: el reproductor de Windows partía con volumen 0,5 y el ajuste a 1,0 se perdía mientras cargaba el primer audio.
 - **1.3.2** (2026-11-17): todas las voces niveladas en dos pasadas al mismo volumen (−14,5 LUFS ± 0,2, unos 2,5 dB más fuerte que antes). Voces en `assets/voz/v4`.
