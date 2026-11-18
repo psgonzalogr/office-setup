@@ -98,6 +98,7 @@ GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows
 
 ## Versiones
 
+- **1.4.2** (2026-11-18): si Microsoft 365 ya está instalado, SafeBOT ya no pide «marcar la casilla» (no hay casilla en ese caso): dice que solo falta conectar la cuenta, con voz propia (`confirmar-365`, Zabra).
 - **1.4.1** (2026-11-18): la barra también avanza poco a poco mientras se desinstala Office (en la prueba quedaba fija casi 2 minutos en «Paso 4 de 6»).
 - **1.4.0** (2026-11-18): desinstalación profunda de Office desde la pantalla de inicio: quita todas las versiones (Click-to-Run, MSI y Microsoft Store), licencias, cuentas conectadas, servicio, tareas, accesos directos, carpetas y registro, sin tocar documentos, correos ni la configuración personal. Termina con «Reiniciar ahora». Tres voces nuevas de SafeBOT para la confirmación, el avance y el final (`desinstalar`, `desinstalando`, `desinstalado`), voz «Zabra» de ElevenLabs, niveladas a −14,5 LUFS.
 - **1.3.4** (2026-11-18): tras activar Office 2021 o 2024 se pasa directo a la pantalla final (se quitó el aviso «¡quedó activado!» que repetía lo mismo y decía «por teléfono»). La ventana «¡Hemos terminado!» de Microsoft ahora sí se encuentra y se cierra (se buscaba solo como ventana principal y con un permiso que fallaba), se comprueba que se cerró y ya no reaparece encima de Word; tampoco se esperan 20 segundos en vano. La barra avanza poco a poco durante la descarga de Office en vez de quedar fija a la mitad del paso 6. Texto de la instalación más corto.

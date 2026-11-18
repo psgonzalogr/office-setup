@@ -15,7 +15,7 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.4.1'
+    Version     = '1.4.2'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
@@ -2558,7 +2558,7 @@ function Show-StPage {
     Invoke-StBotAction -Action $(if ($Name -eq 'Done') { 'happy' } else { 'normal' })
     Update-StGuide -Page $Name
     if ($Name -eq 'Data') { Invoke-StCue 'datos' }
-    if ($Name -eq 'Confirm') { Invoke-StCue 'confirmar' }
+    if ($Name -eq 'Confirm') { Invoke-StCue $(if ($St.ConfirmAction -eq 'tutorial') { 'confirmar-365' } else { 'confirmar' }) }
     $St.UI.GuideBar.Visibility = $(if ($Name -eq 'Tutorial') { 'Collapsed' } else { 'Visible' })
     if ($St.NoAnim) { $el.Opacity = 1; return }
     $tt = New-Object System.Windows.Media.TranslateTransform 0, 18
@@ -2673,6 +2673,7 @@ $StCues = @{
     'bienvenida'    = @{ Voice = 'bienvenida' }
     'datos'         = @{ Voice = 'datos' }
     'confirmar'     = @{ Voice = 'confirmar' }
+    'confirmar-365' = @{ Voice = 'confirmar-365' }
     'instalando'    = @{ Voice = 'instalando' }
     'instalado'     = @{ Sound = 'exito'; Voice = 'instalado'; Bot = 'jump' }
     'instalado-365' = @{ Sound = 'exito'; Voice = 'instalado-365'; Bot = 'jump' }
@@ -2846,7 +2847,9 @@ function Update-StGuide {
             Set-StJourney 2 $label2
         }
         'Confirm' {
-            Set-StGuide 'Revisa esto con calma y marca la casilla. Después yo me encargo de todo.'
+            # Si Microsoft 365 ya está instalado no hay casilla: solo falta conectar la cuenta.
+            if ($St.ConfirmAction -eq 'tutorial') { Set-StGuide 'Microsoft 365 ya está instalado. Solo falta conectar tu cuenta: te guío paso a paso.' }
+            else { Set-StGuide 'Revisa esto con calma y marca la casilla. Después yo me encargo de todo.' }
             Set-StJourney 2 $label2
         }
         'Progress' {
