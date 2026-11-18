@@ -4274,6 +4274,9 @@ if ($StMode -eq 'selftest') {
         if (-not (Get-StAssetFile $v)) { throw "Falta la voz $v." }
     }
     Write-Host 'Sonidos y voces: están todos.'
+    $pb = Get-StPrivateBrowser
+    if (-not $pb) { throw 'No se encontró un navegador para la ventana privada.' }
+    Write-Host "Ventana privada: $($pb.Exe) $($pb.Flag)"
     # Hoja de poses para revisar el dibujo: normal, pestañeo, saludo, salto feliz, cabeza inclinada.
     $row = New-Object System.Windows.Controls.StackPanel
     $row.Orientation = 'Horizontal'; $row.Background = $St.Window.Background
