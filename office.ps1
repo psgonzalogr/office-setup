@@ -15,7 +15,7 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.4.2'
+    Version     = '1.4.3'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
@@ -4235,7 +4235,7 @@ function Set-StTutorialStep {
         $text = $line.TrimStart('!')
         if ($must) {
             $row = New-StXamlElement @"
-<Border CornerRadius="14" Background="#20304A" BorderBrush="#405776" BorderThickness="1.5" Padding="14,12" Margin="-14,0,0,12">
+<Border CornerRadius="14" Background="#20304A" BorderBrush="#405776" BorderThickness="1.5" Padding="14,12" Margin="0,0,0,12">
   <Grid>
     <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
     <Border Width="28" Height="28" CornerRadius="14" Background="#DC2626" VerticalAlignment="Top">
@@ -4293,7 +4293,7 @@ function Set-StTutorialStep {
             'copyPortal' { Set-StBtn $b 0xE8C8 'Copiar el enlace'; $b.Style = $St.Window.FindResource('BtnSoft') }
             'word' { Set-StBtn $b 0xE8A5 'Abrir Word'; $b.Style = $St.Window.FindResource($(if ($s.Actions[0] -eq 'word') { 'BtnPrimary' } else { 'BtnSoft' })) }
             'check' { Set-StBtn $b 0xE73E 'Comprobar la activación'; $b.Style = $St.Window.FindResource('BtnPrimary') }
-            'youtube' { Set-StBtn $b 0xE714 'Ver el video en YouTube'; $b.Style = $St.Window.FindResource('BtnSoft') }
+            'youtube' { Set-StBtn $b 0xE714 'Ver el video en YouTube'; $b.Style = $St.Window.FindResource('BtnPrimary') }
             'terms' { Set-StBtn $b 0xE8A7 'Ver términos y condiciones'; $b.Style = $St.Window.FindResource('BtnSoft') }
             'authYes' { Set-StBtn $b 0xE73E 'Sí, me apareció'; Set-StChoice $b ($St.Tut.Auth -eq $true); $b.MinWidth = 220 }
             'authNo' { Set-StBtn $b 0xE711 'No, entré directo'; Set-StChoice $b ($St.Tut.Auth -eq $false); $b.MinWidth = 220 }

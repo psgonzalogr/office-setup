@@ -98,6 +98,7 @@ GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows
 
 ## Versiones
 
+- **1.4.3** (2026-11-18): tutorial de Microsoft 365: el botón «Ver el video en YouTube» es rojo y los recuadros destacados quedan alineados con el título, los botones y los avisos (antes sobresalían 14 px a la izquierda).
 - **1.4.2** (2026-11-18): si Microsoft 365 ya está instalado, SafeBOT ya no pide «marcar la casilla» (no hay casilla en ese caso): dice que solo falta conectar la cuenta, con voz propia (`confirmar-365`, Zabra).
 - **1.4.1** (2026-11-18): la barra también avanza poco a poco mientras se desinstala Office (en la prueba quedaba fija casi 2 minutos en «Paso 4 de 6»).
 - **1.4.0** (2026-11-18): desinstalación profunda de Office desde la pantalla de inicio: quita todas las versiones (Click-to-Run, MSI y Microsoft Store), licencias, cuentas conectadas, servicio, tareas, accesos directos, carpetas y registro, sin tocar documentos, correos ni la configuración personal. Termina con «Reiniciar ahora». Tres voces nuevas de SafeBOT para la confirmación, el avance y el final (`desinstalar`, `desinstalando`, `desinstalado`), voz «Zabra» de ElevenLabs, niveladas a −14,5 LUFS.
