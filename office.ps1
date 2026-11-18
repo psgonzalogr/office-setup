@@ -15,7 +15,7 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.4.3'
+    Version     = '1.5.0'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
@@ -2296,8 +2296,16 @@ $StWindowXaml = @'
                   </Border>
                 </StackPanel>
               </ScrollViewer>
-              <Border x:Name="TutImageFrame" Grid.Column="1" CornerRadius="16" BorderBrush="#2A3C57" BorderThickness="1.5" Background="#0C1626" Margin="10,0,0,10" Padding="10" VerticalAlignment="Top" HorizontalAlignment="Left" MaxHeight="{Binding ActualHeight, ElementName=TutColumns}">
-                <Image x:Name="ImgTut" Stretch="Uniform" StretchDirection="DownOnly" RenderOptions.BitmapScalingMode="HighQuality"/>
+              <Border x:Name="TutImageFrame" Grid.Column="1" CornerRadius="16" BorderBrush="#2A3C57" BorderThickness="1.5" Background="#0C1626" Margin="10,0,0,10" Padding="10" VerticalAlignment="Top" HorizontalAlignment="Left" MaxHeight="{Binding ActualHeight, ElementName=TutColumns}" Cursor="Hand" ToolTip="Haz clic para ver la imagen en grande">
+                <Grid>
+                  <Image x:Name="ImgTut" Stretch="Uniform" StretchDirection="DownOnly" RenderOptions.BitmapScalingMode="HighQuality"/>
+                  <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,8,8" CornerRadius="10" Background="#E6091220" BorderBrush="#405776" BorderThickness="1" Padding="10,5" IsHitTestVisible="False">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock Text="&#xE71E;" FontFamily="{StaticResource Icons}" FontSize="14" Foreground="#F8FAFC" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                      <TextBlock Text="Ampliar" FontSize="15" FontWeight="SemiBold" Foreground="#F8FAFC" VerticalAlignment="Center"/>
+                    </StackPanel>
+                  </Border>
+                </Grid>
               </Border>
             </Grid>
             <Border Grid.Row="1" BorderBrush="#2A3C57" BorderThickness="0,1,0,0" Padding="0,14,0,0">
@@ -2782,9 +2790,12 @@ function Set-StBtn {
     $ic.Text = [string][char]$Glyph
     $ic.FontFamily = New-Object System.Windows.Media.FontFamily('Segoe Fluent Icons, Segoe MDL2 Assets')
     $ic.FontSize = 16; $ic.VerticalAlignment = 'Center'; $ic.Margin = '0,0,10,0'
-    $tx = New-Object System.Windows.Controls.TextBlock
-    $tx.Text = $Text; $tx.VerticalAlignment = 'Center'
-    [void]$sp.Children.Add($ic); [void]$sp.Children.Add($tx)
+    [void]$sp.Children.Add($ic)
+    if ($Text) {
+        $tx = New-Object System.Windows.Controls.TextBlock
+        $tx.Text = $Text; $tx.VerticalAlignment = 'Center'
+        [void]$sp.Children.Add($tx)
+    } else { $ic.Margin = '0'; $ic.FontSize = 18 }
     $Button.Content = $sp
 }
 
@@ -2999,6 +3010,130 @@ function Show-StDialog {
     $St.DialogOpen = $true
     try { [void]$dlg.ShowDialog() } finally { $St.DialogOpen = $false }
     return [string]$dlg.Tag
+}
+
+$StViewerXaml = @'
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SafeTech - Imagen" WindowStyle="None" AllowsTransparency="True" Background="#F2050B16"
+        ResizeMode="NoResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner" WindowState="Maximized"
+        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="17" Foreground="#F8FAFC" UseLayoutRounding="True">
+  <Window.Resources>
+    __RESOURCES__
+  </Window.Resources>
+  <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <Border Background="#E6091220" BorderBrush="#2A3C57" BorderThickness="0,0,0,1" Padding="24,12">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock FontSize="18" FontWeight="SemiBold" Text="Imagen ampliada"/>
+          <TextBlock FontSize="15" Foreground="#AEBDD0" Margin="0,2,0,0" TextWrapping="Wrap" Text="Acerca con la rueda del mouse o con + y −. Arrastra para moverte. Doble clic para ajustar. Esc para cerrar."/>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+          <Button x:Name="BtnOut" Style="{StaticResource BtnSoft}" MinWidth="56" Margin="0,0,8,0" ToolTip="Alejar"/>
+          <Border MinWidth="76" VerticalAlignment="Center"><TextBlock x:Name="TxtZoom" HorizontalAlignment="Center" FontSize="16" FontWeight="SemiBold" Text="100 %"/></Border>
+          <Button x:Name="BtnIn" Style="{StaticResource BtnSoft}" MinWidth="56" Margin="8,0,8,0" ToolTip="Acercar"/>
+          <Button x:Name="BtnFit" Style="{StaticResource BtnSoft}" Margin="0,0,8,0"/>
+          <Button x:Name="BtnCloseView" Style="{StaticResource BtnPrimary}"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+    <ScrollViewer x:Name="Sv" Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Cursor="SizeAll" Background="Transparent" Focusable="False">
+      <Image x:Name="Img" Stretch="Fill" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+        <Image.LayoutTransform><ScaleTransform x:Name="Zoom" ScaleX="1" ScaleY="1"/></Image.LayoutTransform>
+      </Image>
+    </ScrollViewer>
+  </Grid>
+</Window>
+'@
+
+function Set-StViewerZoom {
+    # Cambia el zoom manteniendo fijo el punto bajo el mouse (o el centro).
+    param([double]$Scale, $At)
+    $v = $St.Viewer
+    $Scale = [Math]::Max($v.Min, [Math]::Min(6, $Scale))
+    $sv = $v.Sv
+    $old = $v.Scale
+    if (-not $At) { $At = New-Object System.Windows.Point ($sv.ViewportWidth / 2), ($sv.ViewportHeight / 2) }
+    $cx = ($sv.HorizontalOffset + $At.X) / $old
+    $cy = ($sv.VerticalOffset + $At.Y) / $old
+    $v.Scale = $Scale
+    $v.Zoom.ScaleX = $Scale; $v.Zoom.ScaleY = $Scale
+    $sv.UpdateLayout()
+    $sv.ScrollToHorizontalOffset($cx * $Scale - $At.X)
+    $sv.ScrollToVerticalOffset($cy * $Scale - $At.Y)
+    $v.Txt.Text = ('{0:0} %' -f ($Scale * 100))
+}
+
+function Show-StImageViewer {
+    # Abre la imagen del tutorial encima, en grande, para acercarla y moverla.
+    param($Source)
+    if (-not $Source) { return }
+    $win = [Windows.Markup.XamlReader]::Parse($StViewerXaml.Replace('__RESOURCES__', $StResXaml))
+    $img = $win.FindName('Img'); $sv = $win.FindName('Sv')
+    $img.Source = $Source
+    $img.Width = [double]$Source.PixelWidth; $img.Height = [double]$Source.PixelHeight
+    $St.Viewer = @{ Win = $win; Sv = $sv; Zoom = $win.FindName('Zoom'); Txt = $win.FindName('TxtZoom'); Scale = 1.0; Fit = 1.0; Min = 0.2; Drag = $null }
+    Set-StBtn $win.FindName('BtnOut') 0xE71F ''
+    Set-StBtn $win.FindName('BtnIn') 0xE8A3 ''
+    Set-StBtn $win.FindName('BtnFit') 0xE9A6 'Ajustar'
+    Set-StBtn $win.FindName('BtnCloseView') 0xE711 'Cerrar'
+    $win.FindName('BtnOut').Add_Click({ Set-StViewerZoom ($St.Viewer.Scale / 1.25) })
+    $win.FindName('BtnIn').Add_Click({ Set-StViewerZoom ($St.Viewer.Scale * 1.25) })
+    $win.FindName('BtnFit').Add_Click({ Set-StViewerZoom $St.Viewer.Fit })
+    $win.FindName('BtnCloseView').Add_Click({ $St.Viewer.Win.Close() })
+    $win.Add_KeyDown({
+        param($s, $e)
+        switch ($e.Key) {
+            'Escape' { $St.Viewer.Win.Close() }
+            'Add' { Set-StViewerZoom ($St.Viewer.Scale * 1.25) }
+            'OemPlus' { Set-StViewerZoom ($St.Viewer.Scale * 1.25) }
+            'Subtract' { Set-StViewerZoom ($St.Viewer.Scale / 1.25) }
+            'OemMinus' { Set-StViewerZoom ($St.Viewer.Scale / 1.25) }
+        }
+    })
+    $win.Add_Loaded({
+        # Al abrir: la imagen completa a la vista (sin pasar de 2x para que no se vea borrosa).
+        $v = $St.Viewer
+        $w = [double]$v.Sv.ActualWidth - 60; $h = [double]$v.Sv.ActualHeight - 60
+        $img = $v.Win.FindName('Img')
+        $fit = [Math]::Min($w / $img.Width, $h / $img.Height)
+        if ($fit -le 0 -or [double]::IsNaN($fit)) { $fit = 1 }
+        $v.Fit = [Math]::Min(2, $fit)
+        $v.Min = [Math]::Min(0.2, $v.Fit)
+        Set-StViewerZoom $v.Fit
+    })
+    $sv.Add_PreviewMouseWheel({
+        param($s, $e)
+        $e.Handled = $true
+        $f = $(if ($e.Delta -gt 0) { 1.2 } else { 1 / 1.2 })
+        Set-StViewerZoom ($St.Viewer.Scale * $f) $e.GetPosition($s)
+    })
+    $sv.Add_PreviewMouseLeftButtonDown({
+        param($s, $e)
+        if ($e.ClickCount -ge 2) {
+            $v = $St.Viewer
+            if ([Math]::Abs($v.Scale - $v.Fit) -lt 0.01) { Set-StViewerZoom 1 $e.GetPosition($s) } else { Set-StViewerZoom $v.Fit }
+            $e.Handled = $true; return
+        }
+        $St.Viewer.Drag = @{ P = $e.GetPosition($s); X = $s.HorizontalOffset; Y = $s.VerticalOffset }
+        [void]$s.CaptureMouse()
+        $e.Handled = $true
+    })
+    $sv.Add_PreviewMouseMove({
+        param($s, $e)
+        $d = $St.Viewer.Drag
+        if (-not $d) { return }
+        $p = $e.GetPosition($s)
+        $s.ScrollToHorizontalOffset($d.X - ($p.X - $d.P.X))
+        $s.ScrollToVerticalOffset($d.Y - ($p.Y - $d.P.Y))
+    })
+    $sv.Add_PreviewMouseLeftButtonUp({ param($s, $e) $St.Viewer.Drag = $null; $s.ReleaseMouseCapture() })
+    if ($St.Window -and $St.Window.IsVisible) { $win.Owner = $St.Window }
+    if ($St.SelfTest) { return $win }
+    $St.DialogOpen = $true
+    try { [void]$win.ShowDialog() } finally { $St.DialogOpen = $false; $St.Viewer = $null }
 }
 
 function New-StDialogField {
@@ -4554,6 +4689,7 @@ $ui.BtnConfirmStart.Add_Click({
 
 $ui.BtnTutorialEarly.Add_Click({ Show-StTutorial -Index $St.Tut.Index })
 $ui.BtnTutProgress.Add_Click({ Show-StPage 'Progress' })
+$ui.TutImageFrame.Add_MouseLeftButtonUp({ Show-StImageViewer $St.UI.ImgTut.Source })
 $ui.BtnTutBack.Add_Click({
     if ($St.Tut.Index -le 0) { if (-not (Test-StInstalling365)) { Show-StPage 'Home' } }
     elseif ($St.Tut.Index -eq (Get-StTutIndex 'word') -and $St.Tut.Auth -eq $false) { Set-StTutorialStep -Index (Get-StTutIndex 'seguridad') }
@@ -4725,6 +4861,9 @@ if ($StMode -eq 'selftest') {
     Show-StTutorial -Index 0; Save-StShotAt '05b-tutorial-bienvenida'
     Set-StTutorialStep -Index (Get-StTutIndex 'avisos'); Save-StShotAt '05c-tutorial-avisos'
     Set-StTutorialStep -Index (Get-StTutIndex 'portal'); Save-StShotAt '06-tutorial-paso2'
+    $viewer = Show-StImageViewer $St.UI.ImgTut.Source
+    if (-not $viewer) { throw 'El visor de imágenes no se abrió.' }
+    $viewer.Show(); Set-StViewerZoom ($St.Viewer.Fit * 1.6); Save-StShot $viewer '06d-imagen-ampliada'; $viewer.Close(); $St.Viewer = $null
     Save-StShotAt '06c-tutorial-fullhd' 1920 1040
     Set-StTutorialStep -Index (Get-StTutIndex 'contrasena'); Save-StShotAt '06a-tutorial-contrasena'
     Set-StTutorialStep -Index (Get-StTutIndex 'seguridad'); Save-StShotAt '06b-tutorial-pregunta'

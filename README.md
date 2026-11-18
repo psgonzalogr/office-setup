@@ -98,6 +98,7 @@ GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows
 
 ## Versiones
 
+- **1.5.0** (2026-11-18): en el tutorial de Microsoft 365, al hacer clic en una imagen se abre en grande encima de la ventana: se acerca con la rueda del mouse o con + y −, se mueve arrastrando, doble clic para ajustar y Esc para cerrar. La imagen muestra la etiqueta «Ampliar».
 - **1.4.3** (2026-11-18): tutorial de Microsoft 365: el botón «Ver el video en YouTube» es rojo y los recuadros destacados quedan alineados con el título, los botones y los avisos (antes sobresalían 14 px a la izquierda).
 - **1.4.2** (2026-11-18): si Microsoft 365 ya está instalado, SafeBOT ya no pide «marcar la casilla» (no hay casilla en ese caso): dice que solo falta conectar la cuenta, con voz propia (`confirmar-365`, Zabra).
 - **1.4.1** (2026-11-18): la barra también avanza poco a poco mientras se desinstala Office (en la prueba quedaba fija casi 2 minutos en «Paso 4 de 6»).
