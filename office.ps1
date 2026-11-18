@@ -15,7 +15,7 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.3.1'
+    Version     = '1.3.2'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
@@ -2324,7 +2324,7 @@ $StCues = @{
     'como-funciona' = @{ Voice = 'como-funciona' }
 }
 # Al cambiar los audios, subir la carpeta (v3, v4...): los equipos guardan los anteriores en caché.
-$StVoiceDir = 'assets/voz/v3'
+$StVoiceDir = 'assets/voz/v4'
 
 function Get-StCueAssets {
     $list = @('assets/sonidos/aviso.wav', 'assets/sonidos/exito.wav', 'assets/sonidos/logro.wav', 'assets/sonidos/error.wav')
