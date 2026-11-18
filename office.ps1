@@ -15,7 +15,7 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.4.0'
+    Version     = '1.4.1'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
@@ -3211,16 +3211,20 @@ function Update-StStepRow {
     Update-StStepLayout
 }
 
+$StSlowSteps = @{ install = 6; u_remove = 1.5 }
+
 function Get-StStepPartial {
-    # Cuánto se llena la barra dentro del paso actual. La descarga de Office tarda 5 a 40 minutos sin
-    # informar avance: la barra avanza despacio con el tiempo para no parecer congelada, sin llegar nunca al paso siguiente.
+    # Cuánto se llena la barra dentro del paso actual. Los pasos largos de Microsoft no informan avance
+    # (instalar: 5 a 40 min; desinstalar: 1 a 5 min): la barra avanza despacio con el tiempo para no
+    # parecer congelada, sin llegar nunca al paso siguiente. El número es el ritmo en minutos.
     param([int]$Index)
     if ($Index -lt 0) { return 0.5 }
     $id = @($St.StepOrder)[$Index]
     $r = $St.StepRows[$id]
-    if ($id -ne 'install' -or -not $r -or $r.State -ne 'running' -or -not $r.Since) { return 0.5 }
+    $pace = $StSlowSteps[$id]
+    if (-not $pace -or -not $r -or $r.State -ne 'running' -or -not $r.Since) { return 0.5 }
     $min = ((Get-Date) - $r.Since).TotalMinutes
-    return 0.1 + 0.85 * (1 - [Math]::Exp(-$min / 6))
+    return 0.1 + 0.85 * (1 - [Math]::Exp(-$min / $pace))
 }
 
 function Update-StStepLayout {
@@ -3275,7 +3279,9 @@ function Update-StProgressUi {
         if ($state) { Update-StStepRow $id $state }
     }
     if ($St.Sync.Detail -and $St.UI.TxtProgDetail.Text -ne $St.Sync.Detail) { $St.UI.TxtProgDetail.Text = $St.Sync.Detail }
-    if ($St.Sync.Steps['install'] -eq 'running' -and ((Get-Date) - $St.LastCreep).TotalSeconds -ge 5) {
+    $slow = $false
+    foreach ($id in $StSlowSteps.Keys) { if ($St.Sync.Steps[$id] -eq 'running') { $slow = $true } }
+    if ($slow -and ((Get-Date) - $St.LastCreep).TotalSeconds -ge 5) {
         $St.LastCreep = Get-Date
         Update-StStepLayout
     }
