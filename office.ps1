@@ -2682,7 +2682,9 @@ $StCues = @{
     'codigo'        = @{ Sound = 'aviso'; Voice = 'codigo'; Bot = 'shake' }
     'atencion'      = @{ Sound = 'aviso'; Bot = 'nod' }
     'como-funciona' = @{ Voice = 'como-funciona' }
-    'desinstalado'  = @{ Sound = 'exito'; Bot = 'jump' }
+    'desinstalar'   = @{ Voice = 'desinstalar' }
+    'desinstalando' = @{ Voice = 'desinstalando' }
+    'desinstalado'  = @{ Sound = 'exito'; Voice = 'desinstalado'; Bot = 'jump' }
 }
 # Al cambiar los audios, subir la carpeta (v3, v4...): los equipos guardan los anteriores en caché.
 $StVoiceDir = 'assets/voz/v4'
@@ -3959,6 +3961,7 @@ function Show-StUninstallConfirm {
   <TextBlock Foreground="#C9D5E3" FontSize="16" TextWrapping="Wrap" Margin="0,4,0,0" Text="Tus documentos, fotos y correos guardados, ni tus firmas, plantillas y diccionario de Office. Tampoco OneDrive ni Teams."/>
 </StackPanel>
 '@
+    Invoke-StCue 'desinstalar'
     return (Show-StDialog -Kind 'warn' -Kicker 'Desinstalación completa' -Title '¿Quitar Office por completo?' `
         -Message "$intro Después tendrás que volver a instalarlo y activarlo para usarlo. Tarda entre 5 y 20 minutos." `
         -Extra $panel -Buttons @('Cancelar', 'Sí, desinstalar todo') -Primary 'Sí, desinstalar todo' -Width 760)
@@ -3992,6 +3995,7 @@ function Start-StDeepUninstall {
     $St.Busy = $true
     Set-StProgStamp -Text 'PENDIENTE' -Kind 'pending'
     Show-StPage 'Progress'
+    Invoke-StCue 'desinstalando'
 
     $work = Join-Path $StConfig.DataDir 'trabajo'
     Start-StAsync -Params @{ WorkDir = $work } -Work {
