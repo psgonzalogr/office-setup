@@ -15,13 +15,15 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.2.1'
+    Version     = '1.3.0'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
     ApiBase     = 'https://getcid.safe-tech.cl'
     OdtUrl      = 'https://officecdn.microsoft.com/pr/wsus/setup.exe'
     PortalUrl   = 'https://portal.office.com'
+    VideoM365   = 'https://youtu.be/q0TmTWeB7sc'
+    TermsUrl    = 'https://safe-tech.cl/terminos-y-condiciones'
     HelpUrl     = 'https://ayuda.safe-tech.cl'
     WhatsAppUrl = 'https://wa.me/56951017168'
     WhatsApp    = '+56 9 5101 7168'
@@ -89,8 +91,8 @@ try {
                 '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-WindowStyle', 'Hidden', '-EncodedCommand', $stEncoded) | Out-Null
             Write-Host '  Listo: el instalador se esta abriendo en una ventana nueva.' -ForegroundColor Green
             Write-Host ''
-            # Esta consola ya no hace falta: se cierra sola a los 10 segundos para no confundir al cliente.
-            for ($stLeft = 10; $stLeft -ge 1; $stLeft--) {
+            # Esta consola ya no hace falta: se cierra sola a los 5 segundos para no confundir al cliente.
+            for ($stLeft = 5; $stLeft -ge 1; $stLeft--) {
                 Write-Host ("`r  Esta ventana se cerrara sola en {0,2} segundos..." -f $stLeft) -NoNewline -ForegroundColor Gray
                 Start-Sleep -Seconds 1
             }
@@ -1179,14 +1181,14 @@ $StResXaml = @'
         <Border x:Name="Ring" CornerRadius="17" Margin="-5" BorderBrush="#FCD34D" BorderThickness="3" Visibility="Hidden"/>
         <Border x:Name="Bd" CornerRadius="14" Padding="{TemplateBinding Padding}" Background="{StaticResource RedGrad}">
           <Border.Effect><DropShadowEffect Color="#7F1D1D" BlurRadius="22" ShadowDepth="6" Direction="270" Opacity="0.45"/></Border.Effect>
-          <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextBlock.Foreground="White"/>
+          <ContentPresenter x:Name="Cp" HorizontalAlignment="Center" VerticalAlignment="Center" TextBlock.Foreground="White"/>
         </Border>
       </Grid>
       <ControlTemplate.Triggers>
         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{StaticResource RedGradHover}"/></Trigger>
         <Trigger Property="IsPressed" Value="True"><Setter Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.97" ScaleY="0.97"/></Setter.Value></Setter></Trigger>
         <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Ring" Property="Visibility" Value="Visible"/></Trigger>
-        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.38"/></Trigger>
+        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Background" Value="#2A3442"/><Setter TargetName="Bd" Property="BorderBrush" Value="#2A3442"/><Setter TargetName="Bd" Property="Effect" Value="{x:Null}"/><Setter Property="Foreground" Value="#7D8BA0"/><Setter TargetName="Cp" Property="TextBlock.Foreground" Value="#7D8BA0"/></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate>
   </Setter.Value></Setter>
@@ -1204,7 +1206,7 @@ $StResXaml = @'
       <Grid>
         <Border x:Name="Ring" CornerRadius="17" Margin="-5" BorderBrush="#FCD34D" BorderThickness="3" Visibility="Hidden"/>
         <Border x:Name="Bd" CornerRadius="14" Padding="{TemplateBinding Padding}" Background="#17243A" BorderBrush="#6B82A3" BorderThickness="2">
-          <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          <ContentPresenter x:Name="Cp" HorizontalAlignment="Center" VerticalAlignment="Center"/>
         </Border>
       </Grid>
       <ControlTemplate.Triggers>
@@ -1213,7 +1215,7 @@ $StResXaml = @'
         </Trigger>
         <Trigger Property="IsPressed" Value="True"><Setter Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.97" ScaleY="0.97"/></Setter.Value></Setter></Trigger>
         <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Ring" Property="Visibility" Value="Visible"/></Trigger>
-        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.38"/></Trigger>
+        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Background" Value="#2A3442"/><Setter TargetName="Bd" Property="BorderBrush" Value="#2A3442"/><Setter TargetName="Bd" Property="Effect" Value="{x:Null}"/><Setter Property="Foreground" Value="#7D8BA0"/><Setter TargetName="Cp" Property="TextBlock.Foreground" Value="#7D8BA0"/></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate>
   </Setter.Value></Setter>
@@ -1229,13 +1231,42 @@ $StResXaml = @'
       <Grid>
         <Border x:Name="Ring" CornerRadius="17" Margin="-5" BorderBrush="#FCD34D" BorderThickness="3" Visibility="Hidden"/>
         <Border x:Name="Bd" CornerRadius="14" Padding="{TemplateBinding Padding}" Background="#25D366">
-          <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextBlock.Foreground="#052E16"/>
+          <ContentPresenter x:Name="Cp" HorizontalAlignment="Center" VerticalAlignment="Center" TextBlock.Foreground="#052E16"/>
         </Border>
       </Grid>
       <ControlTemplate.Triggers>
         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#3BE07A"/></Trigger>
         <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Ring" Property="Visibility" Value="Visible"/></Trigger>
-        <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.38"/></Trigger>
+        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Background" Value="#2A3442"/><Setter TargetName="Bd" Property="BorderBrush" Value="#2A3442"/><Setter TargetName="Bd" Property="Effect" Value="{x:Null}"/><Setter Property="Foreground" Value="#7D8BA0"/><Setter TargetName="Cp" Property="TextBlock.Foreground" Value="#7D8BA0"/></Trigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate>
+  </Setter.Value></Setter>
+</Style>
+
+<Style x:Key="BtnSolid" TargetType="Button">
+  <Setter Property="Foreground" Value="White"/><Setter Property="FontWeight" Value="SemiBold"/>
+  <Setter Property="FontSize" Value="17"/><Setter Property="MinHeight" Value="56"/>
+  <Setter Property="Padding" Value="24,12"/><Setter Property="Cursor" Value="Hand"/>
+  <Setter Property="Background" Value="#3B4F6E"/>
+  <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+  <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+  <Setter Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="1" ScaleY="1"/></Setter.Value></Setter>
+  <Setter Property="Template"><Setter.Value>
+    <ControlTemplate TargetType="Button">
+      <Grid>
+        <Border x:Name="Ring" CornerRadius="17" Margin="-5" BorderBrush="#FCD34D" BorderThickness="3" Visibility="Hidden"/>
+        <Border x:Name="Bd" CornerRadius="14" Background="{TemplateBinding Background}">
+          <Grid>
+            <Border x:Name="Shine" CornerRadius="14" Background="#FFFFFF" Opacity="0"/>
+            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" TextBlock.Foreground="{TemplateBinding Foreground}"/>
+          </Grid>
+        </Border>
+      </Grid>
+      <ControlTemplate.Triggers>
+        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Shine" Property="Opacity" Value="0.12"/></Trigger>
+        <Trigger Property="IsPressed" Value="True"><Setter Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.97" ScaleY="0.97"/></Setter.Value></Setter></Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Ring" Property="Visibility" Value="Visible"/></Trigger>
+        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Bd" Property="Background" Value="#2A3442"/><Setter Property="Foreground" Value="#7D8BA0"/></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate>
   </Setter.Value></Setter>
@@ -1413,13 +1444,13 @@ $StWindowXaml = @'
           <TextBlock Text="Instalador de Office" Foreground="#DBE5F1" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-          <Button x:Name="BtnSound" Style="{StaticResource BtnSoft}" MinHeight="48" Padding="16,6" FontSize="16" Margin="0,0,10,0" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Activa o apaga los sonidos y la voz de SafeBOT">
+          <Button x:Name="BtnSound" Style="{StaticResource BtnSolid}" Background="#059669" MinHeight="48" Padding="16,6" FontSize="16" Margin="0,0,10,0" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Activa o apaga los sonidos y la voz de SafeBOT">
             <StackPanel Orientation="Horizontal">
               <TextBlock x:Name="TxtSoundIcon" Text="&#xE767;" FontFamily="{StaticResource Icons}" FontSize="16" VerticalAlignment="Center" Margin="0,0,9,0"/>
               <TextBlock x:Name="TxtSound" Text="Sonido activado" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
-          <Button x:Name="BtnAbout" Style="{StaticResource BtnSoft}" MinHeight="48" Padding="16,6" FontSize="16" Margin="0,0,14,0" WindowChrome.IsHitTestVisibleInChrome="True">
+          <Button x:Name="BtnAbout" Style="{StaticResource BtnSolid}" Background="#2563EB" MinHeight="48" Padding="16,6" FontSize="16" Margin="0,0,14,0" WindowChrome.IsHitTestVisibleInChrome="True">
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="&#xE946;" FontFamily="{StaticResource Icons}" FontSize="16" VerticalAlignment="Center" Margin="0,0,9,0"/>
               <TextBlock Text="¿Cómo funciona?" VerticalAlignment="Center"/>
@@ -2126,8 +2157,8 @@ function Show-StPage {
     $St.CurrentPage = $Name
     Invoke-StBotAction -Action $(if ($Name -eq 'Done') { 'happy' } else { 'normal' })
     Update-StGuide -Page $Name
-    if ($Name -eq 'Data') { Invoke-StCue 'datos' -Once }
-    if ($Name -eq 'Confirm') { Invoke-StCue 'confirmar' -Once }
+    if ($Name -eq 'Data') { Invoke-StCue 'datos' }
+    if ($Name -eq 'Confirm') { Invoke-StCue 'confirmar' }
     $St.UI.GuideBar.Visibility = $(if ($Name -eq 'Tutorial') { 'Collapsed' } else { 'Visible' })
     if ($St.NoAnim) { $el.Opacity = 1; return }
     $tt = New-Object System.Windows.Media.TranslateTransform 0, 18
@@ -2250,6 +2281,7 @@ $StCues = @{
     'error'         = @{ Sound = 'error'; Voice = 'error'; Bot = 'shake' }
     'codigo'        = @{ Sound = 'aviso'; Voice = 'codigo'; Bot = 'shake' }
     'atencion'      = @{ Sound = 'aviso'; Bot = 'nod' }
+    'como-funciona' = @{ Voice = 'como-funciona' }
 }
 # Al cambiar los audios, subir la carpeta (v3, v4...): los equipos guardan los anteriores en caché.
 $StVoiceDir = 'assets/voz/v2'
@@ -2257,6 +2289,8 @@ $StVoiceDir = 'assets/voz/v2'
 function Get-StCueAssets {
     $list = @('assets/sonidos/aviso.wav', 'assets/sonidos/exito.wav', 'assets/sonidos/logro.wav', 'assets/sonidos/error.wav')
     foreach ($c in $StCues.Values) { if ($c.Voice) { $list += "$StVoiceDir/$($c.Voice).mp3" } }
+    foreach ($t in $StTutorial) { $list += "$StVoiceDir/tut-$($t.Id).mp3" }
+    $list += "$StVoiceDir/auth-no.mp3"
     return @($list | Select-Object -Unique)
 }
 
@@ -2274,6 +2308,8 @@ function Set-StSound {
     $St.SoundOn = $On
     $St.UI.TxtSound.Text = $(if ($On) { 'Sonido activado' } else { 'Sonido apagado' })
     $St.UI.TxtSoundIcon.Text = [string][char]$(if ($On) { 0xE767 } else { 0xE74F })
+    # Verde = sonido activado; gris = apagado (colores sólidos distintos para cada estado).
+    $St.UI.BtnSound.Background = (New-Object System.Windows.Media.BrushConverter).ConvertFromString($(if ($On) { '#059669' } else { '#475569' }))
     if (-not $On -and $St.VoicePlayer) { try { $St.VoicePlayer.Stop() } catch { } }
     if (-not $Save) { return }
     $mark = Join-Path $StConfig.DataDir 'sonido-apagado'
@@ -2322,6 +2358,28 @@ function Invoke-StCue {
     $St.VoiceTimer.Stop()
     $St.VoiceTimer.Interval = [TimeSpan]::FromMilliseconds($delay)
     $St.VoiceTimer.Start()
+}
+
+function Set-StBtn {
+    # Botón con ícono a la izquierda y texto (copiar, abrir, volver...).
+    param($Button, [int]$Glyph, [string]$Text)
+    $sp = New-Object System.Windows.Controls.StackPanel
+    $sp.Orientation = 'Horizontal'
+    $ic = New-Object System.Windows.Controls.TextBlock
+    $ic.Text = [string][char]$Glyph
+    $ic.FontFamily = New-Object System.Windows.Media.FontFamily('Segoe Fluent Icons, Segoe MDL2 Assets')
+    $ic.FontSize = 16; $ic.VerticalAlignment = 'Center'; $ic.Margin = '0,0,10,0'
+    $tx = New-Object System.Windows.Controls.TextBlock
+    $tx.Text = $Text; $tx.VerticalAlignment = 'Center'
+    [void]$sp.Children.Add($ic); [void]$sp.Children.Add($tx)
+    $Button.Content = $sp
+}
+
+function Set-StChoice {
+    # Opción elegida = verde sólido; no elegida = azul pizarra sólido.
+    param($Button, [bool]$Selected)
+    $Button.Style = $St.Window.FindResource('BtnSolid')
+    $Button.Background = (New-Object System.Windows.Media.BrushConverter).ConvertFromString($(if ($Selected) { '#059669' } else { '#3B4F6E' }))
 }
 
 function Show-StWindowFront {
@@ -2800,7 +2858,7 @@ function Show-StError {
     Invoke-StCue 'error'
     $St.UI.TxtErrTitle.Text = $Title
     $St.UI.TxtErrDetail.Text = $Detail
-    $St.UI.BtnErrRetry.Content = $RetryLabel
+    Set-StBtn $St.UI.BtnErrRetry 0xE72C $RetryLabel
     $St.ErrRetry = $OnRetry
     $St.UI.BtnErrRetry.Visibility = $(if ($OnRetry) { 'Visible' } else { 'Collapsed' })
     Show-StPage 'Error'
@@ -2960,7 +3018,7 @@ function Show-StConfirmPage {
     } else {
         if ($same) {
             & $setDetected 'info' "$($p.Name) ya está instalado" "Puedes solo activarlo (más rápido) o reinstalarlo desde cero si tienes problemas con él."
-            if ($p.NeedsKey) { $ui.BtnConfirmAlt.Visibility = 'Visible'; $ui.BtnConfirmAlt.Content = 'Solo activar (recomendado)' }
+            if ($p.NeedsKey) { $ui.BtnConfirmAlt.Visibility = 'Visible'; Set-StBtn $ui.BtnConfirmAlt 0xE8D7 'Solo activar (recomendado)' }
             $ui.TxtConfirmStart.Text = 'Reinstalar desde cero'
         } elseif ($state.HasAny) {
             & $setDetected 'warn' 'Encontramos otra versión de Office' ("En este computador está instalado: {0}. Se desinstalará por completo antes de instalar {1}." -f ($others -join ', '), $p.Name)
@@ -3051,7 +3109,7 @@ function Start-StInstallFlow {
             if ($St.Tut.Started) { $msg = 'Ya puedes continuar el tutorial: abre Word e inicia sesión con tu cuenta.' }
             [void](Show-StDialog -Kind 'success' -Kicker 'Instalación lista' -Title 'Microsoft 365 quedó instalado' -Message $msg -Buttons @('Continuar con el tutorial'))
             $target = $St.Tut.Index
-            if ($St.Tut.Started -and ($St.Tut.Index -ge 6 -or ($St.Tut.Auth -eq $false -and $St.Tut.Index -ge 3))) { $target = 7 }
+            if ($St.Tut.Started -and ($St.Tut.Index -ge (Get-StTutIndex 'aprobar') -or ($St.Tut.Auth -eq $false -and $St.Tut.Index -ge (Get-StTutIndex 'seguridad')))) { $target = Get-StTutIndex 'word' }
             Show-StTutorial -Index $target
         }
     }
@@ -3247,7 +3305,7 @@ function Show-StAbout {
         [void]$cards.Children.Add($row)
         $i++
     }
-    if ($Welcome) { Invoke-StCue 'bienvenida' -Once }
+    if ($Welcome) { Invoke-StCue 'bienvenida' -Once } else { Invoke-StCue 'como-funciona' }
     $label = $(if ($Welcome) { 'Entendido, empezar' } else { 'Entendido' })
     $title = $(if ($Welcome) { '¡Hola! Así funciona este instalador' } else { '¿Cómo funciona este instalador?' })
     return (Show-StDialog -Kind 'info' -Title $title -Message 'Léelo con calma: son solo 4 cosas.' -Extra $panel -Buttons @($label) -Width 920 `
@@ -3303,13 +3361,13 @@ function Show-StManualActivation {
     $btnRow = New-Object System.Windows.Controls.WrapPanel
     $btnRow.Margin = '0,10,0,0'
     $bCopy = New-Object System.Windows.Controls.Button
-    $bCopy.Content = 'Copiar ID'
+    Set-StBtn $bCopy 0xE8C8 'Copiar ID'
     $bCopy.Style = $St.Window.FindResource('BtnSoft')
     $bCopy.Margin = '0,0,8,0'
     $bCopy.Tag = $St.Act.Iid
-    $bCopy.Add_Click({ param($s, $e) try { [System.Windows.Clipboard]::SetText([string]$s.Tag); $s.Content = 'Copiado' } catch { } })
+    $bCopy.Add_Click({ param($s, $e) try { [System.Windows.Clipboard]::SetText([string]$s.Tag); Set-StBtn $s 0xE73E 'Copiado' } catch { } })
     $bOpen = New-Object System.Windows.Controls.Button
-    $bOpen.Content = 'Abrir getcid.safe-tech.cl'
+    Set-StBtn $bOpen 0xE8A7 'Abrir getcid.safe-tech.cl'
     $bOpen.Style = $St.Window.FindResource('BtnSoft')
     $bOpen.Add_Click({ Open-StUnelevated $StConfig.ApiBase })
     [void]$btnRow.Children.Add($bCopy)
@@ -3448,71 +3506,90 @@ function Start-StActivateOnly {
 $StTutorial = @(
     # Marcado del texto: **negrita**; una línea que empieza con "!" es un paso que el cliente no se puede saltar.
     # NoteKind: info (consejo), warn (importante), critical (muy importante).
-    @{ Short = 'Prepárate'; Title = 'Ten a mano tu cuenta y tu celular'
+    @{ Id = 'bienvenida'; Short = 'Bienvenida'; Title = 'Bienvenido al tutorial de Microsoft 365'
+       Body = @('Te voy a guiar **paso a paso** para conectar la cuenta que te entregó SafeTech. Avanza con **Siguiente** y vuelve con **Atrás** cuando quieras.',
+                'Si quieres más detalle, en YouTube tenemos un **video tutorial** más largo, con todo explicado con calma.',
+                '!Este tutorial de la app **es suficiente si lo sigues paso a paso**. El video es opcional.')
+       Note = 'El video se abre en tu navegador. Puedes volver a esta ventana cuando quieras.'; NoteKind = 'info'
+       Image = $null; Actions = @('youtube'); NeedsOffice = $false },
+    @{ Id = 'avisos'; Short = 'Antes de empezar'; Title = 'Lee esto antes de empezar'
+       Body = @('!Usa **Windows 10 u 11 original** (Home o Pro). En versiones modificadas como **Tiny11, Ghost Spectre, AtlasOS, ReviOS o MiniOS**, o en ediciones **LTSC o N**, Microsoft 365 puede fallar al iniciar sesión o al activarse.',
+                'Si el computador es de tu **empresa, colegio o universidad**, consulta antes con quien lo administra. La cuenta puede chocar con sus políticas, y SafeTech no se hace responsable de conflictos en equipos administrados por terceros.',
+                'Vas a crear una **contraseña nueva**. **SafeTech no puede verla, resetearla ni recuperarla**: si la pierdes, pierdes el acceso a la cuenta.')
+       Note = 'Tu compra tiene **1 año de garantía de reposición** desde la fecha de compra. Aplica si **todavía tienes acceso a tu cuenta** y aun así Office no se logra activar.'; NoteKind = 'info'
+       Image = $null; Actions = @('terms'); NeedsOffice = $false; Confirm = 'Leí y entiendo estos avisos' },
+    @{ Id = 'preparate'; Short = 'Prepárate'; Title = 'Ten a mano tu cuenta y tu celular'
        Body = @('El **correo y la contraseña de Microsoft 365** que te envió SafeTech.',
                 'Tu **celular con Internet**, por si Microsoft te pide instalar la app Microsoft Authenticator (algunas cuentas lo piden y otras no).',
                 '!Papel o una nota para **guardar la contraseña nueva** que vas a crear.')
-       Note = 'si este computador es de tu **empresa, colegio o universidad**, consulta antes con quien lo administra: la cuenta puede entrar en conflicto con sus políticas.'; NoteKind = 'warn'
+       Note = 'Si te enredas en cualquier paso, escríbenos con el botón verde de WhatsApp de abajo.'; NoteKind = 'info'
        Image = $null; Actions = @(); NeedsOffice = $false },
-    @{ Short = 'Entrar al portal'; Title = 'Inicia sesión en el portal de Microsoft 365'
+    @{ Id = 'portal'; Short = 'Entrar al portal'; Title = 'Inicia sesión en el portal de Microsoft 365'
        Body = @('Haz clic en **«Abrir el portal»**. Se abrirá tu navegador.',
                 'Escribe el **correo entregado por SafeTech** y presiona **Siguiente**.',
                 'Escribe la **contraseña temporal** que te enviamos.',
                 '!**No uses tu correo personal** en este paso.')
        Note = 'Si el navegador entra solo con otra cuenta tuya, ciérrala arriba a la derecha («Cerrar sesión») y vuelve a pulsar «Abrir el portal». Si te enredas, escríbenos.'; NoteKind = 'info'
        Image = 'assets/tutorial/02-portal-inicio-sesion.jpg'; Actions = @('portal', 'copyPortal'); NeedsOffice = $false },
-    @{ Short = 'Contraseña'; Title = 'Cambia la contraseña temporal'
+    @{ Id = 'contrasena'; Short = 'Contraseña'; Title = 'Cambia la contraseña temporal'
        Body = @('La primera vez, Microsoft te pedirá **crear una contraseña nueva**.',
                 'En el primer campo escribe la **contraseña temporal**; en los otros dos, **tu contraseña nueva**.',
                 'Usa mayúsculas, minúsculas, números y un símbolo. Ejemplo: Perro#Azul2026 (inventa la tuya).')
        Note = '**anótala ahora en un papel o sácale una foto.** SafeTech no puede verla ni recuperarla; si la pierdes, pierdes la cuenta.'; NoteKind = 'critical'
        Image = 'assets/tutorial/03-cambiar-contrasena.jpg'; Actions = @(); NeedsOffice = $false; Confirm = 'Ya anoté mi nueva contraseña' },
-    @{ Short = 'Seguridad'; Title = '¿Te apareció este mensaje?'
+    @{ Id = 'seguridad'; Short = 'Seguridad'; Title = '¿Te apareció este mensaje?'
        Body = @('Después de cambiar la contraseña, algunas cuentas muestran **«Vamos a garantizar la seguridad de la cuenta»** y piden instalar Microsoft Authenticator.',
                 'Otras cuentas no lo piden y entran directo. Depende de la cuenta que te entregamos.',
                 '!**Elige lo que te pasó a ti** con uno de los dos botones de abajo.')
        Note = 'Las dos situaciones son normales. Si no te apareció, **tu cuenta está bien** y te saltas esta parte.'; NoteKind = 'info'
        Image = 'assets/tutorial/04-garantizar-seguridad.jpg'; Actions = @('authYes', 'authNo'); NeedsOffice = $false },
-    @{ Short = 'Authenticator'; Title = 'Instala Microsoft Authenticator en tu celular'
+    @{ Id = 'authenticator'; Short = 'Authenticator'; Title = 'Instala Microsoft Authenticator en tu celular'
        Body = @('!En el mensaje «Vamos a garantizar la seguridad de la cuenta», haz clic en **Siguiente**. **No elijas «Usar otra cuenta».**',
                 'En tu celular abre **Google Play** (Android) o **App Store** (iPhone).',
                 'Busca **«Microsoft Authenticator»** e instálala. El desarrollador debe ser **Microsoft Corporation**.',
                 'Vuelve al computador y haz clic en **Siguiente**.')
        Note = 'No uses la opción «Configurar una aplicación de autenticación diferente». Este tutorial es para **Microsoft Authenticator**.'; NoteKind = 'info'
        Image = 'assets/tutorial/05-instalar-authenticator.jpg'; Actions = @(); NeedsOffice = $false },
-    @{ Short = 'Código QR'; Title = 'Agrega la cuenta y escanea el código QR'
+    @{ Id = 'qr'; Short = 'Código QR'; Title = 'Agrega la cuenta y escanea el código QR'
        Body = @('Abre Microsoft Authenticator y **permite las notificaciones**.',
                 '!Toca **«Agregar cuenta»** (o el botón +) y elige **«Cuenta profesional o educativa»**, no «Cuenta personal».',
                 'Elige **«Escanear un código QR»** y apunta la cámara al código que aparece en el computador.',
                 'Cuando la cuenta aparezca en tu celular, haz clic en **Siguiente** en el computador.')
        Note = '¿No puedes escanearlo? Haz clic en **«Can''t scan the QR code?»** y escribe a mano el código y la URL que aparecen.'; NoteKind = 'info'
        Image = 'assets/tutorial/06-codigo-qr.jpg'; Actions = @(); NeedsOffice = $false },
-    @{ Short = 'Aprobar'; Title = 'Aprueba la notificación de prueba'
+    @{ Id = 'aprobar'; Short = 'Aprobar'; Title = 'Aprueba la notificación de prueba'
        Body = @('En el computador aparecerá **un número**.',
                 '!En tu celular abre la notificación de Authenticator, **escribe ese número** y toca **«Sí»** o **«Aprobar»**.',
                 'Cuando el computador diga **«Notificación aprobada»**, haz clic en **Siguiente** y luego en **Listo**.',
                 'Si Microsoft pide otro método (por ejemplo, tu número de teléfono), complétalo con el código que te llegue por SMS.')
        Note = '**no borres la app ni la cuenta de tu celular**: Microsoft puede pedirte aprobar el ingreso otra vez. Si cambias de celular, **avísanos antes por WhatsApp**.'; NoteKind = 'critical'
        Image = $null; Actions = @(); NeedsOffice = $false },
-    @{ Short = 'Abrir Word'; Title = 'Inicia sesión en Word'
+    @{ Id = 'word'; Short = 'Abrir Word'; Title = 'Inicia sesión en Word'
        Body = @('Haz clic en **«Abrir Word»**.',
                 '!Si Word te pide iniciar sesión, escribe el **correo entregado por SafeTech** y **tu contraseña nueva**.',
                 'Si no lo pide, ve a **Archivo > Cuenta > Iniciar sesión** (o «Cambiar cuenta»).',
                 'Si Microsoft lo solicita, aprueba el ingreso en Authenticator con el número que aparece.')
        Note = 'No es necesario cerrar tu cuenta personal de OneDrive o Teams.'; NoteKind = 'info'
        Image = 'assets/tutorial/08-iniciar-sesion-word.jpg'; Actions = @('word'); NeedsOffice = $true },
-    @{ Short = 'Solo esta app'; Title = 'Elige «No, solo esta aplicación»'
+    @{ Id = 'solo-app'; Short = 'Solo esta app'; Title = 'Elige «No, solo esta aplicación»'
        Body = @('Puede aparecer una ventana que pregunta si quieres iniciar sesión en **todas las aplicaciones del dispositivo**.',
                 '!Haz clic en **«No, solo esta aplicación»**.')
        Note = '**no elijas «Sí».** La cuenta quedaría ligada al computador como cuenta de empresa y cambiaría su configuración. Esta cuenta solo debe usarse para activar Office.'; NoteKind = 'critical'
        Image = 'assets/tutorial/09-solo-esta-aplicacion.jpg'; Actions = @(); NeedsOffice = $true },
-    @{ Short = 'Comprobar'; Title = 'Comprueba que Office quedó activado'
+    @{ Id = 'comprobar'; Short = 'Comprobar'; Title = 'Comprueba que Office quedó activado'
        Body = @('En Word ve a **Archivo > Cuenta**.',
                 '!Debe decir **«Producto de suscripción»** y **«Aplicaciones de Microsoft 365»**.',
                 'Si aparece «Producto sin licencia», **cierra todos los programas de Office**, vuelve a abrir Word y revisa otra vez.')
        Note = '**no guardes archivos importantes en el OneDrive de esta cuenta**: Microsoft puede reducir o eliminar ese espacio sin aviso. Usa tu OneDrive personal.'; NoteKind = 'warn'
        Image = 'assets/tutorial/10-producto-activado.jpg'; Actions = @('check', 'word'); NeedsOffice = $true }
 )
+
+function Get-StTutIndex {
+    # Posición de un paso del tutorial por su Id (así agregar pasos no rompe los saltos).
+    param([string]$Id)
+    for ($i = 0; $i -lt $StTutorial.Count; $i++) { if ($StTutorial[$i].Id -eq $Id) { return $i } }
+    throw "El tutorial no tiene el paso $Id"
+}
 
 function Initialize-StTutorialNav {
     $St.UI.StackTutSteps.Children.Clear()
@@ -3588,17 +3665,19 @@ function Set-StRichText {
 
 function Test-StAuthSkipped {
     param([int]$Index)
-    return ($St.Tut.Auth -eq $false -and $Index -ge 4 -and $Index -le 6)
+    return ($St.Tut.Auth -eq $false -and $Index -ge (Get-StTutIndex 'authenticator') -and $Index -le (Get-StTutIndex 'aprobar'))
 }
 
 function Set-StTutorialAuth {
     param([bool]$Shown)
     $St.Tut.Auth = $Shown
-    if ($Shown) { Set-StTutorialStep -Index 4; return }
+    if ($Shown) { Set-StTutorialStep -Index (Get-StTutIndex 'authenticator'); return }
+    Start-StVoice 'auth-no'
     [void](Show-StDialog -Kind 'success' -Kicker 'Todo bien' -Title 'Tu cuenta no necesita Authenticator' `
         -Message 'Algunas cuentas piden Microsoft Authenticator y otras no; depende de la cuenta. Que no te haya aparecido es normal y no afecta la activación de Office. Nos saltamos esa parte.' `
         -Buttons @('Continuar'))
-    if (Test-StTutorialBlocked 7) { Set-StTutorialStep -Index 3 } else { Set-StTutorialStep -Index 7 }
+    $w = Get-StTutIndex 'word'
+    if (Test-StTutorialBlocked $w) { Set-StTutorialStep -Index (Get-StTutIndex 'seguridad') } else { Set-StTutorialStep -Index $w }
 }
 
 function Test-StTutorialBlocked {
@@ -3618,6 +3697,7 @@ function Set-StTutorialStep {
     $St.Tut.Index = $Index
     $s = $StTutorial[$Index]
     $ui = $St.UI
+    if (-not $St.SelfTest) { Start-StVoice ('tut-' + $s.Id) }
     $conv = New-Object System.Windows.Media.BrushConverter
     $n = $StTutorial.Count
     $ui.TxtTutTitle.Text = $s.Title
@@ -3683,12 +3763,14 @@ function Set-StTutorialStep {
         $b.Margin = '0,0,10,10'
         $b.Tag = $a
         switch ($a) {
-            'portal' { $b.Content = 'Abrir el portal de Microsoft 365'; $b.Style = $St.Window.FindResource('BtnPrimary') }
-            'copyPortal' { $b.Content = 'Copiar el enlace'; $b.Style = $St.Window.FindResource('BtnSoft') }
-            'word' { $b.Content = 'Abrir Word'; $b.Style = $St.Window.FindResource($(if ($s.Actions[0] -eq 'word') { 'BtnPrimary' } else { 'BtnSoft' })) }
-            'check' { $b.Content = 'Comprobar la activación'; $b.Style = $St.Window.FindResource('BtnPrimary') }
-            'authYes' { $b.Content = 'Sí, me apareció'; $b.Style = $St.Window.FindResource($(if ($St.Tut.Auth -eq $true) { 'BtnPrimary' } else { 'BtnSoft' })); $b.MinWidth = 220 }
-            'authNo' { $b.Content = 'No, entré directo'; $b.Style = $St.Window.FindResource($(if ($St.Tut.Auth -eq $false) { 'BtnPrimary' } else { 'BtnSoft' })); $b.MinWidth = 220 }
+            'portal' { Set-StBtn $b 0xE8A7 'Abrir el portal de Microsoft 365'; $b.Style = $St.Window.FindResource('BtnPrimary') }
+            'copyPortal' { Set-StBtn $b 0xE8C8 'Copiar el enlace'; $b.Style = $St.Window.FindResource('BtnSoft') }
+            'word' { Set-StBtn $b 0xE8A5 'Abrir Word'; $b.Style = $St.Window.FindResource($(if ($s.Actions[0] -eq 'word') { 'BtnPrimary' } else { 'BtnSoft' })) }
+            'check' { Set-StBtn $b 0xE73E 'Comprobar la activación'; $b.Style = $St.Window.FindResource('BtnPrimary') }
+            'youtube' { Set-StBtn $b 0xE714 'Ver el video en YouTube'; $b.Style = $St.Window.FindResource('BtnSoft') }
+            'terms' { Set-StBtn $b 0xE8A7 'Ver términos y condiciones'; $b.Style = $St.Window.FindResource('BtnSoft') }
+            'authYes' { Set-StBtn $b 0xE73E 'Sí, me apareció'; Set-StChoice $b ($St.Tut.Auth -eq $true); $b.MinWidth = 220 }
+            'authNo' { Set-StBtn $b 0xE711 'No, entré directo'; Set-StChoice $b ($St.Tut.Auth -eq $false); $b.MinWidth = 220 }
         }
         $b.Add_Click({ param($sender, $e) Invoke-StTutorialAction ([string]$sender.Tag) $sender })
         [void]$ui.StackTutActions.Children.Add($b)
@@ -3773,7 +3855,9 @@ function Invoke-StTutorialAction {
     param([string]$Action, $Button)
     switch ($Action) {
         'portal' { Open-StUnelevated $StConfig.PortalUrl }
-        'copyPortal' { try { [System.Windows.Clipboard]::SetText($StConfig.PortalUrl); $Button.Content = 'Enlace copiado' } catch { } }
+        'copyPortal' { try { [System.Windows.Clipboard]::SetText($StConfig.PortalUrl); Set-StBtn $Button 0xE73E 'Enlace copiado' } catch { } }
+        'youtube' { Open-StUnelevated $StConfig.VideoM365 }
+        'terms' { Open-StUnelevated $StConfig.TermsUrl }
         'word' { [void](Open-StWord) }
         'authYes' { Set-StTutorialAuth $true }
         'authNo' { Set-StTutorialAuth $false }
@@ -3858,6 +3942,16 @@ $St.Window.Add_ContentRendered({
 $ui.BtnClose.Add_Click({ $St.Window.Close() })
 $ui.BtnHelpCenter.Add_Click({ Open-StUnelevated $StConfig.HelpUrl })
 $ui.BtnAbout.Add_Click({ Show-StAbout })
+Set-StBtn $ui.BtnDataBack 0xE72B 'Atrás'
+Set-StBtn $ui.BtnConfirmBack 0xE72B 'Atrás'
+Set-StBtn $ui.BtnConfirmAlt 0xE8D7 'Solo activar'
+Set-StBtn $ui.BtnTutorialEarly 0xE77B 'Preparar mi cuenta'
+Set-StBtn $ui.BtnDoneClose 0xE8BB 'Cerrar el instalador'
+Set-StBtn $ui.BtnErrRetry 0xE72C 'Reintentar'
+Set-StBtn $ui.BtnErrHome 0xE80F 'Volver al inicio'
+Set-StBtn $ui.BtnErrZip 0xE74E 'Guardar informe para soporte en el Escritorio'
+Set-StBtn $ui.BtnTutProgress 0xE9D2 'Ver el avance'
+Set-StBtn $ui.BtnHelpCenter 0xE897 'Centro de Ayuda'
 $ui.BtnSound.Add_Click({ Set-StSound -On (-not $St.SoundOn) -Save; if ($St.SoundOn) { Invoke-StCue 'atencion' } })
 $ui.BtnHelpWa.Add_Click({ Open-StWhatsApp -Message 'Hola SafeTech, necesito ayuda con el instalador de Office.' })
 
@@ -3934,20 +4028,20 @@ $ui.BtnTutorialEarly.Add_Click({ Show-StTutorial -Index $St.Tut.Index })
 $ui.BtnTutProgress.Add_Click({ Show-StPage 'Progress' })
 $ui.BtnTutBack.Add_Click({
     if ($St.Tut.Index -le 0) { if (-not (Test-StInstalling365)) { Show-StPage 'Home' } }
-    elseif ($St.Tut.Index -eq 7 -and $St.Tut.Auth -eq $false) { Set-StTutorialStep -Index 3 }
+    elseif ($St.Tut.Index -eq (Get-StTutIndex 'word') -and $St.Tut.Auth -eq $false) { Set-StTutorialStep -Index (Get-StTutIndex 'seguridad') }
     else { Set-StTutorialStep -Index ($St.Tut.Index - 1) }
 })
 $ui.BtnTutHome.Add_Click({ if (-not (Test-StInstalling365)) { Show-StPage 'Home' } })
 $ui.BtnTutNext.Add_Click({
     $i = $St.Tut.Index
     if ($i -ge $StTutorial.Count - 1) { Complete-StTutorial }
-    elseif ($i -eq 3 -and $null -eq $St.Tut.Auth) {
+    elseif ($i -eq (Get-StTutIndex 'seguridad') -and $null -eq $St.Tut.Auth) {
         $c = Show-StDialog -Kind 'question' -Kicker 'Una pregunta' -Title '¿Te apareció «Vamos a garantizar la seguridad de la cuenta»?' `
             -Message 'Algunas cuentas lo muestran después de cambiar la contraseña y otras no. Las dos cosas son normales.' `
             -Buttons @('Sí, me apareció', 'No me apareció')
         if ($c -eq 'Sí, me apareció') { Set-StTutorialAuth $true } elseif ($c -eq 'No me apareció') { Set-StTutorialAuth $false }
     }
-    elseif ($i -eq 3 -and $St.Tut.Auth -eq $false) { Set-StTutorialStep -Index 7 }
+    elseif ($i -eq (Get-StTutIndex 'seguridad') -and $St.Tut.Auth -eq $false) { Set-StTutorialStep -Index (Get-StTutIndex 'word') }
     else { Set-StTutorialStep -Index ($i + 1) }
 })
 
@@ -4097,13 +4191,15 @@ if ($StMode -eq 'selftest') {
     $St.UI.PanelTutorialPromo.Visibility = 'Visible'
     Save-StShotAt '05-avance-365'
     $St.Mode = 'tutorial'
-    Show-StTutorial -Index 1; Save-StShotAt '06-tutorial-paso2'
+    Show-StTutorial -Index 0; Save-StShotAt '05b-tutorial-bienvenida'
+    Set-StTutorialStep -Index (Get-StTutIndex 'avisos'); Save-StShotAt '05c-tutorial-avisos'
+    Set-StTutorialStep -Index (Get-StTutIndex 'portal'); Save-StShotAt '06-tutorial-paso2'
     Save-StShotAt '06c-tutorial-fullhd' 1920 1040
-    Set-StTutorialStep -Index 2; Save-StShotAt '06a-tutorial-contrasena'
-    Set-StTutorialStep -Index 3; Save-StShotAt '06b-tutorial-pregunta'
+    Set-StTutorialStep -Index (Get-StTutIndex 'contrasena'); Save-StShotAt '06a-tutorial-contrasena'
+    Set-StTutorialStep -Index (Get-StTutIndex 'seguridad'); Save-StShotAt '06b-tutorial-pregunta'
     $St.Tut.Auth = $false
-    Set-StTutorialStep -Index 8; Save-StShotAt '07-tutorial-paso9'
-    Set-StTutorialStep -Index 6; Save-StShotAt '07b-tutorial-sin-imagen'
+    Set-StTutorialStep -Index (Get-StTutIndex 'solo-app'); Save-StShotAt '07-tutorial-paso9'
+    Set-StTutorialStep -Index (Get-StTutIndex 'aprobar'); Save-StShotAt '07b-tutorial-sin-imagen'
     $St.Product = Get-StProduct '2024'
     $St.UI.TxtDoneTitle.Text = '¡Listo! Office 2024 quedó activado'
     $St.UI.TxtDoneText.Text = 'Ya puedes usar Word, Excel y PowerPoint en este computador.'
@@ -4139,8 +4235,8 @@ if ($StMode -eq 'selftest') {
         $sp = New-Object System.Media.SoundPlayer $w; $sp.Load(); $sp.Dispose()
     }
     $null = New-Object System.Windows.Media.MediaPlayer
-    foreach ($c in $StCues.Values) {
-        if ($c.Voice -and -not (Get-StAssetFile "$StVoiceDir/$($c.Voice).mp3")) { throw "Falta la voz $($c.Voice)." }
+    foreach ($v in @(Get-StCueAssets | Where-Object { $_ -like 'assets/voz/*' })) {
+        if (-not (Get-StAssetFile $v)) { throw "Falta la voz $v." }
     }
     Write-Host 'Sonidos y voces: están todos.'
     # Hoja de poses para revisar el dibujo: normal, pestañeo, saludo, salto feliz, cabeza inclinada.
