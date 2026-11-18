@@ -3512,7 +3512,7 @@ $StTutorial = @(
                 '!Este tutorial de la app **es suficiente si lo sigues paso a paso**. El video es opcional.')
        Note = 'El video se abre en tu navegador. Puedes volver a esta ventana cuando quieras.'; NoteKind = 'info'
        Image = $null; Actions = @('youtube'); NeedsOffice = $false },
-    @{ Id = 'avisos'; Short = 'Antes de empezar'; Title = 'Lee esto antes de empezar'
+    @{ Id = 'avisos'; Short = 'Avisos'; Title = 'Lee esto antes de empezar'
        Body = @('!Usa **Windows 10 u 11 original** (Home o Pro). En versiones modificadas como **Tiny11, Ghost Spectre, AtlasOS, ReviOS o MiniOS**, o en ediciones **LTSC o N**, Microsoft 365 puede fallar al iniciar sesión o al activarse.',
                 'Si el computador es de tu **empresa, colegio o universidad**, consulta antes con quien lo administra. La cuenta puede chocar con sus políticas, y SafeTech no se hace responsable de conflictos en equipos administrados por terceros.',
                 'Vas a crear una **contraseña nueva**. **SafeTech no puede verla, resetearla ni recuperarla**: si la pierdes, pierdes el acceso a la cuenta.')
