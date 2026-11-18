@@ -15,7 +15,7 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.3.2'
+    Version     = '1.3.3'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
@@ -2359,16 +2359,25 @@ function Set-StSound {
     } catch { }
 }
 
+function Initialize-StVoicePlayer {
+    # MediaPlayer parte con volumen 0,5 y, si se sube mientras carga el primer audio, ese cambio se pierde:
+    # la primera frase (la bienvenida) sonaba ~6 dB más baja. Se fija el volumen antes de abrir y otra vez
+    # cuando el audio ya cargó.
+    $St.VoicePlayer = New-Object System.Windows.Media.MediaPlayer
+    $St.VoicePlayer.Volume = 1.0
+    $St.VoicePlayer.Add_MediaOpened({ $St.VoicePlayer.Volume = 1.0 })
+}
+
 function Start-StVoice {
     param([string]$Voice)
     if (-not $Voice -or -not $St.SoundOn) { return }
     $f = Get-StAssetFile "$StVoiceDir/$Voice.mp3"
     if (-not $f) { return }
     try {
-        if (-not $St.VoicePlayer) { $St.VoicePlayer = New-Object System.Windows.Media.MediaPlayer }
+        if (-not $St.VoicePlayer) { Initialize-StVoicePlayer }
         $St.VoicePlayer.Stop()
-        $St.VoicePlayer.Open((New-Object Uri $f))
         $St.VoicePlayer.Volume = 1.0
+        $St.VoicePlayer.Open((New-Object Uri $f))
         $St.VoicePlayer.Play()
         Invoke-StBotAction -Action 'nod'
     } catch { }
@@ -3950,6 +3959,7 @@ $icon = Get-StImage 'assets/icono.png'
 if ($icon) { $St.Window.Icon = $icon }
 
 # Sonido: la voz espera a que termine el tono de aviso.
+Initialize-StVoicePlayer
 $St.VoiceTimer = New-Object System.Windows.Threading.DispatcherTimer
 $St.VoiceTimer.Add_Tick({ $St.VoiceTimer.Stop(); Start-StVoice $St.PendingVoice })
 Set-StSound -On (-not (Test-Path -LiteralPath (Join-Path $StConfig.DataDir 'sonido-apagado')))
@@ -4269,7 +4279,7 @@ if ($StMode -eq 'selftest') {
         if (-not $w) { throw "Falta el sonido $snd." }
         $sp = New-Object System.Media.SoundPlayer $w; $sp.Load(); $sp.Dispose()
     }
-    $null = New-Object System.Windows.Media.MediaPlayer
+    if ([double]$St.VoicePlayer.Volume -lt 0.99) { throw "El reproductor de voz parte con volumen $($St.VoicePlayer.Volume)." }
     foreach ($v in @(Get-StCueAssets | Where-Object { $_ -like 'assets/voz/*' })) {
         if (-not (Get-StAssetFile $v)) { throw "Falta la voz $v." }
     }
