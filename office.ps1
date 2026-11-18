@@ -15,7 +15,7 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.3.0'
+    Version     = '1.3.1'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
@@ -2107,6 +2107,46 @@ function Get-StImage {
     } catch { return $null }
 }
 
+function Get-StPrivateBrowser {
+    # Navegador predeterminado y su opción de ventana privada. Si no se reconoce, usa Edge InPrivate.
+    $flags = @{ 'MSEdgeHTM' = '--inprivate'; 'ChromeHTML' = '--incognito'; 'BraveHTML' = '--incognito'
+                'VivaldiHTM' = '--incognito'; 'OperaStable' = '--private'; 'Opera GXStable' = '--private' }
+    try {
+        $progId = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice' -ErrorAction Stop).ProgId
+        $flag = $null
+        if ($flags.ContainsKey($progId)) { $flag = $flags[$progId] } elseif ($progId -like 'FirefoxURL*') { $flag = '-private-window' }
+        if ($flag) {
+            $cmd = (Get-ItemProperty -LiteralPath "Registry::HKEY_CLASSES_ROOT\$progId\shell\open\command" -ErrorAction Stop).'(default)'
+            if ($cmd -match '^\s*"([^"]+\.exe)"' -or $cmd -match '^\s*(\S+\.exe)') {
+                if (Test-Path -LiteralPath $Matches[1]) { return @{ Exe = $Matches[1]; Flag = $flag } }
+            }
+        }
+    } catch { }
+    foreach ($e in @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe")) {
+        if ($e -and (Test-Path -LiteralPath $e)) { return @{ Exe = $e; Flag = '--inprivate' } }
+    }
+    return $null
+}
+
+function Open-StPrivateBrowser {
+    # Abre el enlace en una ventana privada y SIN permisos de administrador: se crea un acceso directo
+    # con los argumentos y lo abre explorer.exe (que corre como el usuario). Si algo falla, se abre normal.
+    param([string]$Url)
+    try {
+        $b = Get-StPrivateBrowser
+        if (-not $b) { throw 'Sin navegador privado' }
+        $lnk = Join-Path $env:TEMP 'SafeTech-portal-privado.lnk'
+        $sh = New-Object -ComObject WScript.Shell
+        $sc = $sh.CreateShortcut($lnk)
+        $sc.TargetPath = $b.Exe
+        $sc.Arguments = "$($b.Flag) $Url"
+        $sc.Save()
+        Start-Process -FilePath (Join-Path $env:SystemRoot 'explorer.exe') -ArgumentList "`"$lnk`""
+    } catch {
+        Open-StUnelevated $Url
+    }
+}
+
 function Open-StUnelevated {
     param([string]$Target)
     # explorer.exe abre la ruta o el enlace con los permisos normales del usuario (sin administrador).
@@ -2284,7 +2324,7 @@ $StCues = @{
     'como-funciona' = @{ Voice = 'como-funciona' }
 }
 # Al cambiar los audios, subir la carpeta (v3, v4...): los equipos guardan los anteriores en caché.
-$StVoiceDir = 'assets/voz/v2'
+$StVoiceDir = 'assets/voz/v3'
 
 function Get-StCueAssets {
     $list = @('assets/sonidos/aviso.wav', 'assets/sonidos/exito.wav', 'assets/sonidos/logro.wav', 'assets/sonidos/error.wav')
@@ -3521,21 +3561,21 @@ $StTutorial = @(
     @{ Id = 'preparate'; Short = 'Prepárate'; Title = 'Ten a mano tu cuenta y tu celular'
        Body = @('El **correo y la contraseña de Microsoft 365** que te envió SafeTech.',
                 'Tu **celular con Internet**, por si Microsoft te pide instalar la app Microsoft Authenticator (algunas cuentas lo piden y otras no).',
-                '!Papel o una nota para **guardar la contraseña nueva** que vas a crear.')
+                '!Un **lugar seguro** para anotar la **contraseña nueva** que vas a crear.')
        Note = 'Si te enredas en cualquier paso, escríbenos con el botón verde de WhatsApp de abajo.'; NoteKind = 'info'
        Image = $null; Actions = @(); NeedsOffice = $false },
     @{ Id = 'portal'; Short = 'Entrar al portal'; Title = 'Inicia sesión en el portal de Microsoft 365'
-       Body = @('Haz clic en **«Abrir el portal»**. Se abrirá tu navegador.',
+       Body = @('Haz clic en **«Abrir el portal»**. Se abrirá una **ventana privada** del navegador (InPrivate o incógnito), así no se mezcla con otras cuentas de Microsoft que ya tengas abiertas.',
                 'Escribe el **correo entregado por SafeTech** y presiona **Siguiente**.',
                 'Escribe la **contraseña temporal** que te enviamos.',
                 '!**No uses tu correo personal** en este paso.')
-       Note = 'Si el navegador entra solo con otra cuenta tuya, ciérrala arriba a la derecha («Cerrar sesión») y vuelve a pulsar «Abrir el portal». Si te enredas, escríbenos.'; NoteKind = 'info'
+       Note = 'Si aun así entra solo con otra cuenta tuya, ciérrala arriba a la derecha («Cerrar sesión») y vuelve a pulsar «Abrir el portal». Si te enredas, escríbenos.'; NoteKind = 'info'
        Image = 'assets/tutorial/02-portal-inicio-sesion.jpg'; Actions = @('portal', 'copyPortal'); NeedsOffice = $false },
     @{ Id = 'contrasena'; Short = 'Contraseña'; Title = 'Cambia la contraseña temporal'
        Body = @('La primera vez, Microsoft te pedirá **crear una contraseña nueva**.',
                 'En el primer campo escribe la **contraseña temporal**; en los otros dos, **tu contraseña nueva**.',
                 'Usa mayúsculas, minúsculas, números y un símbolo. Ejemplo: Perro#Azul2026 (inventa la tuya).')
-       Note = '**anótala ahora en un papel o sácale una foto.** SafeTech no puede verla ni recuperarla; si la pierdes, pierdes la cuenta.'; NoteKind = 'critical'
+       Note = '**anótala ahora en un lugar seguro.** SafeTech no puede verla ni recuperarla; si la pierdes, pierdes la cuenta.'; NoteKind = 'critical'
        Image = 'assets/tutorial/03-cambiar-contrasena.jpg'; Actions = @(); NeedsOffice = $false; Confirm = 'Ya anoté mi nueva contraseña' },
     @{ Id = 'seguridad'; Short = 'Seguridad'; Title = '¿Te apareció este mensaje?'
        Body = @('Después de cambiar la contraseña, algunas cuentas muestran **«Vamos a garantizar la seguridad de la cuenta»** y piden instalar Microsoft Authenticator.',
@@ -3564,18 +3604,13 @@ $StTutorial = @(
                 'Si Microsoft pide otro método (por ejemplo, tu número de teléfono), complétalo con el código que te llegue por SMS.')
        Note = '**no borres la app ni la cuenta de tu celular**: Microsoft puede pedirte aprobar el ingreso otra vez. Si cambias de celular, **avísanos antes por WhatsApp**.'; NoteKind = 'critical'
        Image = $null; Actions = @(); NeedsOffice = $false },
-    @{ Id = 'word'; Short = 'Abrir Word'; Title = 'Inicia sesión en Word'
-       Body = @('Haz clic en **«Abrir Word»**.',
-                '!Si Word te pide iniciar sesión, escribe el **correo entregado por SafeTech** y **tu contraseña nueva**.',
+    @{ Id = 'word'; Short = 'Abrir Word'; Title = 'Inicia sesión en Word con «No, solo esta aplicación»'
+       Body = @('!**Lee este paso completo antes de hacer clic.** Al iniciar sesión, Microsoft pregunta si quieres usar la cuenta en todas las aplicaciones: **elige «No, solo esta aplicación»** (la imagen de la derecha).',
+                'Haz clic en **«Abrir Word»**. Si te pide iniciar sesión, escribe el **correo entregado por SafeTech** y **tu contraseña nueva**.',
                 'Si no lo pide, ve a **Archivo > Cuenta > Iniciar sesión** (o «Cambiar cuenta»).',
                 'Si Microsoft lo solicita, aprueba el ingreso en Authenticator con el número que aparece.')
-       Note = 'No es necesario cerrar tu cuenta personal de OneDrive o Teams.'; NoteKind = 'info'
-       Image = 'assets/tutorial/08-iniciar-sesion-word.jpg'; Actions = @('word'); NeedsOffice = $true },
-    @{ Id = 'solo-app'; Short = 'Solo esta app'; Title = 'Elige «No, solo esta aplicación»'
-       Body = @('Puede aparecer una ventana que pregunta si quieres iniciar sesión en **todas las aplicaciones del dispositivo**.',
-                '!Haz clic en **«No, solo esta aplicación»**.')
-       Note = '**no elijas «Sí».** La cuenta quedaría ligada al computador como cuenta de empresa y cambiaría su configuración. Esta cuenta solo debe usarse para activar Office.'; NoteKind = 'critical'
-       Image = 'assets/tutorial/09-solo-esta-aplicacion.jpg'; Actions = @(); NeedsOffice = $true },
+       Note = '**no elijas «Sí»** en esa pregunta. La cuenta quedaría ligada al computador como cuenta de empresa y cambiaría su configuración. Esta cuenta solo debe usarse para activar Office.'; NoteKind = 'critical'
+       Image = 'assets/tutorial/09-solo-esta-aplicacion.jpg'; Actions = @('word'); NeedsOffice = $true },
     @{ Id = 'comprobar'; Short = 'Comprobar'; Title = 'Comprueba que Office quedó activado'
        Body = @('En Word ve a **Archivo > Cuenta**.',
                 '!Debe decir **«Producto de suscripción»** y **«Aplicaciones de Microsoft 365»**.',
@@ -3733,9 +3768,9 @@ function Set-StTutorialStep {
     }
     $noteText = $s.Note
     $noteKind = $s.NoteKind
-    if ($Index -eq 0 -and $St.SignInIssues -and $St.SignInIssues.Count -gt 0) {
+    if ($s.Id -eq 'avisos' -and $St.SignInIssues -and $St.SignInIssues.Count -gt 0) {
         $noteText = $s.Note + "`n`n" + 'Revisamos tu Windows y encontramos algo que podría impedir el inicio de sesión: ' + ($St.SignInIssues -join ' ') + ' Si Word no te deja iniciar sesión, escríbenos.'
-    } elseif ($Index -eq 3 -and $St.Tut.Auth -eq $false) {
+    } elseif ($s.Id -eq 'seguridad' -and $St.Tut.Auth -eq $false) {
         $noteText = 'Respondiste que no te apareció: **está todo bien**. Presiona «Siguiente» para continuar en Word.'
     }
     $noteMap = @{
@@ -3830,7 +3865,7 @@ function Set-StTutorialStep {
     $ui.BtnTutBack.IsEnabled = ($Index -gt 0 -or -not (Test-StInstalling365))
     $ui.TxtTutNext.Text = $(if ($Index -eq $n - 1) { 'Terminar' } else { 'Siguiente' })
     # En la pregunta de seguridad se responde con los dos botones; en la contraseña hay que confirmar que se anotó.
-    $ui.BtnTutNext.Visibility = $(if ($Index -eq 3 -and $null -eq $St.Tut.Auth) { 'Collapsed' } else { 'Visible' })
+    $ui.BtnTutNext.Visibility = $(if ($s.Id -eq 'seguridad' -and $null -eq $St.Tut.Auth) { 'Collapsed' } else { 'Visible' })
     $ui.BtnTutNext.IsEnabled = -not ($s.ContainsKey('Confirm') -and $s.Confirm -and -not $St.Tut.Checked[$Index])
     $ui.TxtTutProgress.Text = "Paso $($Index + 1) de $n"
     $trackWidth = $ui.TutProgFill.Parent.ActualWidth
@@ -3854,7 +3889,7 @@ function Set-StTutorialStep {
 function Invoke-StTutorialAction {
     param([string]$Action, $Button)
     switch ($Action) {
-        'portal' { Open-StUnelevated $StConfig.PortalUrl }
+        'portal' { Open-StPrivateBrowser $StConfig.PortalUrl }
         'copyPortal' { try { [System.Windows.Clipboard]::SetText($StConfig.PortalUrl); Set-StBtn $Button 0xE73E 'Enlace copiado' } catch { } }
         'youtube' { Open-StUnelevated $StConfig.VideoM365 }
         'terms' { Open-StUnelevated $StConfig.TermsUrl }
@@ -4198,7 +4233,7 @@ if ($StMode -eq 'selftest') {
     Set-StTutorialStep -Index (Get-StTutIndex 'contrasena'); Save-StShotAt '06a-tutorial-contrasena'
     Set-StTutorialStep -Index (Get-StTutIndex 'seguridad'); Save-StShotAt '06b-tutorial-pregunta'
     $St.Tut.Auth = $false
-    Set-StTutorialStep -Index (Get-StTutIndex 'solo-app'); Save-StShotAt '07-tutorial-paso9'
+    Set-StTutorialStep -Index (Get-StTutIndex 'word'); Save-StShotAt '07-tutorial-paso9'
     Set-StTutorialStep -Index (Get-StTutIndex 'aprobar'); Save-StShotAt '07b-tutorial-sin-imagen'
     $St.Product = Get-StProduct '2024'
     $St.UI.TxtDoneTitle.Text = '¡Listo! Office 2024 quedó activado'
