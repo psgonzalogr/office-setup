@@ -85,6 +85,7 @@ GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows
 
 ## Versiones
 
+- **1.3.4** (2026-11-18): tras activar Office 2021 o 2024 se pasa directo a la pantalla final (se quitó el aviso «¡quedó activado!» que repetía lo mismo y decía «por teléfono»). La ventana «¡Hemos terminado!» de Microsoft ahora sí se encuentra y se cierra (se buscaba solo como ventana principal y con un permiso que fallaba), se comprueba que se cerró y ya no reaparece encima de Word; tampoco se esperan 20 segundos en vano. La barra avanza poco a poco durante la descarga de Office en vez de quedar fija a la mitad del paso 6. Texto de la instalación más corto.
 - **1.3.3** (2026-11-17): la primera voz (la bienvenida) ya no suena más baja: el reproductor de Windows partía con volumen 0,5 y el ajuste a 1,0 se perdía mientras cargaba el primer audio.
 - **1.3.2** (2026-11-17): todas las voces niveladas en dos pasadas al mismo volumen (−14,5 LUFS ± 0,2, unos 2,5 dB más fuerte que antes). Voces en `assets/voz/v4`.
 - **1.3.1** (2026-11-17): «Siguiente» vuelve a aparecer en el paso «Entrar al portal» (quedaba oculto por un índice antiguo). El portal se abre en una ventana privada (InPrivate o incógnito) del navegador predeterminado, o de Edge. «Abrir Word» y «No, solo esta aplicación» quedan en un solo paso, con el aviso antes del botón. La contraseña se anota «en un lugar seguro». Voces en `assets/voz/v3`.

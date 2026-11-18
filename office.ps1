@@ -15,7 +15,7 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.3.3'
+    Version     = '1.3.4'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
@@ -474,38 +474,128 @@ function Get-StInstallHint {
     # Lo que se le dice al cliente mientras corre la ventana de Microsoft.
     param([string]$ProductId)
     $prod = Get-StProduct $ProductId
-    $t = 'Se abrió la ventana de Microsoft con el avance. Si al final dice «¡Hemos terminado!», presiona «Cerrar» (o espera: la cerramos por ti).'
-    if ($prod.NeedsKey) { $t += " Aunque diga «Microsoft 365», se está instalando tu $($prod.Name)." }
+    # Corto: qué hacer con «¡Hemos terminado!» ya lo dice la caja «Mientras tanto».
+    $t = 'Verás una ventana de Microsoft con el avance. La descarga es lo que más tarda.'
+    if ($prod.NeedsKey) { $t = "Verás una ventana de Microsoft con el avance. Aunque diga «Microsoft 365», se está instalando tu $($prod.Name)." }
     return $t
 }
 
-function Close-StOdtWindows {
-    # Al terminar, Microsoft deja abierta su ventana «¡Hemos terminado!» aunque setup.exe ya salió,
-    # y tapa la ventana del instalador. Se cierra igual que con su botón «Cerrar» (WM_CLOSE).
-    # Solo toca ventanas de los programas de Click-to-Run, nunca Word, Excel, etc.
-    param([int]$WaitSeconds = 20)
+$StWindowsCode = @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class SafeTechWindows {
+    public class Info { public IntPtr Handle; public int Pid; public string Title; public string Path; }
+    delegate bool EnumProc(IntPtr hwnd, IntPtr lParam);
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc cb, IntPtr lParam);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hwnd);
+    [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hwnd);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hwnd, out int pid);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr hwnd, StringBuilder s, int max);
+    [DllImport("user32.dll")] static extern bool PostMessage(IntPtr hwnd, int msg, IntPtr w, IntPtr l);
+    [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(int access, bool inherit, int pid);
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr h, int flags, StringBuilder s, ref int size);
+
+    // Ruta del programa con el permiso mínimo: funciona también con procesos de SYSTEM,
+    // donde Process.Path (MainModule) falla y la ventana pasaba inadvertida.
+    public static string ProcessPath(int pid) {
+        IntPtr h = OpenProcess(0x1000, false, pid);
+        if (h == IntPtr.Zero) { return null; }
+        try {
+            StringBuilder sb = new StringBuilder(1024); int size = sb.Capacity;
+            return QueryFullProcessImageName(h, 0, sb, ref size) ? sb.ToString() : null;
+        } finally { CloseHandle(h); }
+    }
+
+    // Todas las ventanas visibles de primer nivel (no solo la «principal» de cada proceso).
+    public static List<Info> Visible() {
+        List<Info> list = new List<Info>();
+        EnumWindows(delegate (IntPtr hwnd, IntPtr l) {
+            if (!IsWindowVisible(hwnd)) { return true; }
+            int pid; GetWindowThreadProcessId(hwnd, out pid);
+            StringBuilder sb = new StringBuilder(256); GetWindowText(hwnd, sb, sb.Capacity);
+            Info i = new Info(); i.Handle = hwnd; i.Pid = pid; i.Title = sb.ToString(); i.Path = ProcessPath(pid);
+            list.Add(i);
+            return true;
+        }, IntPtr.Zero);
+        return list;
+    }
+
+    public static void Close(IntPtr hwnd) { PostMessage(hwnd, 0x0010, IntPtr.Zero, IntPtr.Zero); }
+}
+'@
+
+function Get-StOdtWindows {
+    # Ventanas visibles de los programas de Click-to-Run (las de Microsoft durante la instalación).
+    # Nunca Word, Excel, etc.: esos están en la carpeta de Office, no en ClickToRun.
+    if (-not ('SafeTechWindows' -as [type])) { Add-Type -TypeDefinition $StWindowsCode -ErrorAction Stop }
     $roots = @()
     foreach ($base in @($env:CommonProgramFiles, ${env:CommonProgramFiles(x86)}, $env:CommonProgramW6432)) {
         if ($base) { $roots += (Join-Path $base 'microsoft shared\ClickToRun') }
     }
+    $names = @('OfficeC2RClient', 'OfficeClickToRun', 'IntegratedOffice')
+    foreach ($w in [SafeTechWindows]::Visible()) {
+        if ($w.Pid -eq $PID) { continue }
+        $match = $false
+        if ($w.Path) {
+            foreach ($r in $roots) { if ($w.Path.StartsWith($r, [StringComparison]::OrdinalIgnoreCase)) { $match = $true } }
+        } else {
+            # Sin ruta legible: se reconoce por el nombre del proceso.
+            $name = $null
+            try { $name = (Get-Process -Id $w.Pid -ErrorAction Stop).ProcessName } catch { }
+            if ($name -and $names -contains $name) { $match = $true }
+        }
+        if ($match) { $w }
+    }
+}
+
+function Close-StOdtWindows {
+    # Al terminar, Microsoft deja abierta su ventana «¡Hemos terminado!» aunque setup.exe ya salió.
+    # Se cierra igual que con su botón «Cerrar» (WM_CLOSE) y se comprueba que de verdad se cerró:
+    # en la v1.3.3 no se detectaba y reaparecía encima de Word.
+    param([int]$WaitSeconds = 20)
     $deadline = (Get-Date).AddSeconds($WaitSeconds)
     $closed = 0
+    $seen = $false
     do {
-        foreach ($p in @(Get-Process -ErrorAction SilentlyContinue)) {
-            if ($p.MainWindowHandle -eq [IntPtr]::Zero) { continue }
-            $path = $null
-            try { $path = $p.Path } catch { }
-            if (-not $path) { continue }
-            $match = $false
-            foreach ($r in $roots) { if ($path.StartsWith($r, [StringComparison]::OrdinalIgnoreCase)) { $match = $true } }
-            if (-not $match) { continue }
-            Write-StLog ("Cerrando la ventana final de Microsoft: {0} «{1}»" -f $p.ProcessName, $p.MainWindowTitle)
-            try { if ($p.CloseMainWindow()) { $closed++ } } catch { }
+        $wins = @(Get-StOdtWindows)
+        if ($wins.Count -gt 0) {
+            $seen = $true
+            foreach ($w in $wins) {
+                Write-StLog ("Cerrando la ventana final de Microsoft: «{0}» ({1})" -f $w.Title, $w.Path)
+                [SafeTechWindows]::Close($w.Handle)
+            }
+            Start-Sleep -Milliseconds 1500
+            $left = @($wins | Where-Object { [SafeTechWindows]::IsWindow($_.Handle) })
+            $closed += $wins.Count - $left.Count
+            if ($left.Count -eq 0 -and @(Get-StOdtWindows).Count -eq 0) { break }
+            continue
         }
-        if ($closed -gt 0) { break }
+        if ($seen) { break }
         Start-Sleep -Milliseconds 700
     } while ((Get-Date) -lt $deadline)
-    if ($closed -eq 0) { Write-StLog 'No apareció una ventana final de Microsoft para cerrar.' }
+
+    $left = @(Get-StOdtWindows)
+    foreach ($w in $left) {
+        # Último recurso: la instalación ya terminó con éxito, así que su ventana de avance se puede cerrar a la fuerza.
+        Write-StLog ("La ventana de Microsoft no se cerró sola; se cierra su programa: «{0}» (PID {1})" -f $w.Title, $w.Pid)
+        try { Stop-Process -Id $w.Pid -Force -ErrorAction Stop; $closed++ } catch { Write-StLog "No se pudo cerrar: $($_.Exception.Message)" }
+    }
+    if (-not $seen) {
+        Write-StLog 'No apareció una ventana final de Microsoft para cerrar. Ventanas visibles:'
+        try {
+            foreach ($w in [SafeTechWindows]::Visible()) {
+                # Títulos solo de programas de Microsoft: los demás pueden mostrar nombres de archivos del cliente.
+                if (-not $w.Title) { continue }
+                $exe = $(if ($w.Path) { $w.Path } else { "PID $($w.Pid)" })
+                $title = $(if ($w.Path -match 'Microsoft') { $w.Title } else { '...' })
+                Write-StLog ("  {0} «{1}»" -f $exe, $title)
+            }
+        } catch { }
+    }
     return $closed
 }
 
@@ -1087,6 +1177,7 @@ $St = @{
     Busy        = $false
     InstallDone = $false
     DialogOpen  = $false
+    LastCreep   = [datetime]::MinValue
     NoAnim      = $false
     StartTime   = $null
     Act         = @{}
@@ -2793,6 +2884,7 @@ function Update-StStepRow {
     $r = $St.StepRows[$Id]
     if (-not $r -or $r.State -eq $State) { return }
     $r.State = $State
+    if ($State -eq 'running') { $r.Since = Get-Date }
     $row = $r.Row
     $conv = New-Object System.Windows.Media.BrushConverter
     $ring = $row.FindName('Ring'); $num = $row.FindName('Num'); $glyph = $row.FindName('Glyph')
@@ -2831,6 +2923,18 @@ function Update-StStepRow {
     Update-StStepLayout
 }
 
+function Get-StStepPartial {
+    # Cuánto se llena la barra dentro del paso actual. La descarga de Office tarda 5 a 40 minutos sin
+    # informar avance: la barra avanza despacio con el tiempo para no parecer congelada, sin llegar nunca al paso siguiente.
+    param([int]$Index)
+    if ($Index -lt 0) { return 0.5 }
+    $id = @($St.StepOrder)[$Index]
+    $r = $St.StepRows[$id]
+    if ($id -ne 'install' -or -not $r -or $r.State -ne 'running' -or -not $r.Since) { return 0.5 }
+    $min = ((Get-Date) - $r.Since).TotalMinutes
+    return 0.1 + 0.85 * (1 - [Math]::Exp(-$min / 6))
+}
+
 function Update-StStepLayout {
     # Muestra un resumen de lo terminado, el paso actual y solo los próximos pasos.
     if (-not $St.StepOrder -or -not $St.StepSummary) { return }
@@ -2857,7 +2961,7 @@ function Update-StStepLayout {
     $St.StepMore.Text = $(if ($hidden -eq 1) { 'y 1 paso más' } else { "y $hidden pasos más" })
     $stepNow = [Math]::Min($total, $finished + 1)
     $St.UI.TxtProgCount.Text = $(if ($finished -ge $total) { '¡Todo listo!' } else { "Paso $stepNow de $total" })
-    $fraction = $(if ($total -gt 0) { ($finished + 0.5 * [int]($finished -lt $total)) / $total } else { 0 })
+    $fraction = $(if ($total -gt 0) { ($finished + (Get-StStepPartial $current) * [int]($finished -lt $total)) / $total } else { 0 })
     $trackWidth = $St.UI.ProgTrack.ActualWidth
     if ($trackWidth -le 0) { $trackWidth = 600 }
     $target = [double]$trackWidth * [Math]::Min([double]1, [double]$fraction)
@@ -2883,6 +2987,10 @@ function Update-StProgressUi {
         if ($state) { Update-StStepRow $id $state }
     }
     if ($St.Sync.Detail -and $St.UI.TxtProgDetail.Text -ne $St.Sync.Detail) { $St.UI.TxtProgDetail.Text = $St.Sync.Detail }
+    if ($St.Sync.Steps['install'] -eq 'running' -and ((Get-Date) - $St.LastCreep).TotalSeconds -ge 5) {
+        $St.LastCreep = Get-Date
+        Update-StStepLayout
+    }
     if ($St.StartTime) {
         $span = (Get-Date) - $St.StartTime
         $txt = '{0:00}:{1:00}' -f [Math]::Floor($span.TotalMinutes), $span.Seconds
@@ -3459,9 +3567,8 @@ function Complete-StActivation {
     $St.Busy = $false
     Stop-StProgressAnimation
     $p = $St.Product
-    Write-StLog "$($p.Name) activado correctamente."
-    $sub = if ($Online) { 'La activación se completó en línea.' } else { 'La activación por teléfono se completó automáticamente.' }
-    [void](Show-StDialog -Kind 'success' -Kicker 'Activación completa' -Title "¡$($p.Name) quedó activado!" -Message "$sub Ya puedes usar Word, Excel, PowerPoint y los demás programas." -Buttons @('Continuar'))
+    # Directo a la pantalla final: un aviso «¡quedó activado!» antes de ella repetía lo mismo y pedía un clic más.
+    Write-StLog ("{0} activado correctamente ({1})." -f $p.Name, $(if ($Online) { 'en línea' } else { 'con ID de confirmación' }))
     $St.UI.TxtDoneTitle.Text = "¡Listo! $($p.Name) quedó activado"
     $St.UI.TxtDoneText.Text = 'Ya puedes usar Word, Excel y PowerPoint en este computador.'
     Set-StDoneList @('E8A5|Word, Excel, PowerPoint y más, **instalados**', 'E8D7|**Activado** con tu licencia', 'E895|Se actualiza solo con Microsoft', 'E721|Para abrirlos después: botón **Inicio** y escribe **Word**')
