@@ -1,0 +1,57 @@
+name: Publicar release
+
+# Al subir una etiqueta vX.Y.Z crea la release con las notas del CHANGELOG
+# (todas las versiones desde la release anterior) y el lanzador .cmd adjunto.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Comprobar la versión
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          ver="${tag#v}"
+          grep -q "Version     = '${ver}'" office.ps1 || { echo "office.ps1 no dice la versión ${ver}"; exit 1; }
+          grep -q "^- \*\*${ver}\*\*" CHANGELOG.md || { echo "CHANGELOG.md no tiene la versión ${ver}"; exit 1; }
+
+      - name: Armar las notas
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          prev="$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)"
+          prev="${prev#v}"
+          {
+            echo "## Novedades"
+            echo
+            awk -v ver="$ver" -v prev="$prev" '
+              /^- \*\*/ { split($0, a, /\*\*/); v = a[2]; if (v == ver) on = 1; if (prev != "" && v == prev) on = 0 }
+              on && /^- \*\*/ { print }
+            ' CHANGELOG.md
+            echo
+            echo "## Cómo instalar"
+            echo
+            echo "Descarga \`Instalar-Office-SafeTech.cmd\` (abajo, en *Assets*) y ábrelo con doble clic, o pega esto en PowerShell:"
+            echo
+            echo '```powershell'
+            echo 'irm https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1 | iex'
+            echo '```'
+            echo
+            echo "Historial completo: [CHANGELOG.md](https://github.com/psgonzalogr/office-setup/blob/main/CHANGELOG.md)"
+          } > notas.md
+          cat notas.md
+
+      - name: Crear la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" Instalar-Office-SafeTech.cmd \
+            --title "${GITHUB_REF_NAME}" --notes-file notas.md --latest

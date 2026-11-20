@@ -22,7 +22,7 @@ La activación telefónica automática con el código SafeTech (getcid.safe-tech
 
 ## Operating Context
 
-- El cliente tiene a mano el correo de compra con la clave (XXXXX-…) y el código `ST-XXXXXX`, o el correo y contraseña de la cuenta 365.
+- El cliente tiene a mano el correo de compra con la clave (XXXXX-…) y el código `ST-XXXXXX`, o la cuenta de Microsoft 365 que compró y su contraseña temporal.
 - Durante la instalación aparecen ventanas de Microsoft; el proceso dura de 10 a 40 minutos.
 - En Microsoft 365 el cliente usa su celular (Microsoft Authenticator, solo en algunas cuentas).
 - Soporte: WhatsApp +56 9 5101 7168, contacto@safe-tech.cl, ayuda.safe-tech.cl.
@@ -31,6 +31,8 @@ La activación telefónica automática con el código SafeTech (getcid.safe-tech
 
 - Productos: Office 2024 (LTSC ProPlus, volumen), Office 2021 (ProPlus Retail), Microsoft 365 Apps. Español, 64 bits.
 - Activación 2021/2024: clave + código ST; respaldo manual con el portal. Cada activación usa 1 crédito.
+- Microsoft 365: tutorial de 11 pasos con voz e imágenes ampliables; «Ya configuré mi cuenta» para un segundo computador.
+- Desinstalación profunda de Office que no toca documentos, correos ni la configuración personal.
 - Un solo archivo `office.ps1`; recursos gráficos desde el repositorio público.
 - Debe funcionar sin fuentes instaladas aparte de las de Windows (Segoe UI / Segoe UI Variable, Segoe Fluent Icons o MDL2).
 - La ventana se abre maximizada (pedido del dueño, 2026-11-17).
@@ -43,7 +45,7 @@ La activación telefónica automática con el código SafeTech (getcid.safe-tech
 
 ## Evidence on Hand
 
-Capturas del tutorial en `assets/tutorial/` (del Centro de Ayuda, correos difuminados). No hay testimonios ni cifras de clientes: no inventarlos.
+Ilustraciones de cada pantalla del tutorial en `assets/tutorial/v2` (rehechas con una cuenta de ejemplo, `tucuenta@tudominio.com`). No hay testimonios ni cifras de clientes: no inventarlos.
 
 ## Product Principles
 

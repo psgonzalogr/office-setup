@@ -3,3 +3,5 @@
 *.cmd -text
 *.png binary
 *.jpg binary
+*.mp3 binary
+*.wav binary

@@ -1,5 +1,7 @@
 # Instalador de Office · SafeTech
 
+[![Validar instalador](https://github.com/psgonzalogr/office-setup/actions/workflows/validar.yml/badge.svg)](https://github.com/psgonzalogr/office-setup/actions/workflows/validar.yml)
+
 Aplicación para que los clientes de SafeTech instalen **Office 2024**, **Office 2021** o **Microsoft 365** con un solo comando, sin tocar la consola después. Se abre maximizada, con el diseño oscuro de SafeTech, y SafeBOT guía cada paso. Está pensada para personas con poca experiencia en computadores: letra grande, una sola acción principal por pantalla y ayuda por WhatsApp siempre visible.
 
 ## Cómo se usa (cliente)
@@ -23,7 +25,7 @@ Al abrirse aparece la bienvenida «Así funciona este instalador» (4 mensajes c
 |---|---|---|
 | Office 2024 | `ProPlus2024Volume`, canal `PerpetualVL2024`, 64 bits, español | Automática con la clave y el código `ST-XXXXXX` |
 | Office 2021 | `ProPlus2021Retail`, canal `Current`, 64 bits, español | Automática con la clave y el código `ST-XXXXXX` |
-| Microsoft 365 | `O365ProPlusRetail`, canal `Current`, 64 bits, español | Tutorial integrado paso a paso con la cuenta entregada |
+| Microsoft 365 | `O365ProPlusRetail`, canal `Current`, 64 bits, español | Tutorial integrado paso a paso con la cuenta que compró el cliente |
 
 Los productos, canales y exclusiones (Lync; en 365 también Groove y OneDrive) se tomaron de los asistentes Inno Setup anteriores (2024 v1.2.9, 2021 v1.0.0, 365 v1.0.5). En Windows de 32 bits instala la edición de 32 bits.
 
@@ -52,6 +54,10 @@ Si el código falla, se puede ingresar otro código, reintentar o **activar manu
 
 El código se valida mientras se escribe con `getcid.safe-tech.cl/check-code` y muestra los créditos disponibles.
 
+### Tutorial de Microsoft 365
+
+Once pasos con voz de SafeBOT e imágenes de cada pantalla (se amplían con un clic): avisos y garantía, portal de Microsoft 365 en ventana privada, cambio de la contraseña temporal, Microsoft Authenticator (instalar, código QR y aprobación de prueba), inicio de sesión en Word con «No, solo esta aplicación» y comprobación de la licencia. Si la cuenta ya se configuró en otro computador, «Ya configuré mi cuenta» va directo a Word. Los pasos que no necesitan Word se pueden hacer mientras Office se instala.
+
 ### Desinstalación profunda
 
 Botón «Desinstalar Office por completo» en la pantalla de inicio (franja «¿Ya tienes Office?»). Pide confirmación con lo que se borra y lo que no, y luego:
@@ -74,8 +80,8 @@ Botón «Desinstalar Office por completo» en la pantalla de inicio (franja «¿
 
 ## Registros y soporte
 
-- Registros: `C:\ProgramData\SafeTech\Office\registros\<fecha>\proceso.log`
-- Si algo falla, la pantalla de error tiene **Crear ZIP para soporte**: deja en el Escritorio un ZIP con el registro, información del equipo, estado de licencias y los registros de Microsoft (ODT).
+- Registros: `C:\ProgramData\SafeTech\Office\registros\<AAAAMMDD-hhmmss>\proceso.log`
+- Si algo falla, la pantalla de error tiene **Guardar informe para soporte en el Escritorio**: un ZIP con el registro, información del equipo, estado de licencias y los registros de Microsoft (ODT), listo para enviar por WhatsApp.
 
 ## Desarrollo
 
@@ -84,17 +90,33 @@ Todo está en un solo archivo, [`office.ps1`](office.ps1) (Windows PowerShell 5.
 - **Arranque**: si no es administrador o no es la ventana propia, se relanza elevado (`-Verb RunAs`), oculto y en STA, descargando el script de nuevo en UTF-8.
 - **Motor** (`$StEngine`): detección, ODT, OSPP, API. Se carga en la interfaz y en cada tarea en segundo plano (runspaces), así la ventana nunca se congela.
 - **Interfaz**: XAML con los colores del modo oscuro de la guía de diseño de SafeTech (`#09111F`, superficies `#111C2F`/`#17243A`, rojo `#DC2626 → #991B1B`, textos `#F8FAFC`/`#AEBDD0`).
-- **Imágenes** en [`assets/`](assets/): logo y capturas del tutorial (tomadas del Centro de Ayuda, con los correos difuminados).
+- **Recursos** en [`assets/`](assets/): logo e ícono, imágenes del tutorial (`tutorial/v2`, ilustraciones con una cuenta de ejemplo), sonidos de aviso (`sonidos`) y voces de SafeBOT (`voz/v6`, voz «Zabra» de ElevenLabs, niveladas a −14,5 LUFS). Se descargan del repositorio al abrir la app y quedan en caché; al regrabar voces o rehacer imágenes se sube la carpeta (`v6` → `v7`) para que los equipos no usen las antiguas.
+
+### Estructura del repositorio
+
+| Ruta | Contenido |
+|---|---|
+| [`office.ps1`](office.ps1) | La aplicación completa (arranque, motor e interfaz) |
+| [`Instalar-Office-SafeTech.cmd`](Instalar-Office-SafeTech.cmd) | Lanzador con doble clic; descarga `office.ps1` de `main` y lo ejecuta |
+| [`assets/`](assets/) | Logo, imágenes del tutorial, sonidos y voces |
+| [`tests/`](tests/) | Pruebas Pester del motor |
+| [`.github/workflows/`](.github/workflows/) | Validación en Windows y publicación de releases |
+| [`CHANGELOG.md`](CHANGELOG.md) | Historial de versiones |
+| [`PRODUCT.md`](PRODUCT.md), [`DESIGN.md`](DESIGN.md), [`.impeccable/`](.impeccable/) | Contexto de producto y sistema de diseño (colores, tipografía, componentes) |
 
 Variables de entorno útiles:
 
 | Variable | Uso |
 |---|---|
-| `SAFETECH_OFFICE_URL` | Probar otra rama: URL raw de `office.ps1` |
+| `SAFETECH_OFFICE_BRANCH` | Probar otra rama por nombre (descarga script y recursos de esa rama) |
+| `SAFETECH_OFFICE_URL` | Probar una URL raw distinta de `office.ps1` |
+| `SAFETECH_OFFICE_ASSETS` | Usar los recursos de una carpeta local en vez de descargarlos |
 | `SAFETECH_OFFICE_MODE=lib` | Solo carga funciones (pruebas) |
-| `SAFETECH_OFFICE_MODE=selftest` | Dibuja cada pantalla en PNG sin instalar nada |
+| `SAFETECH_OFFICE_MODE=selftest` | Dibuja cada pantalla en PNG sin instalar nada (en `SAFETECH_OFFICE_OUT`) |
 
-GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows: sintaxis en PowerShell 5.1, PSScriptAnalyzer, pruebas Pester ([`tests/`](tests/)) y la autoprueba de la interfaz, que sube las capturas como artefacto.
+GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows en cada push: sintaxis en PowerShell 5.1, PSScriptAnalyzer, pruebas Pester ([`tests/`](tests/)) y la autoprueba de la interfaz, que sube las capturas como artefacto.
+
+Para publicar una versión: subir `Version` en `office.ps1`, anotarla en `CHANGELOG.md` y en la sección «Versión» de este README, y crear la etiqueta `vX.Y.Z` en `main`. [`release.yml`](.github/workflows/release.yml) crea la release con sus notas y el `.cmd` adjunto.
 
 ## Versión
 
