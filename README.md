@@ -98,6 +98,7 @@ GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows
 
 ## Versiones
 
+- **1.6.0** (2026-11-20): tutorial de Microsoft 365 con el flujo real de Authenticator: imágenes nuevas y pasos «Instalar Microsoft Authenticator», «Configurar la cuenta en la aplicación», «Vamos a probarlo» y «Authenticator Added». Los textos y la voz piden la **cuenta que compraste** y la contraseña temporal del **correo de tu compra**, no el correo personal ni el de contacto. Nuevo botón «Ya configuré mi cuenta» en el inicio del tutorial: si la cuenta ya se configuró en otro computador, salta directo a iniciar sesión en Word (espera a que Office termine de instalarse). Voces del tutorial regrabadas (`assets/voz/v5`).
 - **1.5.0** (2026-11-18): en el tutorial de Microsoft 365, al hacer clic en una imagen se abre en grande encima de la ventana: se acerca con la rueda del mouse o con + y −, se mueve arrastrando, doble clic para ajustar y Esc para cerrar. La imagen muestra la etiqueta «Ampliar».
 - **1.4.3** (2026-11-18): tutorial de Microsoft 365: el botón «Ver el video en YouTube» es rojo y los recuadros destacados quedan alineados con el título, los botones y los avisos (antes sobresalían 14 px a la izquierda).
 - **1.4.2** (2026-11-18): si Microsoft 365 ya está instalado, SafeBOT ya no pide «marcar la casilla» (no hay casilla en ese caso): dice que solo falta conectar la cuenta, con voz propia (`confirmar-365`, Zabra).

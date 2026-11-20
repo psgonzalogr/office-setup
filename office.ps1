@@ -15,7 +15,7 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.5.0'
+    Version     = '1.6.0'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
@@ -1442,7 +1442,7 @@ $St = @{
     NoAnim      = $false
     StartTime   = $null
     Act         = @{}
-    Tut         = @{ Index = 0; Started = $false; Auth = $null; Checked = @{} }
+    Tut         = @{ Index = 0; Started = $false; Auth = $null; Checked = @{}; Rapido = $false }
     CodeState   = 'empty'
     KeyFormatting = $false
     CacheDir    = (Join-Path $env:TEMP 'SafeTechOffice\cache')
@@ -2696,7 +2696,7 @@ $StCues = @{
     'desinstalado'  = @{ Sound = 'exito'; Voice = 'desinstalado'; Bot = 'jump' }
 }
 # Al cambiar los audios, subir la carpeta (v3, v4...): los equipos guardan los anteriores en caché.
-$StVoiceDir = 'assets/voz/v4'
+$StVoiceDir = 'assets/voz/v5'
 
 function Get-StCueAssets {
     $list = @('assets/sonidos/aviso.wav', 'assets/sonidos/exito.wav', 'assets/sonidos/logro.wav', 'assets/sonidos/error.wav')
@@ -3619,7 +3619,10 @@ function Show-StConfirmPage {
         $items.Add('E8B7|Tus documentos y archivos **no se borran**.')
         $items.Add('E701|Deja el computador **enchufado y con Internet**: Office se descarga desde Microsoft (unos 3 GB).')
         if ($p.NeedsKey) { $items.Add('E8D7|Al terminar, **activamos Office solos** con tu código SafeTech.') }
-        else { $items.Add('E77B|Mientras se instala, puedes ir preparando tu cuenta con el tutorial.') }
+        else {
+            $items.Add('E77B|Mientras se instala, puedes ir preparando tu cuenta con el tutorial.')
+            $items.Add('E8D7|¿Ya usaste tu cuenta en otro computador? En el tutorial elige **«Ya configuré mi cuenta»**: no tendrás que repetir la contraseña ni Authenticator.')
+        }
         if ($p.Id -eq '365' -and $state.HasAny) {
             $items.Add('E77B|Si usabas otra cuenta en Office, puede que tengas que volver a elegirla después.')
         }
@@ -3699,7 +3702,7 @@ function Start-StInstallFlow {
             if ($St.Tut.Started) { $msg = 'Ya puedes continuar el tutorial: abre Word e inicia sesión con tu cuenta.' }
             [void](Show-StDialog -Kind 'success' -Kicker 'Instalación lista' -Title 'Microsoft 365 quedó instalado' -Message $msg -Buttons @('Continuar con el tutorial'))
             $target = $St.Tut.Index
-            if ($St.Tut.Started -and ($St.Tut.Index -ge (Get-StTutIndex 'aprobar') -or ($St.Tut.Auth -eq $false -and $St.Tut.Index -ge (Get-StTutIndex 'seguridad')))) { $target = Get-StTutIndex 'word' }
+            if ($St.Tut.Rapido -or ($St.Tut.Started -and ($St.Tut.Index -ge (Get-StTutIndex 'aprobar') -or ($St.Tut.Auth -eq $false -and $St.Tut.Index -ge (Get-StTutIndex 'seguridad'))))) { $target = Get-StTutIndex 'word' }
             Show-StTutorial -Index $target
         }
     }
@@ -4173,11 +4176,11 @@ $StTutorial = @(
     # Marcado del texto: **negrita**; una línea que empieza con "!" es un paso que el cliente no se puede saltar.
     # NoteKind: info (consejo), warn (importante), critical (muy importante).
     @{ Id = 'bienvenida'; Short = 'Bienvenida'; Title = 'Bienvenido al tutorial de Microsoft 365'
-       Body = @('Te voy a guiar **paso a paso** para conectar la cuenta que te entregó SafeTech. Avanza con **Siguiente** y vuelve con **Atrás** cuando quieras.',
-                'Si quieres más detalle, en YouTube tenemos un **video tutorial** más largo, con todo explicado con calma.',
-                '!Este tutorial de la app **es suficiente si lo sigues paso a paso**. El video es opcional.')
+       Body = @('Te voy a guiar **paso a paso** para conectar la cuenta de Microsoft 365 que compraste en SafeTech. Avanza con **Siguiente** y vuelve con **Atrás** cuando quieras.',
+                '!¿**Ya configuraste tu cuenta** en otro computador (ya cambiaste la contraseña)? Presiona **«Ya configuré mi cuenta»** y vamos directo a iniciar sesión en Word.',
+                'Si quieres más detalle, en YouTube tenemos un **video tutorial** con todo explicado con calma.')
        Note = 'El video se abre en tu navegador. Puedes volver a esta ventana cuando quieras.'; NoteKind = 'info'
-       Image = $null; Actions = @('youtube'); NeedsOffice = $false },
+       Image = $null; Actions = @('otroPc', 'youtube'); NeedsOffice = $false },
     @{ Id = 'avisos'; Short = 'Avisos'; Title = 'Lee esto antes de empezar'
        Body = @('!Usa **Windows 10 u 11 original** (Home o Pro). En versiones modificadas como **Tiny11, Ghost Spectre, AtlasOS, ReviOS o MiniOS**, o en ediciones **LTSC o N**, Microsoft 365 puede fallar al iniciar sesión o al activarse.',
                 'Si el computador es de tu **empresa, colegio o universidad**, consulta antes con quien lo administra. La cuenta puede chocar con sus políticas, y SafeTech no se hace responsable de conflictos en equipos administrados por terceros.',
@@ -4185,64 +4188,64 @@ $StTutorial = @(
        Note = 'Tu compra tiene **1 año de garantía de reposición** desde la fecha de compra. Aplica si **todavía tienes acceso a tu cuenta** y aun así Office no se logra activar.'; NoteKind = 'info'
        Image = $null; Actions = @('terms'); NeedsOffice = $false; Confirm = 'Leí y entiendo estos avisos' },
     @{ Id = 'preparate'; Short = 'Prepárate'; Title = 'Ten a mano tu cuenta y tu celular'
-       Body = @('El **correo y la contraseña de Microsoft 365** que te envió SafeTech.',
+       Body = @('La **cuenta de Microsoft 365 y la contraseña temporal** que vienen en el **correo de tu compra**.',
                 'Tu **celular con Internet**, por si Microsoft te pide instalar la app Microsoft Authenticator (algunas cuentas lo piden y otras no).',
                 '!Un **lugar seguro** para anotar la **contraseña nueva** que vas a crear.')
        Note = 'Si te enredas en cualquier paso, escríbenos con el botón verde de WhatsApp de abajo.'; NoteKind = 'info'
        Image = $null; Actions = @(); NeedsOffice = $false },
     @{ Id = 'portal'; Short = 'Entrar al portal'; Title = 'Inicia sesión en el portal de Microsoft 365'
        Body = @('Haz clic en **«Abrir el portal»**. Se abrirá una **ventana privada** del navegador (InPrivate o incógnito), así no se mezcla con otras cuentas de Microsoft que ya tengas abiertas.',
-                'Escribe el **correo entregado por SafeTech** y presiona **Siguiente**.',
-                'Escribe la **contraseña temporal** que te enviamos.',
-                '!**No uses tu correo personal** en este paso.')
+                'Escribe la **cuenta de Microsoft 365 que compraste** (viene en el correo de tu compra) y presiona **Siguiente**.',
+                'Escribe la **contraseña temporal** que viene en ese mismo correo.',
+                '!**No uses tu correo personal** ni el correo de contacto de SafeTech: solo la cuenta que compraste.')
        Note = 'Si aun así entra solo con otra cuenta tuya, ciérrala arriba a la derecha («Cerrar sesión») y vuelve a pulsar «Abrir el portal». Si te enredas, escríbenos.'; NoteKind = 'info'
-       Image = 'assets/tutorial/02-portal-inicio-sesion.jpg'; Actions = @('portal', 'copyPortal'); NeedsOffice = $false },
+       Image = 'assets/tutorial/v2/ms-1-portal.jpg'; Actions = @('portal', 'copyPortal'); NeedsOffice = $false },
     @{ Id = 'contrasena'; Short = 'Contraseña'; Title = 'Cambia la contraseña temporal'
        Body = @('La primera vez, Microsoft te pedirá **crear una contraseña nueva**.',
                 'En el primer campo escribe la **contraseña temporal**; en los otros dos, **tu contraseña nueva**.',
                 'Usa mayúsculas, minúsculas, números y un símbolo. Ejemplo: Perro#Azul2026 (inventa la tuya).')
        Note = '**anótala ahora en un lugar seguro.** SafeTech no puede verla ni recuperarla; si la pierdes, pierdes la cuenta.'; NoteKind = 'critical'
-       Image = 'assets/tutorial/03-cambiar-contrasena.jpg'; Actions = @(); NeedsOffice = $false; Confirm = 'Ya anoté mi nueva contraseña' },
+       Image = 'assets/tutorial/v2/ms-2-contrasena.jpg'; Actions = @(); NeedsOffice = $false; Confirm = 'Ya anoté mi nueva contraseña' },
     @{ Id = 'seguridad'; Short = 'Seguridad'; Title = '¿Te apareció este mensaje?'
        Body = @('Después de cambiar la contraseña, algunas cuentas muestran **«Vamos a garantizar la seguridad de la cuenta»** y piden instalar Microsoft Authenticator.',
                 'Otras cuentas no lo piden y entran directo. Depende de la cuenta que te entregamos.',
                 '!**Elige lo que te pasó a ti** con uno de los dos botones de abajo.')
        Note = 'Las dos situaciones son normales. Si no te apareció, **tu cuenta está bien** y te saltas esta parte.'; NoteKind = 'info'
-       Image = 'assets/tutorial/04-garantizar-seguridad.jpg'; Actions = @('authYes', 'authNo'); NeedsOffice = $false },
+       Image = 'assets/tutorial/v2/auth-1-garantizar.jpg'; Actions = @('authYes', 'authNo'); NeedsOffice = $false },
     @{ Id = 'authenticator'; Short = 'Authenticator'; Title = 'Instala Microsoft Authenticator en tu celular'
        Body = @('!En el mensaje «Vamos a garantizar la seguridad de la cuenta», haz clic en **Siguiente**. **No elijas «Usar otra cuenta».**',
-                'En tu celular abre **Google Play** (Android) o **App Store** (iPhone).',
+                'Aparece «**Instalar Microsoft Authenticator**». En tu celular abre **Google Play** (Android) o **App Store** (iPhone).',
                 'Busca **«Microsoft Authenticator»** e instálala. El desarrollador debe ser **Microsoft Corporation**.',
-                'Vuelve al computador y haz clic en **Siguiente**.')
+                'Cuando esté instalada, vuelve al computador y haz clic en **Siguiente**.')
        Note = 'No uses la opción «Configurar una aplicación de autenticación diferente». Este tutorial es para **Microsoft Authenticator**.'; NoteKind = 'info'
-       Image = 'assets/tutorial/05-instalar-authenticator.jpg'; Actions = @(); NeedsOffice = $false },
+       Image = 'assets/tutorial/v2/auth-2-instalar.jpg'; Actions = @(); NeedsOffice = $false },
     @{ Id = 'qr'; Short = 'Código QR'; Title = 'Agrega la cuenta y escanea el código QR'
-       Body = @('Abre Microsoft Authenticator y **permite las notificaciones**.',
-                '!Toca **«Agregar cuenta»** (o el botón +) y elige **«Cuenta profesional o educativa»**, no «Cuenta personal».',
-                'Elige **«Escanear un código QR»** y apunta la cámara al código que aparece en el computador.',
+       Body = @('En el computador aparece «**Configurar la cuenta en la aplicación**». Haz clic en **Siguiente**: aparecerá un **código QR**.',
+                'En el celular abre Microsoft Authenticator, **permite las notificaciones** y toca **«Agregar cuenta»** (o el botón +).',
+                '!Elige **«Cuenta profesional o educativa»** (no «Cuenta personal») y luego **«Escanear un código QR»**. Apunta la cámara al código del computador.',
                 'Cuando la cuenta aparezca en tu celular, haz clic en **Siguiente** en el computador.')
        Note = '¿No puedes escanearlo? Haz clic en **«Can''t scan the QR code?»** y escribe a mano el código y la URL que aparecen.'; NoteKind = 'info'
-       Image = 'assets/tutorial/06-codigo-qr.jpg'; Actions = @(); NeedsOffice = $false },
+       Image = 'assets/tutorial/v2/auth-4-qr.jpg'; Actions = @(); NeedsOffice = $false },
     @{ Id = 'aprobar'; Short = 'Aprobar'; Title = 'Aprueba la notificación de prueba'
-       Body = @('En el computador aparecerá **un número**.',
-                '!En tu celular abre la notificación de Authenticator, **escribe ese número** y toca **«Sí»** o **«Aprobar»**.',
-                'Cuando el computador diga **«Notificación aprobada»**, haz clic en **Siguiente** y luego en **Listo**.',
+       Body = @('En el computador aparece «**Vamos a probarlo**» con **un número**.',
+                '!En tu celular aparece «¿Está intentando iniciar sesión?»: **escribe ese número** y toca **«Sí»**.',
+                'El computador mostrará «**Authenticator Added**» (puede aparecer en inglés). Haz clic en **Listo**.',
                 'Si Microsoft pide otro método (por ejemplo, tu número de teléfono), complétalo con el código que te llegue por SMS.')
        Note = '**no borres la app ni la cuenta de tu celular**: Microsoft puede pedirte aprobar el ingreso otra vez. Si cambias de celular, **avísanos antes por WhatsApp**.'; NoteKind = 'critical'
-       Image = $null; Actions = @(); NeedsOffice = $false },
+       Image = 'assets/tutorial/v2/auth-5-probar.jpg'; Actions = @(); NeedsOffice = $false },
     @{ Id = 'word'; Short = 'Abrir Word'; Title = 'Inicia sesión en Word con «No, solo esta aplicación»'
        Body = @('!**Lee este paso completo antes de hacer clic.** Al iniciar sesión, Microsoft pregunta si quieres usar la cuenta en todas las aplicaciones: **elige «No, solo esta aplicación»** (la imagen de la derecha).',
-                'Haz clic en **«Abrir Word»**. Si te pide iniciar sesión, escribe el **correo entregado por SafeTech** y **tu contraseña nueva**.',
+                'Haz clic en **«Abrir Word»**. Si te pide iniciar sesión, escribe la **cuenta de Microsoft 365 que compraste** (no tu correo personal) y **tu contraseña nueva**.',
                 'Si no lo pide, ve a **Archivo > Cuenta > Iniciar sesión** (o «Cambiar cuenta»).',
                 'Si Microsoft lo solicita, aprueba el ingreso en Authenticator con el número que aparece.')
        Note = '**no elijas «Sí»** en esa pregunta. La cuenta quedaría ligada al computador como cuenta de empresa y cambiaría su configuración. Esta cuenta solo debe usarse para activar Office.'; NoteKind = 'critical'
-       Image = 'assets/tutorial/09-solo-esta-aplicacion.jpg'; Actions = @('word'); NeedsOffice = $true },
+       Image = 'assets/tutorial/v2/ms-3-solo-esta-app.jpg'; Actions = @('word'); NeedsOffice = $true },
     @{ Id = 'comprobar'; Short = 'Comprobar'; Title = 'Comprueba que Office quedó activado'
        Body = @('En Word ve a **Archivo > Cuenta**.',
                 '!Debe decir **«Producto de suscripción»** y **«Aplicaciones de Microsoft 365»**.',
                 'Si aparece «Producto sin licencia», **cierra todos los programas de Office**, vuelve a abrir Word y revisa otra vez.')
        Note = '**no guardes archivos importantes en el OneDrive de esta cuenta**: Microsoft puede reducir o eliminar ese espacio sin aviso. Usa tu OneDrive personal.'; NoteKind = 'warn'
-       Image = 'assets/tutorial/10-producto-activado.jpg'; Actions = @('check', 'word'); NeedsOffice = $true }
+       Image = 'assets/tutorial/v2/ms-4-activado.jpg'; Actions = @('check', 'word'); NeedsOffice = $true }
 )
 
 function Get-StTutIndex {
@@ -4352,7 +4355,7 @@ function Set-StTutorialStep {
     if ($Index -ge $StTutorial.Count) { $Index = $StTutorial.Count - 1 }
     if (Test-StTutorialBlocked $Index) {
         [void](Show-StDialog -Kind 'info' -Kicker 'UN MOMENTO' -Title 'Office todavía se está instalando' `
-            -Message 'Este paso se hace en Word. Cuando la instalación termine te avisaremos y podrás continuar desde aquí.' -Buttons @('Entendido'))
+            -Message 'Este paso se hace en Word, que todavía se está instalando. Cuando termine te avisaremos y te llevaremos directo a este paso.' -Buttons @('Entendido'))
         return
     }
     $St.Tut.Index = $Index
@@ -4428,7 +4431,8 @@ function Set-StTutorialStep {
             'copyPortal' { Set-StBtn $b 0xE8C8 'Copiar el enlace'; $b.Style = $St.Window.FindResource('BtnSoft') }
             'word' { Set-StBtn $b 0xE8A5 'Abrir Word'; $b.Style = $St.Window.FindResource($(if ($s.Actions[0] -eq 'word') { 'BtnPrimary' } else { 'BtnSoft' })) }
             'check' { Set-StBtn $b 0xE73E 'Comprobar la activación'; $b.Style = $St.Window.FindResource('BtnPrimary') }
-            'youtube' { Set-StBtn $b 0xE714 'Ver el video en YouTube'; $b.Style = $St.Window.FindResource('BtnPrimary') }
+            'youtube' { Set-StBtn $b 0xE714 'Ver el video en YouTube'; $b.Style = $St.Window.FindResource('BtnSoft') }
+            'otroPc' { Set-StBtn $b 0xE77B 'Ya configuré mi cuenta'; $b.Style = $St.Window.FindResource('BtnPrimary') }
             'terms' { Set-StBtn $b 0xE8A7 'Ver términos y condiciones'; $b.Style = $St.Window.FindResource('BtnSoft') }
             'authYes' { Set-StBtn $b 0xE73E 'Sí, me apareció'; Set-StChoice $b ($St.Tut.Auth -eq $true); $b.MinWidth = 220 }
             'authNo' { Set-StBtn $b 0xE711 'No, entré directo'; Set-StChoice $b ($St.Tut.Auth -eq $false); $b.MinWidth = 220 }
@@ -4518,6 +4522,12 @@ function Invoke-StTutorialAction {
         'portal' { Open-StPrivateBrowser $StConfig.PortalUrl }
         'copyPortal' { try { [System.Windows.Clipboard]::SetText($StConfig.PortalUrl); Set-StBtn $Button 0xE73E 'Enlace copiado' } catch { } }
         'youtube' { Open-StUnelevated $StConfig.VideoM365 }
+        'otroPc' {
+            # Cuenta ya configurada en otro computador: no hay que cambiar la contraseña ni configurar Authenticator.
+            $St.Tut.Rapido = $true
+            $St.Tut.Auth = $false
+            Set-StTutorialStep -Index (Get-StTutIndex 'word')
+        }
         'terms' { Open-StUnelevated $StConfig.TermsUrl }
         'word' { [void](Open-StWord) }
         'authYes' { Set-StTutorialAuth $true }
@@ -4538,7 +4548,10 @@ function Complete-StTutorial {
     if (-not $St.Product) { $St.Product = Get-StProduct '365' }
     $St.UI.TxtDoneTitle.Text = '¡Listo! Microsoft 365 quedó conectado'
     $St.UI.TxtDoneText.Text = 'Ya puedes usar Word, Excel, PowerPoint y Outlook con la cuenta que te entregamos.'
-    if ($St.Tut.Auth -eq $false) {
+    if ($St.Tut.Rapido) {
+        Set-StDoneList @('E8A5|Aplicaciones de Microsoft 365 **instaladas**', 'E77B|Tu cuenta **conectada** en este computador')
+        $St.UI.TxtDoneNote.Text = 'Usa la misma contraseña en tus otros computadores. SafeTech no puede recuperarla. La garantía dura 1 año desde la compra.'
+    } elseif ($St.Tut.Auth -eq $false) {
         Set-StDoneList @('E8A5|Aplicaciones de Microsoft 365 **instaladas**', 'E77B|Cuenta de SafeTech **conectada** en Office', 'E72E|Contraseña nueva creada')
         $St.UI.TxtDoneNote.Text = 'Guarda tu nueva contraseña: SafeTech no puede recuperarla. La garantía dura 1 año desde la compra.'
     } else {
