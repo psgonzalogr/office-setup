@@ -15,7 +15,7 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.6.0'
+    Version     = '1.6.1'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
@@ -2299,6 +2299,13 @@ $StWindowXaml = @'
               <Border x:Name="TutImageFrame" Grid.Column="1" CornerRadius="16" BorderBrush="#2A3C57" BorderThickness="1.5" Background="#0C1626" Margin="10,0,0,10" Padding="10" VerticalAlignment="Top" HorizontalAlignment="Left" MaxHeight="{Binding ActualHeight, ElementName=TutColumns}" Cursor="Hand" ToolTip="Haz clic para ver la imagen en grande">
                 <Grid>
                   <Image x:Name="ImgTut" Stretch="Uniform" StretchDirection="DownOnly" RenderOptions.BitmapScalingMode="HighQuality"/>
+                  <Border x:Name="TutImgPager" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8,0,0,8" CornerRadius="10" Background="#E6091220" BorderBrush="#405776" BorderThickness="1" Padding="4" Visibility="Collapsed" Cursor="Arrow">
+                    <StackPanel Orientation="Horizontal">
+                      <Button x:Name="BtnImgPrev" Style="{StaticResource BtnSoft}" MinHeight="34" MinWidth="40" Padding="8,2" ToolTip="Imagen anterior"/>
+                      <TextBlock x:Name="TxtImgCount" FontSize="15" FontWeight="SemiBold" Foreground="#F8FAFC" VerticalAlignment="Center" Margin="12,0" Text="1 de 2"/>
+                      <Button x:Name="BtnImgNext" Style="{StaticResource BtnSoft}" MinHeight="34" MinWidth="40" Padding="8,2" ToolTip="Imagen siguiente"/>
+                    </StackPanel>
+                  </Border>
                   <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,8,8" CornerRadius="10" Background="#E6091220" BorderBrush="#405776" BorderThickness="1" Padding="10,5" IsHitTestVisible="False">
                     <StackPanel Orientation="Horizontal">
                       <TextBlock Text="&#xE71E;" FontFamily="{StaticResource Icons}" FontSize="14" Foreground="#F8FAFC" VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -2696,7 +2703,7 @@ $StCues = @{
     'desinstalado'  = @{ Sound = 'exito'; Voice = 'desinstalado'; Bot = 'jump' }
 }
 # Al cambiar los audios, subir la carpeta (v3, v4...): los equipos guardan los anteriores en caché.
-$StVoiceDir = 'assets/voz/v5'
+$StVoiceDir = 'assets/voz/v6'
 
 function Get-StCueAssets {
     $list = @('assets/sonidos/aviso.wav', 'assets/sonidos/exito.wav', 'assets/sonidos/logro.wav', 'assets/sonidos/error.wav')
@@ -4224,15 +4231,15 @@ $StTutorial = @(
                 'En el celular abre Microsoft Authenticator, **permite las notificaciones** y toca **«Agregar cuenta»** (o el botón +).',
                 '!Elige **«Cuenta profesional o educativa»** (no «Cuenta personal») y luego **«Escanear un código QR»**. Apunta la cámara al código del computador.',
                 'Cuando la cuenta aparezca en tu celular, haz clic en **Siguiente** en el computador.')
-       Note = '¿No puedes escanearlo? Haz clic en **«Can''t scan the QR code?»** y escribe a mano el código y la URL que aparecen.'; NoteKind = 'info'
-       Image = 'assets/tutorial/v2/auth-4-qr.jpg'; Actions = @(); NeedsOffice = $false },
+       Note = 'A la derecha hay **2 imágenes**: el computador y el celular (cámbialas con las flechas). ¿No puedes escanear el código? Haz clic en **«Can''t scan the QR code?»** y escribe a mano el código y la URL que aparecen.'; NoteKind = 'info'
+       Image = @('assets/tutorial/v2/auth-4-qr.jpg', 'assets/tutorial/v2/auth-3-agregar.jpg'); Actions = @(); NeedsOffice = $false },
     @{ Id = 'aprobar'; Short = 'Aprobar'; Title = 'Aprueba la notificación de prueba'
        Body = @('En el computador aparece «**Vamos a probarlo**» con **un número**.',
                 '!En tu celular aparece «¿Está intentando iniciar sesión?»: **escribe ese número** y toca **«Sí»**.',
                 'El computador mostrará «**Authenticator Added**» (puede aparecer en inglés). Haz clic en **Listo**.',
                 'Si Microsoft pide otro método (por ejemplo, tu número de teléfono), complétalo con el código que te llegue por SMS.')
        Note = '**no borres la app ni la cuenta de tu celular**: Microsoft puede pedirte aprobar el ingreso otra vez. Si cambias de celular, **avísanos antes por WhatsApp**.'; NoteKind = 'critical'
-       Image = 'assets/tutorial/v2/auth-5-probar.jpg'; Actions = @(); NeedsOffice = $false },
+       Image = @('assets/tutorial/v2/auth-5-probar.jpg', 'assets/tutorial/v2/auth-6-listo.jpg'); Actions = @(); NeedsOffice = $false },
     @{ Id = 'word'; Short = 'Abrir Word'; Title = 'Inicia sesión en Word con «No, solo esta aplicación»'
        Body = @('!**Lee este paso completo antes de hacer clic.** Al iniciar sesión, Microsoft pregunta si quieres usar la cuenta en todas las aplicaciones: **elige «No, solo esta aplicación»** (la imagen de la derecha).',
                 'Haz clic en **«Abrir Word»**. Si te pide iniciar sesión, escribe la **cuenta de Microsoft 365 que compraste** (no tu correo personal) y **tu contraseña nueva**.',
@@ -4349,6 +4356,16 @@ function Test-StTutorialBlocked {
     return ($StTutorial[$Index].NeedsOffice -and $St.Mode -eq 'install' -and $St.Product -and $St.Product.Id -eq '365' -and -not $St.InstallDone)
 }
 
+function Show-StTutImage {
+    param([int]$At)
+    $n = @($St.TutImgs).Count
+    if ($n -eq 0) { $St.UI.ImgTut.Source = $null; $St.UI.TutImgPager.Visibility = 'Collapsed'; return }
+    $St.TutImgIdx = (($At % $n) + $n) % $n
+    $St.UI.ImgTut.Source = $St.TutImgs[$St.TutImgIdx]
+    $St.UI.TutImgPager.Visibility = $(if ($n -gt 1) { 'Visible' } else { 'Collapsed' })
+    $St.UI.TxtImgCount.Text = "$($St.TutImgIdx + 1) de $n"
+}
+
 function Set-StTutorialStep {
     param([int]$Index)
     if ($Index -lt 0) { $Index = 0 }
@@ -4358,6 +4375,8 @@ function Set-StTutorialStep {
             -Message 'Este paso se hace en Word, que todavía se está instalando. Cuando termine te avisaremos y te llevaremos directo a este paso.' -Buttons @('Entendido'))
         return
     }
+    # Si eligió «Ya configuré mi cuenta» y después sigue el tutorial normal, vuelve a ser una cuenta nueva.
+    if ($St.Tut.Rapido -and $Index -gt 0 -and $Index -lt (Get-StTutIndex 'word')) { $St.Tut.Rapido = $false; $St.Tut.Auth = $null }
     $St.Tut.Index = $Index
     $s = $StTutorial[$Index]
     $ui = $St.UI
@@ -4431,7 +4450,7 @@ function Set-StTutorialStep {
             'copyPortal' { Set-StBtn $b 0xE8C8 'Copiar el enlace'; $b.Style = $St.Window.FindResource('BtnSoft') }
             'word' { Set-StBtn $b 0xE8A5 'Abrir Word'; $b.Style = $St.Window.FindResource($(if ($s.Actions[0] -eq 'word') { 'BtnPrimary' } else { 'BtnSoft' })) }
             'check' { Set-StBtn $b 0xE73E 'Comprobar la activación'; $b.Style = $St.Window.FindResource('BtnPrimary') }
-            'youtube' { Set-StBtn $b 0xE714 'Ver el video en YouTube'; $b.Style = $St.Window.FindResource('BtnSoft') }
+            'youtube' { Set-StBtn $b 0xE714 'Ver el video en YouTube'; $b.Style = $St.Window.FindResource('BtnPrimary') }
             'otroPc' { Set-StBtn $b 0xE77B 'Ya configuré mi cuenta'; $b.Style = $St.Window.FindResource('BtnPrimary') }
             'terms' { Set-StBtn $b 0xE8A7 'Ver términos y condiciones'; $b.Style = $St.Window.FindResource('BtnSoft') }
             'authYes' { Set-StBtn $b 0xE73E 'Sí, me apareció'; Set-StChoice $b ($St.Tut.Auth -eq $true); $b.MinWidth = 220 }
@@ -4454,9 +4473,11 @@ function Set-StTutorialStep {
     }
     $ui.StackTutActions.Visibility = $(if ($ui.StackTutActions.Children.Count) { 'Visible' } else { 'Collapsed' })
 
-    $img = $null
-    if ($s.Image) { $img = Get-StImage $s.Image }
-    $ui.ImgTut.Source = $img
+    # Un paso puede tener varias imágenes (por ejemplo, computador y celular): se recorren con ‹ ›.
+    $St.TutImgs = @()
+    foreach ($rel in @($s.Image)) { if ($rel) { $b = Get-StImage $rel; if ($b) { $St.TutImgs += $b } } }
+    $img = $(if ($St.TutImgs.Count) { $St.TutImgs[0] } else { $null })
+    Show-StTutImage 0
     $ui.TutImageFrame.Visibility = $(if ($img) { 'Visible' } else { 'Collapsed' })
     [System.Windows.Controls.Grid]::SetColumnSpan($ui.TutScroll, $(if ($img) { 1 } else { 2 }))
     $ui.TutContent.MaxWidth = $(if ($img) { [double]::PositiveInfinity } else { 760 })
@@ -4524,6 +4545,11 @@ function Invoke-StTutorialAction {
         'youtube' { Open-StUnelevated $StConfig.VideoM365 }
         'otroPc' {
             # Cuenta ya configurada en otro computador: no hay que cambiar la contraseña ni configurar Authenticator.
+            # Se salta «Avisos», pero este computador puede ser otro: se recuerda lo esencial antes de seguir.
+            $c = Show-StDialog -Kind 'warn' -Kicker 'Antes de seguir' -Title 'Revisa este computador' `
+                -Message "Microsoft 365 puede fallar en Windows modificado (Tiny11, Ghost Spectre, AtlasOS, ReviOS, MiniOS) o en ediciones LTSC o N. Si el computador es de tu empresa, colegio o universidad, consulta antes con quien lo administra.`n`nUsa la misma cuenta y contraseña que ya configuraste." `
+                -Buttons @('Cancelar', 'Entendido, seguir') -Primary 'Entendido, seguir'
+            if ($c -ne 'Entendido, seguir') { return }
             $St.Tut.Rapido = $true
             $St.Tut.Auth = $false
             Set-StTutorialStep -Index (Get-StTutIndex 'word')
@@ -4596,7 +4622,7 @@ Set-StSound -On (-not (Test-Path -LiteralPath (Join-Path $StConfig.DataDir 'soni
 
 # Descarga en segundo plano los sonidos, la voz y las imagenes del tutorial
 if (-not $env:SAFETECH_OFFICE_ASSETS -and $StMode -eq 'app') {
-    $assetList = @(Get-StCueAssets) + @($StTutorial | Where-Object { $_.Image } | ForEach-Object { $_.Image })
+    $assetList = @(Get-StCueAssets) + @($StTutorial | Where-Object { $_.Image } | ForEach-Object { @($_.Image) })
     Start-StAsync -Params @{ Paths = $assetList; Cache = $St.CacheDir } -Work { Save-StAssets -Paths $P.Paths -CacheDir $P.Cache }
 }
 if ($StMode -eq 'app') {
@@ -4703,8 +4729,13 @@ $ui.BtnConfirmStart.Add_Click({
 $ui.BtnTutorialEarly.Add_Click({ Show-StTutorial -Index $St.Tut.Index })
 $ui.BtnTutProgress.Add_Click({ Show-StPage 'Progress' })
 $ui.TutImageFrame.Add_MouseLeftButtonUp({ Show-StImageViewer $St.UI.ImgTut.Source })
+Set-StBtn $ui.BtnImgPrev 0xE76B ''
+Set-StBtn $ui.BtnImgNext 0xE76C ''
+$ui.BtnImgPrev.Add_Click({ Show-StTutImage ($St.TutImgIdx - 1) })
+$ui.BtnImgNext.Add_Click({ Show-StTutImage ($St.TutImgIdx + 1) })
 $ui.BtnTutBack.Add_Click({
     if ($St.Tut.Index -le 0) { if (-not (Test-StInstalling365)) { Show-StPage 'Home' } }
+    elseif ($St.Tut.Index -eq (Get-StTutIndex 'word') -and $St.Tut.Rapido) { Set-StTutorialStep -Index 0 }
     elseif ($St.Tut.Index -eq (Get-StTutIndex 'word') -and $St.Tut.Auth -eq $false) { Set-StTutorialStep -Index (Get-StTutIndex 'seguridad') }
     else { Set-StTutorialStep -Index ($St.Tut.Index - 1) }
 })
@@ -4879,6 +4910,9 @@ if ($StMode -eq 'selftest') {
     $viewer.Show(); Set-StViewerZoom ($St.Viewer.Fit * 1.6); Save-StShot $viewer '06d-imagen-ampliada'; $viewer.Close(); $St.Viewer = $null
     Save-StShotAt '06c-tutorial-fullhd' 1920 1040
     Set-StTutorialStep -Index (Get-StTutIndex 'contrasena'); Save-StShotAt '06a-tutorial-contrasena'
+    Set-StTutorialStep -Index (Get-StTutIndex 'qr'); Show-StTutImage 1
+    if ($St.UI.TutImgPager.Visibility -ne 'Visible') { throw 'El paso del código QR debería mostrar 2 imágenes.' }
+    Save-StShotAt '06e-tutorial-qr-celular'
     Set-StTutorialStep -Index (Get-StTutIndex 'seguridad'); Save-StShotAt '06b-tutorial-pregunta'
     $St.Tut.Auth = $false
     Set-StTutorialStep -Index (Get-StTutIndex 'word'); Save-StShotAt '07-tutorial-paso9'
