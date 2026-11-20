@@ -15,7 +15,7 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.6.2'
+    Version     = '1.6.3'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
@@ -3879,7 +3879,7 @@ function Show-StAbout {
       <TextBlock Grid.Column="1" FontSize="17" Foreground="#F8FAFC" TextWrapping="Wrap" VerticalAlignment="Center">Windows te pedirá permiso para hacer cambios: responde <Bold>«Sí»</Bold>. Es normal.</TextBlock>
     </Grid>
   </Border>
-  <TextBlock Text="SafeTech no es distribuidor oficial de Microsoft. Microsoft y Office son marcas de Microsoft Corporation." FontSize="15" Foreground="#AEBDD0" TextWrapping="Wrap" Margin="2,12,0,0"/>
+  <TextBlock Text="SafeTech es un revendedor independiente, no afiliado a Microsoft. Microsoft y Office son marcas de Microsoft Corporation." FontSize="15" Foreground="#AEBDD0" TextWrapping="Wrap" Margin="2,12,0,0"/>
 </StackPanel>
 '@
     $cards = $panel.FindName('Cards')

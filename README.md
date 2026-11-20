@@ -120,8 +120,8 @@ Para publicar una versión: subir `Version` en `office.ps1` y anotarla en `CHANG
 
 ## Versión
 
-Versión actual: **1.6.2**. El historial completo está en [`CHANGELOG.md`](CHANGELOG.md).
+Versión actual: **1.6.3**. El historial completo está en [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
-SafeTech SpA · Antofagasta, Chile · [safe-tech.cl](https://safe-tech.cl) · No somos distribuidores oficiales de Microsoft.
+SafeTech SpA · Antofagasta, Chile · [safe-tech.cl](https://safe-tech.cl) · Revendedor independiente, no afiliado a Microsoft. Microsoft y Office son marcas de Microsoft Corporation.

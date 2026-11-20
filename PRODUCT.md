@@ -41,7 +41,7 @@ La activación telefónica automática con el código SafeTech (getcid.safe-tech
 
 - SafeTech: modo oscuro de la guía `web/GUIA_DISENO_SAFETECH.md` del repo SafeTech. Fondo #09111F, superficies #111C2F / #17243A / #20304A, rojo de marca #DC2626 → #991B1B, textos #F8FAFC / #DBE5F1 / #AEBDD0. Solo modo oscuro en esta app (pedido del dueño).
 - Logo `assets/logo-safetech-dark.png`.
-- Español de Chile, claro y sin tecnicismos. SafeTech no es distribuidor oficial de Microsoft.
+- Español de Chile, claro y sin tecnicismos. SafeTech es un revendedor independiente, no afiliado a Microsoft.
 
 ## Evidence on Hand
 
