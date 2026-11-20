@@ -102,6 +102,7 @@ Todo está en un solo archivo, [`office.ps1`](office.ps1) (Windows PowerShell 5.
 | [`tests/`](tests/) | Pruebas Pester del motor |
 | [`.github/workflows/`](.github/workflows/) | Validación en Windows y publicación de releases |
 | [`CHANGELOG.md`](CHANGELOG.md) | Historial de versiones |
+| [`CLAUDE.md`](CLAUDE.md) | Instrucciones para Claude Code (commits y versiones) |
 | [`PRODUCT.md`](PRODUCT.md), [`DESIGN.md`](DESIGN.md), [`.impeccable/`](.impeccable/) | Contexto de producto y sistema de diseño (colores, tipografía, componentes) |
 
 Variables de entorno útiles:
