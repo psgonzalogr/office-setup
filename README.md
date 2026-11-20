@@ -99,3 +99,7 @@ GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows
 ## Versión
 
 Versión actual: **1.6.2**. El historial completo está en [`CHANGELOG.md`](CHANGELOG.md).
+
+---
+
+SafeTech SpA · Antofagasta, Chile · [safe-tech.cl](https://safe-tech.cl) · No somos distribuidores oficiales de Microsoft.
