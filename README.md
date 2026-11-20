@@ -116,7 +116,7 @@ Variables de entorno útiles:
 
 GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows en cada push: sintaxis en PowerShell 5.1, PSScriptAnalyzer, pruebas Pester ([`tests/`](tests/)) y la autoprueba de la interfaz, que sube las capturas como artefacto.
 
-Para publicar una versión: subir `Version` en `office.ps1`, anotarla en `CHANGELOG.md` y en la sección «Versión» de este README, y crear la etiqueta `vX.Y.Z` en `main`. [`release.yml`](.github/workflows/release.yml) crea la release con sus notas y el `.cmd` adjunto.
+Para publicar una versión: subir `Version` en `office.ps1` y anotarla en `CHANGELOG.md` y en la sección «Versión» de este README. Cuando el CI pasa en `main`, [`release.yml`](.github/workflows/release.yml) crea la etiqueta `vX.Y.Z` y la release, con las notas del CHANGELOG y el `.cmd` adjunto.
 
 ## Versión
 

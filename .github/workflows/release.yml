@@ -1,33 +1,48 @@
 name: Publicar release
 
-# Al subir una etiqueta vX.Y.Z crea la release con las notas del CHANGELOG
-# (todas las versiones desde la release anterior) y el lanzador .cmd adjunto.
+# Cuando «Validar instalador» pasa en main y la versión de office.ps1 todavía
+# no tiene release, crea la etiqueta vX.Y.Z y la release con las notas del
+# CHANGELOG (todas las versiones desde la release anterior) y el .cmd adjunto.
+# También se puede lanzar a mano desde la pestaña Actions.
 on:
-  push:
-    tags: ['v*']
+  workflow_run:
+    workflows: ['Validar instalador']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   release:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
 
-      - name: Comprobar la versión
+      - name: Leer la versión
+        id: ver
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          tag="${GITHUB_REF_NAME}"
-          ver="${tag#v}"
-          grep -q "Version     = '${ver}'" office.ps1 || { echo "office.ps1 no dice la versión ${ver}"; exit 1; }
+          ver="$(grep -oP "Version\s*=\s*'\K[0-9]+\.[0-9]+\.[0-9]+" office.ps1 | head -1)"
+          echo "Versión en office.ps1: ${ver}"
           grep -q "^- \*\*${ver}\*\*" CHANGELOG.md || { echo "CHANGELOG.md no tiene la versión ${ver}"; exit 1; }
+          echo "ver=${ver}" >> "$GITHUB_OUTPUT"
+          if gh release view "v${ver}" >/dev/null 2>&1; then
+            echo "La release v${ver} ya existe: nada que hacer."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Armar las notas
+        if: steps.ver.outputs.skip != '1'
         run: |
-          ver="${GITHUB_REF_NAME#v}"
-          prev="$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)"
+          ver="${{ steps.ver.outputs.ver }}"
+          prev="$(git describe --tags --abbrev=0 2>/dev/null || true)"
           prev="${prev#v}"
           {
             echo "## Novedades"
@@ -50,8 +65,10 @@ jobs:
           cat notas.md
 
       - name: Crear la release
+        if: steps.ver.outputs.skip != '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" Instalar-Office-SafeTech.cmd \
-            --title "${GITHUB_REF_NAME}" --notes-file notas.md --latest
+          tag="v${{ steps.ver.outputs.ver }}"
+          gh release create "$tag" Instalar-Office-SafeTech.cmd \
+            --target "$(git rev-parse HEAD)" --title "$tag" --notes-file notas.md --latest
