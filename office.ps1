@@ -15,7 +15,7 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.6.1'
+    Version     = '1.6.2'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
@@ -2689,6 +2689,7 @@ $StCues = @{
     'datos'         = @{ Voice = 'datos' }
     'confirmar'     = @{ Voice = 'confirmar' }
     'confirmar-365' = @{ Voice = 'confirmar-365' }
+    'otro-pc'       = @{ Voice = 'otro-pc' }
     'instalando'    = @{ Voice = 'instalando' }
     'instalado'     = @{ Sound = 'exito'; Voice = 'instalado'; Bot = 'jump' }
     'instalado-365' = @{ Sound = 'exito'; Voice = 'instalado-365'; Bot = 'jump' }
@@ -4546,6 +4547,7 @@ function Invoke-StTutorialAction {
         'otroPc' {
             # Cuenta ya configurada en otro computador: no hay que cambiar la contraseña ni configurar Authenticator.
             # Se salta «Avisos», pero este computador puede ser otro: se recuerda lo esencial antes de seguir.
+            Invoke-StCue 'otro-pc'
             $c = Show-StDialog -Kind 'warn' -Kicker 'Antes de seguir' -Title 'Revisa este computador' `
                 -Message "Microsoft 365 puede fallar en Windows modificado (Tiny11, Ghost Spectre, AtlasOS, ReviOS, MiniOS) o en ediciones LTSC o N. Si el computador es de tu empresa, colegio o universidad, consulta antes con quien lo administra.`n`nUsa la misma cuenta y contraseña que ya configuraste." `
                 -Buttons @('Cancelar', 'Entendido, seguir') -Primary 'Entendido, seguir'
