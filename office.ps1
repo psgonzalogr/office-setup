@@ -307,7 +307,7 @@ function Test-StLowEndPc {
     } catch { }
     try {
         $letter = $env:SystemDrive.TrimEnd(':')
-        $num = (Get-Partition -DriveLetter $letter -ErrorAction Stop | Select-Object -First 1).DiskNumber
+        $num = (Get-StFirst @(Get-Partition -DriveLetter $letter -ErrorAction Stop)).DiskNumber
         $pd = @(Get-PhysicalDisk -ErrorAction Stop | Where-Object { [string]$_.DeviceId -eq [string]$num })
         if ($pd.Count -and [string]$pd[0].MediaType -eq 'HDD') { $reasons.Add('disco mecánico') }
     } catch { }
