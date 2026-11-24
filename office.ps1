@@ -15,7 +15,7 @@
 $StBranch = 'main'
 if ($env:SAFETECH_OFFICE_BRANCH -match '^[A-Za-z0-9._-]+$') { $StBranch = $env:SAFETECH_OFFICE_BRANCH }
 $StConfig = @{
-    Version     = '1.6.3'
+    Version     = '1.7.0'
     Repo        = 'psgonzalogr/office-setup'
     ScriptUrl   = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch/office.ps1"
     RawBase     = "https://raw.githubusercontent.com/psgonzalogr/office-setup/$StBranch"
@@ -37,6 +37,11 @@ if ($env:SAFETECH_OFFICE_URL) {
 }
 
 $StMode = if ($env:SAFETECH_OFFICE_MODE) { $env:SAFETECH_OFFICE_MODE } else { 'app' }
+if ($StMode -eq 'demo') {
+    # Modo demostración: la interfaz completa con datos de ejemplo. No pide administrador ni cambia nada en Windows.
+    try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
+    $StConfig.DataDir = Join-Path $env:TEMP 'SafeTechOffice-demo'
+}
 if ($StMode -eq 'probe') {
     # Usado por las pruebas del lanzador .cmd: confirma que el script se descargo y se ejecuto.
     Write-Output 'SAFETECH-PROBE-OK'
@@ -260,6 +265,53 @@ function Hide-StSecret {
     $t = $Text -replace '[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-([A-Za-z0-9]{5})', 'XXXXX-XXXXX-XXXXX-XXXXX-$1'
     $t = $t -replace '(?i)\bST-([A-Z0-9]{2})[A-Z0-9]{4}\b', 'ST-$1****'
     return $t
+}
+
+function Protect-StPrivacy {
+    # Para el informe de soporte: cambia el usuario de Windows, el nombre del equipo y los correos por marcas.
+    # Solo palabras completas: si el equipo se llama «PC», no se estropea «PCI» ni «MiPC».
+    param([string]$Text, [string]$UserName = $env:USERNAME, [string]$ComputerName = $env:COMPUTERNAME)
+    if ([string]::IsNullOrEmpty($Text)) { return '' }
+    $t = Hide-StSecret $Text
+    $t = [regex]::Replace($t, '[\w.+-]+@[\w-]+(\.[\w-]+)+', '<correo>')
+    foreach ($pair in @(@($ComputerName, '<equipo>'), @($UserName, '<usuario>'))) {
+        if ($pair[0] -and $pair[0].Length -gt 1) {
+            $t = [regex]::Replace($t, '(?i)(?<![A-Za-z0-9_])' + [regex]::Escape($pair[0]) + '(?![A-Za-z0-9_])', $pair[1])
+        }
+    }
+    return $t
+}
+
+function Add-StDetail {
+    # Una línea para «Ver detalle» en la pantalla de avance (qué se hace y dónde).
+    param([string]$Text)
+    Write-StLog $Text
+    if ($sync -and $sync.ContainsKey('Details') -and $sync['Details']) { [void]$sync['Details'].Add(('{0:HH:mm:ss}  {1}' -f (Get-Date), $Text)) }
+}
+
+function Get-StPrevSessionKind {
+    # La sesión anterior no se cerró bien: ¿se reinició o apagó el PC después, o se cerró solo el instalador?
+    param([datetime]$MarkTime, $BootTime)
+    if ($BootTime -and ([datetime]$BootTime) -gt $MarkTime) { return 'reinicio' }
+    return 'cierre'
+}
+
+function Test-StLowEndPc {
+    # Equipo modesto (poca RAM, 2 núcleos o disco mecánico): la app se usa sin animaciones.
+    $reasons = New-Object System.Collections.Generic.List[string]
+    try {
+        $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+        $gb = [Math]::Round($cs.TotalPhysicalMemory / 1GB, 1)
+        if ($gb -lt 6) { $reasons.Add("RAM $gb GB") }
+        if ($cs.NumberOfLogicalProcessors -le 2) { $reasons.Add("$($cs.NumberOfLogicalProcessors) núcleos") }
+    } catch { }
+    try {
+        $letter = $env:SystemDrive.TrimEnd(':')
+        $num = (Get-Partition -DriveLetter $letter -ErrorAction Stop | Select-Object -First 1).DiskNumber
+        $pd = @(Get-PhysicalDisk -ErrorAction Stop | Where-Object { [string]$_.DeviceId -eq [string]$num })
+        if ($pd.Count -and [string]$pd[0].MediaType -eq 'HDD') { $reasons.Add('disco mecánico') }
+    } catch { }
+    return [pscustomobject]@{ Low = ($reasons.Count -gt 0); Reasons = @($reasons) }
 }
 
 function Format-StDigitGroups {
@@ -779,7 +831,7 @@ function Clear-StOfficeLicenses {
         if ($lic.Last5 -and $lic.Last5 -match '^[A-Z0-9]{5}$' -and -not $keys.Contains($lic.Last5)) { $keys.Add($lic.Last5) }
     }
     foreach ($k in $keys) {
-        Write-StLog "Retirando clave terminada en $k"
+        Add-StDetail "Clave de Office retirada (terminada en $k)"
         [void](Invoke-StOspp -Arguments @("/unpkey:$k") -OsppPath $ospp)
     }
     [void](Invoke-StOspp -Arguments @('/remhst') -OsppPath $ospp)
@@ -920,10 +972,11 @@ function Remove-StPathSafe {
     if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return $true }
     try {
         Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
-        Write-StLog "Borrado: $Path"
+        Add-StDetail "Borrado: $Path"
         return $true
     } catch {
-        Write-StLog "No se pudo borrar por completo (en uso): $Path - $($_.Exception.Message)"
+        Add-StDetail "En uso, se borra al reiniciar: $Path"
+        Write-StLog "  detalle: $($_.Exception.Message)"
         return $false
     }
 }
@@ -949,7 +1002,7 @@ function Remove-StC2RWithArp {
             if ($u -notmatch '^"?(?<exe>[^"]*OfficeClickToRun\.exe)"?\s+(?<args>.*)$') { continue }
             $exe = $Matches.exe; $args2 = $Matches.args -replace '(?i)\s*DisplayLevel=\S+', ''
             if (-not (Test-Path -LiteralPath $exe)) { continue }
-            Write-StLog "Desinstalando con el desinstalador de Office: $($p.DisplayName)"
+            Add-StDetail "Desinstalando con el desinstalador de Office: $($p.DisplayName)"
             try {
                 $proc = Start-Process -FilePath $exe -ArgumentList "$args2 DisplayLevel=False" -Wait -PassThru -WindowStyle Hidden
                 Write-StLog "  terminó con código $($proc.ExitCode)"
@@ -967,7 +1020,7 @@ function Remove-StOfficeMsi {
             if (-not $p -or -not $p.PSObject.Properties['DisplayName']) { continue }
             if ($p.PSObject.Properties['SystemComponent'] -and $p.SystemComponent -eq 1) { continue }
             if ([string]$p.DisplayName -notmatch '^Microsoft (Office|Visio|Project|Word|Excel|PowerPoint|Outlook|Access|Publisher|OneNote)') { continue }
-            Write-StLog "Desinstalando (MSI) $($p.DisplayName) $($k.PSChildName)"
+            Add-StDetail "Desinstalando (MSI): $($p.DisplayName)"
             try {
                 $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList "/x $($k.PSChildName) /qn /norestart" -Wait -PassThru -WindowStyle Hidden
                 Write-StLog "  msiexec terminó con código $($proc.ExitCode)"
@@ -1054,7 +1107,7 @@ function Invoke-StDeepUninstall {
                 $t = ($line -replace '^.*?:\s*', '').Trim()
                 $kind = $Matches.t.Split(':')[0]
                 Start-Process -FilePath 'cmdkey.exe' -ArgumentList "/delete:$t" -Wait -WindowStyle Hidden
-                Write-StLog "Credencial de Office borrada: $kind"
+                Add-StDetail "Cuenta de Office quitada del Administrador de credenciales: $kind"
             }
         }
     } catch { Write-StLog "Credenciales: $($_.Exception.Message)" }
@@ -1064,6 +1117,7 @@ function Invoke-StDeepUninstall {
     if ($setup) {
         $xml = New-StOdtXml -Path (Join-Path $WorkDir 'quitar-office.xml') -Remove
         Start-StClickToRunService
+        Add-StDetail "Desinstalando con la herramienta de Microsoft: $found"
         $code = Invoke-StOdt -Setup $setup -Xml $xml -Label 'Desinstalacion profunda (Click-to-Run)'
         if ($code -ne 0) {
             Start-Sleep -Seconds 8
@@ -1077,7 +1131,7 @@ function Invoke-StDeepUninstall {
         Remove-StOfficeMsi
     }
     foreach ($a in (Get-StStoreOffice)) {
-        Write-StLog "Quitando Office de la Microsoft Store: $($a.PackageFullName)"
+        Add-StDetail "Quitando Office de la Microsoft Store: $($a.Name)"
         try { Remove-AppxPackage -Package $a.PackageFullName -AllUsers -ErrorAction Stop } catch { Write-StLog "  falló: $($_.Exception.Message)" }
     }
     Set-StStep 'u_remove' 'done'
@@ -1087,13 +1141,13 @@ function Invoke-StDeepUninstall {
     $svc = Get-Service -Name 'ClickToRunSvc' -ErrorAction SilentlyContinue
     if ($svc) {
         try { Stop-Service -Name 'ClickToRunSvc' -Force -ErrorAction Stop } catch { }
-        try { Start-Process -FilePath 'sc.exe' -ArgumentList 'delete ClickToRunSvc' -Wait -WindowStyle Hidden; Write-StLog 'Servicio ClickToRunSvc eliminado.' }
+        try { Start-Process -FilePath 'sc.exe' -ArgumentList 'delete ClickToRunSvc' -Wait -WindowStyle Hidden; Add-StDetail 'Servicio eliminado: ClickToRunSvc' }
         catch { Write-StLog "Servicio ClickToRunSvc: $($_.Exception.Message)" }
     }
     $tasks = @()
     try { $tasks = @(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskPath -like '\Microsoft\Office\*' }) } catch { Write-StLog "Tareas: $($_.Exception.Message)" }
     foreach ($task in $tasks) {
-        try { Unregister-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -Confirm:$false -ErrorAction Stop; Write-StLog "Tarea borrada: $($task.TaskPath)$($task.TaskName)" } catch { }
+        try { Unregister-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -Confirm:$false -ErrorAction Stop; Add-StDetail "Tarea programada borrada: $($task.TaskPath)$($task.TaskName)" } catch { }
     }
     $officeDirs = @($targets.Dirs | Where-Object { $_ -match '\\Microsoft Office$' })
     $n = Remove-StOfficeShortcuts -OfficeDirs $officeDirs
@@ -1311,10 +1365,15 @@ function New-StDiagnosticZip {
     try {
         if (Get-StOsppPath) { $info.Add(''); $info.Add('Estado de licencias:'); $info.Add((Invoke-StOspp -Arguments @('/dstatus'))) }
     } catch { }
-    [IO.File]::WriteAllText((Join-Path $LogDir 'informacion-del-equipo.txt'), (Hide-StSecret ($info -join "`r`n")), [Text.Encoding]::UTF8)
+    if ($sync -and $sync['PrevSession']) { $info.Add(''); $info.Add("Sesion anterior: $($sync['PrevSession'])") }
+    # Todo se arma en una copia temporal y se anonimiza: usuario de Windows, nombre del equipo y correos.
+    $stage = Join-Path $env:TEMP ('SafeTech-informe-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+    New-Item -ItemType Directory -Force -Path $stage | Out-Null
+    Copy-Item -Path (Join-Path $LogDir '*') -Destination $stage -Recurse -Force -ErrorAction SilentlyContinue
+    [IO.File]::WriteAllText((Join-Path $stage 'informacion-del-equipo.txt'), ($info -join "`r`n"), [Text.Encoding]::UTF8)
 
     $since = (Get-Date).AddHours(-12)
-    $odtDir = Join-Path $LogDir 'registros-microsoft'
+    $odtDir = Join-Path $stage 'registros-microsoft'
     foreach ($dir in @($env:TEMP, (Join-Path $env:SystemRoot 'Temp'))) {
         foreach ($f in @(Get-ChildItem -LiteralPath $dir -Filter "$env:COMPUTERNAME-*.log" -File -ErrorAction SilentlyContinue)) {
             if ($f.LastWriteTime -gt $since) {
@@ -1325,9 +1384,22 @@ function New-StDiagnosticZip {
     }
     $desktop = [Environment]::GetFolderPath('Desktop')
     $zip = Join-Path $desktop ("SafeTech-Diagnostico-Office-{0}.zip" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+    foreach ($f in @(Get-ChildItem -LiteralPath $stage -Recurse -File -ErrorAction SilentlyContinue)) {
+        if ($f.Extension -notin @('.log', '.txt', '.xml')) { continue }
+        try {
+            $txt = [IO.File]::ReadAllText($f.FullName)
+            [IO.File]::WriteAllText($f.FullName, (Protect-StPrivacy $txt), [Text.Encoding]::UTF8)
+        } catch { }
+    }
+    # Los registros de Microsoft llevan el nombre del equipo en el nombre del archivo.
+    foreach ($f in @(Get-ChildItem -LiteralPath $stage -Recurse -File -ErrorAction SilentlyContinue)) {
+        $nn = Protect-StPrivacy $f.Name
+        if ($nn -ne $f.Name) { try { Rename-Item -LiteralPath $f.FullName -NewName ($nn -replace '[<>]', '') -ErrorAction Stop } catch { } }
+    }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
-    [System.IO.Compression.ZipFile]::CreateFromDirectory($LogDir, $zip)
+    [System.IO.Compression.ZipFile]::CreateFromDirectory($stage, $zip)
+    Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
     return $zip
 }
 
@@ -1429,7 +1501,7 @@ $St = @{
     EngineText  = $StEngine.ToString()
     UI          = @{}
     Jobs        = New-Object System.Collections.ArrayList
-    Sync        = [hashtable]::Synchronized(@{ Steps = [hashtable]::Synchronized(@{}); Detail = ''; LogFile = $null })
+    Sync        = [hashtable]::Synchronized(@{ Steps = [hashtable]::Synchronized(@{}); Detail = ''; LogFile = $null; Details = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList)); DemoInstalled = @(); PrevSession = $null })
     StepRows    = @{}
     StepOrder   = @()
     Pages       = @('Home', 'Data', 'Confirm', 'Progress', 'Done', 'Error', 'Tutorial')
@@ -1453,7 +1525,13 @@ $St = @{
     PendingVoice = $null
 }
 $sync = $St.Sync
+$St.LowEnd = $null
 if (-not [System.Windows.SystemParameters]::ClientAreaAnimation) { $St.NoAnim = $true }
+elseif ($StMode -in @('app', 'demo')) {
+    # Equipos modestos: sin animaciones para que la app se sienta fluida.
+    $St.LowEnd = Test-StLowEndPc
+    if ($St.LowEnd.Low) { $St.NoAnim = $true }
+}
 
 # ----- Estilos compartidos (ventana principal y ventanas emergentes) -------------------
 $StResXaml = @'
@@ -1794,6 +1872,9 @@ $StWindowXaml = @'
           </Grid>
           <Border Width="1" Height="24" Background="#2A3C57" Margin="18,0"/>
           <TextBlock Text="Instalador de Office" Foreground="#DBE5F1" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center"/>
+          <Border x:Name="DemoBadge" Visibility="Collapsed" Margin="16,0,0,0" CornerRadius="10" Background="#26F59E0B" BorderBrush="#F59E0B" BorderThickness="1.5" Padding="12,4" VerticalAlignment="Center">
+            <TextBlock Text="MODO DEMOSTRACIÓN · no instala ni cambia nada" Foreground="#FCD34D" FontSize="15" FontWeight="Bold"/>
+          </Border>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
           <Button x:Name="BtnSound" Style="{StaticResource BtnSolid}" Background="#059669" MinHeight="48" Padding="16,6" FontSize="16" Margin="0,0,10,0" WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Activa o apaga los sonidos y la voz de SafeBOT">
@@ -2120,6 +2201,13 @@ $StWindowXaml = @'
             <StackPanel Margin="0,0,36,0">
               <TextBlock x:Name="TxtProgTitle" Style="{StaticResource H1}" FontSize="30" Text="Instalando Office"/>
               <TextBlock x:Name="TxtProgDetail" Style="{StaticResource Lead}" FontSize="19" Text="Preparando..." MinHeight="54"/>
+              <Border x:Name="StillWorking" Visibility="Collapsed" CornerRadius="12" Background="#17243A" BorderBrush="#405776" BorderThickness="1" Padding="14,10" Margin="0,8,0,0">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <TextBlock Text="&#xE916;" FontFamily="{StaticResource Icons}" FontSize="18" Foreground="#93C5FD" Margin="0,2,12,0"/>
+                  <TextBlock x:Name="TxtStillWorking" Grid.Column="1" Foreground="#DBE5F1" FontSize="16" TextWrapping="Wrap" LineHeight="23"/>
+                </Grid>
+              </Border>
               <Grid Margin="0,14,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <Border x:Name="ProgTrack" Height="14" CornerRadius="7" Background="#20304A" VerticalAlignment="Center">
@@ -2128,6 +2216,14 @@ $StWindowXaml = @'
                 <TextBlock x:Name="TxtProgCount" Grid.Column="1" Style="{StaticResource Small}" FontSize="16" Margin="16,0,0,0" VerticalAlignment="Center" Text=""/>
               </Grid>
               <StackPanel x:Name="StackSteps" Margin="0,18,0,0"/>
+              <StackPanel x:Name="PanelDetailLog" Visibility="Collapsed" Margin="0,6,0,0">
+                <Button x:Name="BtnDetailLog" Style="{StaticResource BtnLink}" HorizontalAlignment="Left" Content="Ver detalle de lo que se está quitando"/>
+                <Border x:Name="DetailLogBox" Visibility="Collapsed" CornerRadius="12" Background="#0C1626" BorderBrush="#2A3C57" BorderThickness="1" Padding="12,10" Margin="0,6,0,0">
+                  <ScrollViewer x:Name="DetailLogScroll" MaxHeight="170" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <TextBlock x:Name="TxtDetailLog" FontFamily="Consolas, Cascadia Mono" FontSize="13" Foreground="#AEBDD0" TextWrapping="Wrap"/>
+                  </ScrollViewer>
+                </Border>
+              </StackPanel>
               <Border x:Name="PanelTutorialPromo" Style="{StaticResource Panel}" Margin="0,10,0,0" Padding="20,14" Visibility="Collapsed">
                 <Grid>
                   <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -2562,6 +2658,55 @@ function Initialize-StLogs {
     $St.LogDir = $dir
     $St.Sync.LogFile = Join-Path $dir 'proceso.log'
     Write-StLog "Instalador SafeTech v$($StConfig.Version) iniciado. Windows $([Environment]::OSVersion.Version)."
+    if ($St.Sync.PrevSession) { Write-StLog "Sesion anterior: $($St.Sync.PrevSession)" }
+    if ($St.LowEnd -and $St.LowEnd.Low) { Write-StLog "Equipo modesto ($(@($St.LowEnd.Reasons) -join ', ')): sin animaciones." }
+    if ($StMode -eq 'demo') { Write-StLog 'MODO DEMOSTRACION: no se instala ni se cambia nada.' }
+}
+
+function Get-StSessionFile { return (Join-Path $StConfig.DataDir 'sesion-abierta.json') }
+
+function Start-StSessionMark {
+    # Si quedó la marca de la vez anterior, el instalador no se cerró bien: se anota para soporte.
+    if ($St.SelfTest) { return }
+    $f = Get-StSessionFile
+    try {
+        if (Test-Path -LiteralPath $f) {
+            $prev = Get-Content -LiteralPath $f -Raw -Encoding UTF8 | ConvertFrom-Json
+            $boot = $null
+            try { $boot = (Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime } catch { }
+            $kind = Get-StPrevSessionKind -MarkTime ((Get-Item -LiteralPath $f).LastWriteTime) -BootTime $boot
+            $St.PrevSession = @{ Kind = $kind; Busy = [bool]$prev.Busy; Step = [string]$prev.Step; Mode = [string]$prev.Mode; Version = [string]$prev.Version }
+            $St.Sync.PrevSession = ('{0} (v{1}, modo {2}, paso {3}, trabajando: {4})' -f $(if ($kind -eq 'reinicio') { 'el PC se reinició o apagó con el instalador abierto' } else { 'el instalador se cerró de forma inesperada' }), $prev.Version, $prev.Mode, $prev.Step, [bool]$prev.Busy)
+        }
+    } catch { }
+    $St.SessionStarted = $true
+    Update-StSessionMark
+}
+
+function Update-StSessionMark {
+    # No escribe hasta haber leído la marca de la vez anterior (si no, se perdería).
+    if ($St.SelfTest -or -not $St.SessionStarted) { return }
+    try {
+        New-Item -ItemType Directory -Force -Path $StConfig.DataDir | Out-Null
+        $running = $null
+        foreach ($id in @($St.StepOrder)) { if ($St.Sync.Steps[$id] -eq 'running') { $running = $id; break } }
+        $o = @{ Version = $StConfig.Version; Mode = $St.Mode; Step = $(if ($running) { $running } else { $St.CurrentPage }); Busy = [bool]$St.Busy }
+        [IO.File]::WriteAllText((Get-StSessionFile), ($o | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding($false)))
+    } catch { }
+}
+
+function Stop-StSessionMark {
+    if ($St.SelfTest) { return }
+    try { Remove-Item -LiteralPath (Get-StSessionFile) -Force -ErrorAction Stop } catch { }
+}
+
+function Show-StPrevSessionNotice {
+    # Solo si la vez anterior se cortó mientras trabajaba (instalando, activando o desinstalando).
+    $p = $St.PrevSession
+    if (-not $p -or -not $p.Busy) { return }
+    $why = $(if ($p.Kind -eq 'reinicio') { 'El computador se reinició o se apagó mientras el instalador trabajaba.' } else { 'La vez anterior el instalador se cerró antes de terminar.' })
+    $what = $(if ($p.Mode -eq 'uninstall') { 'Si Office quedó a medio desinstalar, vuelve a elegir «Desinstalar Office por completo».' } else { 'Si Office quedó a medias, vuelve a elegir tu producto: el instalador revisa lo que hay y lo deja bien.' })
+    [void](Show-StDialog -Kind 'info' -Kicker 'Una cosa antes de empezar' -Title 'No te preocupes, se puede retomar' -Message "$why $what`n`nSi vuelve a pasar, escríbenos por WhatsApp." -Buttons @('Entendido'))
 }
 
 function Show-StPage {
@@ -2570,6 +2715,7 @@ function Show-StPage {
     $el = $St.UI["Page$Name"]
     $el.Visibility = 'Visible'
     $St.CurrentPage = $Name
+    Update-StSessionMark
     Invoke-StBotAction -Action $(if ($Name -eq 'Done') { 'happy' } else { 'normal' })
     Update-StGuide -Page $Name
     if ($Name -eq 'Data') { Invoke-StCue 'datos' }
@@ -3414,9 +3560,43 @@ function Update-StStepLayout {
 function Set-StUiStep {
     param([string]$Id, [string]$State, [string]$Detail)
     $St.Sync.Steps[$Id] = $State
+    Update-StSessionMark
     if ($Detail) { $St.Sync.Detail = $Detail }
     Update-StStepRow $Id $State
     if ($Detail) { $St.UI.TxtProgDetail.Text = $Detail }
+}
+
+function Update-StStillWorking {
+    # Si un paso pasa más de un minuto sin cambios, se explica que sigue trabajando y que es normal.
+    $running = $null
+    foreach ($id in @($St.StepOrder)) { if ($St.Sync.Steps[$id] -eq 'running') { $running = $id; break } }
+    $sig = "$running|$($St.Sync.Detail)"
+    if ($sig -ne $St.StillSig) { $St.StillSig = $sig; $St.StillSince = Get-Date; $St.StillLogged = $false }
+    $quiet = $(if ($St.StillSince) { ((Get-Date) - $St.StillSince).TotalSeconds } else { 0 })
+    if (-not $St.Busy -or -not $running -or $quiet -lt 60) { $St.UI.StillWorking.Visibility = 'Collapsed'; return }
+    $min = [int][Math]::Floor($quiet / 60)
+    $lleva = $(if ($min -eq 1) { '1 minuto' } else { "$min minutos" })
+    $St.UI.TxtStillWorking.Text = switch ($running) {
+        'install' { "Microsoft sigue descargando e instalando Office (lleva $lleva en este paso). Es normal que tarde: el avance se ve en la ventana de Microsoft. No cierres el instalador." }
+        'u_remove' { "Sigue desinstalando (lleva $lleva en este paso). Puede tardar unos minutos más. No apagues el computador." }
+        default { "Sigue trabajando (lleva $lleva sin cambios). Algunos pasos de Windows tardan; no cierres el instalador." }
+    }
+    $St.UI.StillWorking.Visibility = 'Visible'
+    if ($quiet -ge 300 -and -not $St.StillLogged) {
+        $St.StillLogged = $true
+        Write-StLog "Paso lento: '$running' lleva $min min sin cambios."
+    }
+}
+
+function Update-StDetailLog {
+    $d = $St.Sync.Details
+    if ($null -eq $d) { return }
+    $n = $d.Count
+    if ($n -eq $St.DetailShown) { return }
+    $St.DetailShown = $n
+    $lines = @($d.ToArray() | Select-Object -Last 300)
+    $St.UI.TxtDetailLog.Text = ($lines -join "`n")
+    $St.UI.DetailLogScroll.ScrollToEnd()
 }
 
 function Update-StProgressUi {
@@ -3425,6 +3605,8 @@ function Update-StProgressUi {
         if ($state) { Update-StStepRow $id $state }
     }
     if ($St.Sync.Detail -and $St.UI.TxtProgDetail.Text -ne $St.Sync.Detail) { $St.UI.TxtProgDetail.Text = $St.Sync.Detail }
+    Update-StStillWorking
+    Update-StDetailLog
     $slow = $false
     foreach ($id in $StSlowSteps.Keys) { if ($St.Sync.Steps[$id] -eq 'running') { $slow = $true } }
     if ($slow -and ((Get-Date) - $St.LastCreep).TotalSeconds -ge 5) {
@@ -3662,6 +3844,7 @@ function Start-StInstallFlow {
     $ids = @('check', 'restore', 'download', 'clean', 'remove', 'install', 'verify')
     if ($p.NeedsKey) { $ids += @('act_key', 'act_iid', 'act_cid', 'act_confirm') } else { $ids += 'account' }
     Initialize-StSteps $ids
+    $St.UI.PanelDetailLog.Visibility = 'Collapsed'
     $St.UI.TxtWhile.Text = 'No apagues ni reinicies el computador. Verás una ventana de Microsoft con el avance: cuando diga «¡Hemos terminado!», presiona «Cerrar» o espera, la cerramos por ti.'
     $St.UI.TxtProgTitle.Text = "Instalando $($p.Name)"
     $St.UI.TxtProgDetail.Text = 'Preparando...'
@@ -3853,7 +4036,9 @@ $StAboutSections = @(
     @{ Icon = [char]0xE8B7; Color = '#FCD34D'; Title = 'Qué cambia en tu computador'
        Text = 'Antes de empezar se crea un **punto de restauración de Windows**. Se desinstalan las versiones anteriores de Office para evitar conflictos. **Tus documentos y archivos personales no se tocan.** Al terminar no queda ningún programa de SafeTech funcionando en segundo plano; solo un registro del proceso en C:\ProgramData\SafeTech.' },
     @{ Icon = [char]0xE7EF; Color = '#AEBDD0'; Title = '¿Por qué pide permisos de administrador?'
-       Text = 'Instalar o desinstalar Office y registrar su licencia siempre requiere permisos de administrador, también cuando lo haces a mano. Por eso Windows te pregunta si permites los cambios.' }
+       Text = 'Instalar o desinstalar Office y registrar su licencia siempre requiere permisos de administrador, también cuando lo haces a mano. Por eso Windows te pregunta si permites los cambios.' },
+    @{ Icon = [char]0xE7BA; Color = '#FCD34D'; Title = 'Si Windows o tu antivirus muestran un aviso'
+       Text = 'El aviso «Windows protegió su PC» significa **«no conozco a este autor»**, no «encontré un virus»: aparece con programas que no tienen una firma digital de pago. Los antivirus también pueden desconfiar porque el instalador descarga, desinstala y registra licencias, igual que haría un técnico. Puedes comprobar el archivo tú mismo con su huella SHA-256 y en VirusTotal: lo explicamos en «¿Windows o tu antivirus avisan?», abajo. **Nunca desactives tu antivirus**: si te bloquea, escríbenos.' }
 )
 
 $StWelcomeCards = @(
@@ -3940,9 +4125,26 @@ function Show-StAboutDetails {
         Set-StRichText -Target $row.FindName('Txt') -Text $sec.Text
         [void]$list.Children.Add($row)
     }
-    $r = Show-StDialog -Kind 'info' -Title 'Detalles técnicos' -Message '' -Extra $panel -Buttons @('Cerrar', 'Ver el código en GitHub') -Width 760
+    $r = Show-StDialog -Kind 'info' -Title 'Detalles técnicos' -Message '' -Extra $panel -Buttons @('Cerrar', 'Ver el código en GitHub') -Width 760 `
+        -LinkLabel '¿Windows o tu antivirus avisan?'
     if ($St.SelfTest) { return $r }
     if ($r -eq 'Ver el código en GitHub') { Open-StUnelevated "https://github.com/$($StConfig.Repo)" }
+    if ($r -eq '¿Windows o tu antivirus avisan?') { Open-StUnelevated "https://github.com/$($StConfig.Repo)/blob/main/docs/SI-WINDOWS-TE-AVISA.md" }
+}
+
+function Confirm-StReportContents {
+    # Antes de crear el informe, el cliente ve qué contiene y qué se oculta.
+    $panel = New-StXamlElement @'
+<StackPanel Margin="0,4,0,0">
+  <TextBlock Foreground="#DBE5F1" FontSize="17" FontWeight="SemiBold" Text="Incluye:"/>
+  <TextBlock Foreground="#C9D5E3" FontSize="16" TextWrapping="Wrap" Margin="0,4,0,10" Text="El registro de lo que hizo el instalador, la versión de Windows, el espacio libre, qué Office hay instalado, el estado de las licencias y los registros de instalación de Microsoft."/>
+  <TextBlock Foreground="#6EE7B7" FontSize="17" FontWeight="SemiBold" Text="Se oculta:"/>
+  <TextBlock Foreground="#C9D5E3" FontSize="16" TextWrapping="Wrap" Margin="0,4,0,10" Text="Tu clave de producto (solo quedan los 5 últimos caracteres), tu código SafeTech, tu nombre de usuario de Windows, el nombre del computador y cualquier correo electrónico."/>
+  <TextBlock Foreground="#AEBDD0" FontSize="15" TextWrapping="Wrap" Text="No incluye tus documentos, fotos ni contraseñas. El archivo queda en tu Escritorio y solo se envía si tú lo mandas."/>
+</StackPanel>
+'@
+    $c = Show-StDialog -Kind 'info' -Kicker 'Informe para soporte' -Title '¿Qué lleva el informe?' -Message '' -Extra $panel -Buttons @('Cancelar', 'Crear el informe') -Primary 'Crear el informe' -Width 700
+    return ($c -eq 'Crear el informe')
 }
 
 function Show-StManualActivation {
@@ -4123,11 +4325,12 @@ function Show-StUninstallConfirm {
 }
 
 function Set-StUninstallDone {
-    param([int]$Leftovers)
+    param([int]$Leftovers, [int]$Removed = 0)
     $St.UI.TxtDoneTitle.Text = 'Listo: Office quedó desinstalado'
     $St.UI.TxtDoneText.Text = $(if ($Leftovers -gt 0) { 'Reinicia el computador para terminar de borrar algunos archivos que estaban en uso.' } else { 'No quedó nada de Office en este computador. Te recomendamos reiniciar antes de instalarlo de nuevo.' })
     Set-StDoneList @('E74D|Office **desinstalado** (todas las versiones)', 'E8D7|Licencias y cuentas de Office **quitadas**', 'E8B7|Tus documentos y correos **intactos**', 'E777|Reinicia antes de volver a instalar')
     $St.UI.TxtDoneNote.Text = 'Para instalar de nuevo, abre otra vez el instalador de SafeTech después de reiniciar.'
+    if ($Removed -gt 0) { $St.UI.TxtDoneNote.Text = "Se quitaron $Removed carpetas, claves y tareas de Office. " + $St.UI.TxtDoneNote.Text }
 }
 
 function Start-StDeepUninstall {
@@ -4139,6 +4342,8 @@ function Start-StDeepUninstall {
     $St.Mode = 'uninstall'
     $St.Product = @{ Id = 'uninstall'; Name = 'Office'; Year = ''; NeedsKey = $false }
     Initialize-StSteps @('u_prepare', 'u_close', 'u_licenses', 'u_remove', 'u_cleanup', 'u_verify')
+    $St.Sync.Details.Clear(); $St.DetailShown = -1
+    $St.UI.PanelDetailLog.Visibility = 'Visible'
     $St.UI.TxtWhile.Text = 'No apagues ni reinicies el computador hasta que termine. Si tienes documentos abiertos en Word o Excel, guárdalos antes: los cerraremos.'
     $St.UI.TxtProgTitle.Text = 'Desinstalando Office'
     $St.UI.TxtProgDetail.Text = 'Preparando...'
@@ -4166,7 +4371,8 @@ function Start-StDeepUninstall {
             return
         }
         Set-StProgStamp -Text 'LIMPIO' -Kind 'done' -Animate
-        Set-StUninstallDone -Leftovers @($r.Leftovers).Count
+        $removed = @($St.Sync.Details.ToArray() | Where-Object { $_ -match '  (Borrado|Tarea programada borrada|Servicio eliminado)' }).Count
+        Set-StUninstallDone -Leftovers @($r.Leftovers).Count -Removed $removed
         Show-StDonePage -Stamp 'LIMPIO'
     }
 }
@@ -4623,11 +4829,11 @@ $St.VoiceTimer.Add_Tick({ $St.VoiceTimer.Stop(); Start-StVoice $St.PendingVoice 
 Set-StSound -On (-not (Test-Path -LiteralPath (Join-Path $StConfig.DataDir 'sonido-apagado')))
 
 # Descarga en segundo plano los sonidos, la voz y las imagenes del tutorial
-if (-not $env:SAFETECH_OFFICE_ASSETS -and $StMode -eq 'app') {
+if (-not $env:SAFETECH_OFFICE_ASSETS -and $StMode -in @('app', 'demo')) {
     $assetList = @(Get-StCueAssets) + @($StTutorial | Where-Object { $_.Image } | ForEach-Object { @($_.Image) })
     Start-StAsync -Params @{ Paths = $assetList; Cache = $St.CacheDir } -Work { Save-StAssets -Paths $P.Paths -CacheDir $P.Cache }
 }
-if ($StMode -eq 'app') {
+if ($StMode -in @('app', 'demo')) {
     Start-StAsync -Work { Get-StSignInIssues } -OnDone { param($ok, $r, $err) if ($ok) { $St.SignInIssues = @($r) } }
 }
 
@@ -4641,6 +4847,7 @@ $St.Window.Add_ContentRendered({
     if ($St.SelfTest -or $St.AboutShown) { return }
     $St.AboutShown = $true
     Show-StAbout -Welcome
+    Show-StPrevSessionNotice
 })
 $ui.BtnClose.Add_Click({ $St.Window.Close() })
 $ui.BtnHelpCenter.Add_Click({ Open-StUnelevated $StConfig.HelpUrl })
@@ -4757,11 +4964,18 @@ $ui.BtnTutNext.Add_Click({
 
 $ui.BtnDoneWord.Add_Click({ if ($St.Mode -eq 'uninstall') { Restart-StComputer } else { [void](Open-StWord) } })
 $ui.BtnDeepUninstall.Add_Click({ Start-StDeepUninstall })
+$ui.BtnDetailLog.Add_Click({
+    $open = $St.UI.DetailLogBox.Visibility -ne 'Visible'
+    $St.UI.DetailLogBox.Visibility = $(if ($open) { 'Visible' } else { 'Collapsed' })
+    $St.UI.BtnDetailLog.Content = $(if ($open) { 'Ocultar el detalle' } else { 'Ver detalle de lo que se está quitando' })
+    if ($open) { $St.UI.DetailLogScroll.ScrollToEnd() }
+})
 $ui.BtnDoneClose.Add_Click({ $St.Window.Close() })
 $ui.BtnErrHome.Add_Click({ $St.Busy = $false; Show-StPage 'Home' })
 $ui.BtnErrRetry.Add_Click({ if ($St.ErrRetry) { & $St.ErrRetry } })
 $ui.BtnErrZip.Add_Click({
     Initialize-StLogs
+    if (-not (Confirm-StReportContents)) { return }
     $St.UI.BtnErrZip.IsEnabled = $false
     Start-StAsync -Params @{ Dir = $St.LogDir } -Work { New-StDiagnosticZip -LogDir $P.Dir } -OnDone {
         param($ok, $zip, $err)
@@ -4777,6 +4991,7 @@ $ui.BtnErrZip.Add_Click({
 
 $ui.BtnErrWa.Add_Click({
     Initialize-StLogs
+    if (-not (Confirm-StReportContents)) { return }
     $St.UI.BtnErrWa.IsEnabled = $false
     $name = $(if ($St.Product) { $St.Product.Name } else { 'Office' })
     $St.WaProduct = $name
@@ -4804,9 +5019,10 @@ $St.Window.Add_Closing({
             -Message $busyMsg `
             -Buttons @('Seguir esperando', 'Cerrar de todas formas')
         if ($c -ne 'Cerrar de todas formas') { $e.Cancel = $true }
+        else { try { Initialize-StLogs; Write-StLog "El cliente cerró el instalador mientras trabajaba (modo $($St.Mode))." } catch { } }
     }
 })
-$St.Window.Add_Closed({ try { $St.Timer.Stop() } catch { } })
+$St.Window.Add_Closed({ try { $St.Timer.Stop() } catch { }; Stop-StSessionMark })
 
 $St.Timer = New-Object System.Windows.Threading.DispatcherTimer
 $St.Timer.Interval = [TimeSpan]::FromMilliseconds(200)
@@ -4944,12 +5160,19 @@ if ($StMode -eq 'selftest') {
     Initialize-StSteps @('u_prepare', 'u_close', 'u_licenses', 'u_remove', 'u_cleanup', 'u_verify')
     foreach ($id in @('u_prepare', 'u_close', 'u_licenses')) { Set-StUiStep $id 'done' }
     Set-StUiStep 'u_remove' 'running' 'Desinstalando Microsoft 365 Apps para empresas. No apagues el computador...'
+    $St.UI.PanelDetailLog.Visibility = 'Visible'; $St.UI.DetailLogBox.Visibility = 'Visible'
+    $St.Sync.Details.Clear(); $St.DetailShown = -1
+    foreach ($x in @('Clave de Office retirada (terminada en UVW12)', 'Desinstalando con la herramienta de Microsoft: Microsoft 365', 'Borrado: C:\Program Files\Microsoft Office')) { [void]$St.Sync.Details.Add("10:42:0" + $St.Sync.Details.Count + "  $x") }
+    Update-StDetailLog
+    $St.UI.TxtStillWorking.Text = 'Sigue desinstalando (lleva 2 minutos en este paso). Puede tardar unos minutos más. No apagues el computador.'
+    $St.UI.StillWorking.Visibility = 'Visible'
     $St.UI.TxtProgTitle.Text = 'Desinstalando Office'
     $St.UI.TxtElapsedNote.Text = 'Suele tardar entre 5 y 20 minutos.'
     $St.UI.TxtWhile.Text = 'No apagues ni reinicies el computador hasta que termine. Si tienes documentos abiertos en Word o Excel, guárdalos antes: los cerraremos.'
     $St.UI.PanelTutorialPromo.Visibility = 'Collapsed'
     Set-StProgStamp -Text 'PENDIENTE' -Kind 'pending'
     Show-StPage 'Progress'; Save-StShotAt '14-desinstalar-avance'
+    $St.UI.StillWorking.Visibility = 'Collapsed'; $St.UI.PanelDetailLog.Visibility = 'Collapsed'
     Set-StUninstallDone -Leftovers 0
     Show-StDonePage -Stamp 'LIMPIO'; Save-StShotAt '15-desinstalar-listo'
     $St.Mode = 'install'; $St.Product = Get-StProduct '2024'
@@ -5006,10 +5229,96 @@ if ($StMode -eq 'selftest') {
 }
 
 # ==============================================================================
+#  Modo demostración ($env:SAFETECH_OFFICE_MODE = 'demo')
+#  La interfaz completa con pasos simulados: no pide administrador, no descarga
+#  Office, no toca licencias ni desinstala nada. Sirve para probar y mostrar la app.
+# ==============================================================================
+$StDemoEngine = {
+function Invoke-StDemoSteps {
+    param([object[]]$Steps)
+    foreach ($s in $Steps) {
+        if ($s[2] -lt 0) { Set-StStep $s[0] 'skip'; continue }
+        Set-StStep $s[0] 'running' $s[1]
+        Start-Sleep -Seconds $s[2]
+        Set-StStep $s[0] 'done'
+    }
+}
+function Invoke-StInstall {
+    param([string]$ProductId, [string]$WorkDir)
+    $prod = Get-StProduct $ProductId
+    Write-StLog "DEMO: instalación simulada de $($prod.FullName)"
+    Invoke-StDemoSteps @(
+        @('check', 'Revisando Windows, el espacio libre y la conexión con Microsoft...', 2),
+        @('restore', 'Creando un punto de restauración de Windows. Puede tardar unos minutos...', 3),
+        @('download', 'Descargando la herramienta oficial de Microsoft...', 2),
+        @('clean', 'Cerrando Word, Excel y los demás programas de Office...', 1),
+        @('remove', '', -1),
+        @('install', (Get-StInstallHint -ProductId $ProductId), 20),
+        @('verify', 'Comprobando que Office quedó instalado...', 2))
+    $now = @($sync['DemoInstalled'])
+    if ($now -notcontains $ProductId) { $sync['DemoInstalled'] = @($now + $ProductId) }
+    return [pscustomobject]@{ Ok = $true; Edition = '64' }
+}
+function Invoke-StActivateKey {
+    param([string]$ProductId, [string]$Key)
+    Start-Sleep -Seconds 2
+    Set-StStep 'act_key' 'running' 'Probando la activación en línea...'
+    Start-Sleep -Seconds 2
+    return [pscustomobject]@{ Result = 'phone'; Message = ''; ErrorCode = '0xC004C020'; LicenseName = 'Demo' }
+}
+function Get-StInstallationId { param([string]$ProductId, [string]$Key) Start-Sleep -Seconds 2; return ('1234567' * 9) }
+function Request-StCid { param([string]$Code, [string]$Iid) Start-Sleep -Seconds 3; return [pscustomobject]@{ Ok = $true; Cid = ('123456' * 8); Kind = ''; Message = '' } }
+function Confirm-StActivation { param([string]$ProductId, [string]$Key, [string]$Cid) Start-Sleep -Seconds 2; return [pscustomobject]@{ Ok = $true; Message = ''; ErrorCode = $null } }
+function Test-StCodeOnline { param([string]$Code) Start-Sleep -Milliseconds 600; return [pscustomobject]@{ Valid = $true; Remaining = 3 } }
+function Get-StSignInIssues { return @() }
+function Invoke-StDeepUninstall {
+    param([string]$WorkDir)
+    Write-StLog 'DEMO: desinstalación simulada'
+    Invoke-StDemoSteps @(@('u_prepare', 'Creando un punto de restauración de Windows. Puede tardar unos minutos...', 3), @('u_close', 'Cerrando Word, Excel y los demás programas de Office...', 1))
+    Set-StStep 'u_licenses' 'running' 'Quitando licencias y cuentas conectadas a Office...'
+    Add-StDetail 'Clave de Office retirada (terminada en DEMO5)'; Add-StDetail 'Cuenta de Office quitada del Administrador de credenciales: MicrosoftOffice16_Data'
+    Start-Sleep -Seconds 2; Set-StStep 'u_licenses' 'done'
+    Set-StStep 'u_remove' 'running' 'Desinstalando Office 2024 (ejemplo). No apagues el computador...'
+    Add-StDetail 'Desinstalando con la herramienta de Microsoft: Office 2024 (ejemplo)'
+    Start-Sleep -Seconds 8; Set-StStep 'u_remove' 'done'
+    Set-StStep 'u_cleanup' 'running' 'Borrando restos: carpetas, registro, tareas y accesos directos...'
+    foreach ($x in @('Servicio eliminado: ClickToRunSvc', 'Tarea programada borrada: \Microsoft\Office\Office Automatic Updates 2.0',
+                     'Borrado: C:\Program Files\Microsoft Office', 'Borrado: C:\Program Files\Common Files\microsoft shared\ClickToRun',
+                     'Borrado: C:\ProgramData\Microsoft\ClickToRun', 'Borrado: HKLM:\SOFTWARE\Microsoft\Office\ClickToRun',
+                     'Borrado: HKLM:\SOFTWARE\Microsoft\Office\16.0')) { Add-StDetail $x; Start-Sleep -Milliseconds 500 }
+    Set-StStep 'u_cleanup' 'done'
+    Invoke-StDemoSteps @(, @('u_verify', 'Comprobando que no quedó nada de Office...', 1))
+    $sync['DemoInstalled'] = @()
+    return [pscustomobject]@{ Ok = $true; Removed = 'Office 2024 (ejemplo)'; Leftovers = @() }
+}
+}
+if ($StMode -eq 'demo') {
+    $St.EngineText += "`n" + $StDemoEngine.ToString()
+    function Get-StOfficeState {
+        $map = @{ '2024' = 'ProPlus2024Volume'; '2021' = 'ProPlus2021Retail'; '365' = 'O365ProPlusRetail' }
+        $ids = @(@($St.Sync.DemoInstalled) | Where-Object { $_ } | ForEach-Object { $map[$_] })
+        return [pscustomobject]@{
+            C2RIds = $ids; MsiNames = @(); Platform = 'x64'; Version = '16.0 (demo)'; HasAny = ($ids.Count -gt 0)
+            Has365 = [bool](@($ids | Where-Object { $_ -match '^O365' }).Count); Friendly = @($ids | ForEach-Object { Get-StFriendlyName $_ })
+        }
+    }
+    function Test-StM365License { return $true }
+    function Open-StWord { [void](Show-StDialog -Kind 'info' -Kicker 'Modo demostración' -Title 'Aquí se abriría Word' -Message 'En la app real se abre Word para iniciar sesión o comprobar la licencia.' -Buttons @('Entendido')); return $true }
+    function Restart-StComputer { [void](Show-StDialog -Kind 'info' -Kicker 'Modo demostración' -Title 'Aquí se reiniciaría el computador' -Message 'En la app real, Windows se reinicia en 5 segundos.' -Buttons @('Entendido')) }
+    $St.UI.DemoBadge.Visibility = 'Visible'
+    $St.Window.Title = 'SafeTech - Instalador de Office (DEMOSTRACIÓN)'
+    # Datos de ejemplo para no tener que escribirlos.
+    $St.UI.InKey.Text = 'DEMO1-DEMO2-DEMO3-DEMO4-DEMO5'
+    $St.UI.InCode.Text = 'ST-DEMO01'
+    Write-Host '  SafeTech - Instalador de Office: MODO DEMOSTRACIÓN (no instala ni cambia nada).' -ForegroundColor Yellow
+}
+
+# ==============================================================================
 #  Inicio
 # ==============================================================================
+Start-StSessionMark
 try {
-    $hwnd = (Get-Process -Id $PID).MainWindowHandle
+    $hwnd = $(if ($StMode -eq 'demo') { [IntPtr]::Zero } else { (Get-Process -Id $PID).MainWindowHandle })
     if ($hwnd -ne [IntPtr]::Zero) {
         Add-Type -Namespace StWin -Name Native -MemberDefinition '[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);' -ErrorAction SilentlyContinue
         [void][StWin.Native]::ShowWindow($hwnd, 0)

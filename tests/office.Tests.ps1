@@ -504,3 +504,40 @@ Describe 'Desinstalación profunda' {
         { Get-StOfficeLeftovers } | Should -Not -Throw
     }
 }
+
+Describe 'Informe para soporte' {
+    It 'Oculta usuario, equipo, correos, clave y código' {
+        $t = 'C:\Users\maria\AppData\Temp\OFICINA-PC-20261124.log cuenta: cliente@ejemplo.cl clave ABCDE-FGHIJ-KLMNO-PQRST-UVW12 codigo ST-AB12CD'
+        $r = Protect-StPrivacy $t -UserName 'maria' -ComputerName 'OFICINA-PC'
+        $r | Should -Not -Match 'maria'
+        $r | Should -Not -Match 'OFICINA-PC'
+        $r | Should -Not -Match 'cliente@'
+        $r | Should -Match '<usuario>'
+        $r | Should -Match '<equipo>'
+        $r | Should -Match '<correo>'
+        $r | Should -Match 'XXXXX-XXXXX-XXXXX-XXXXX-UVW12'
+        $r | Should -Not -Match 'AB12CD'
+    }
+    It 'Solo reemplaza palabras completas' {
+        Protect-StPrivacy 'MiPC PCI PC' -UserName 'zz' -ComputerName 'PC' | Should -Be 'MiPC PCI <equipo>'
+    }
+}
+
+Describe 'Sesión anterior' {
+    It 'Distingue un reinicio del PC de un cierre del instalador' {
+        $mark = Get-Date '2026-11-24 10:00'
+        Get-StPrevSessionKind -MarkTime $mark -BootTime (Get-Date '2026-11-24 10:05') | Should -Be 'reinicio'
+        Get-StPrevSessionKind -MarkTime $mark -BootTime (Get-Date '2026-11-24 08:00') | Should -Be 'cierre'
+        Get-StPrevSessionKind -MarkTime $mark -BootTime $null | Should -Be 'cierre'
+    }
+}
+
+Describe 'Equipo modesto y detalle en vivo' {
+    It 'Revisa el equipo sin fallar' {
+        $r = Test-StLowEndPc
+        $r.Low | Should -BeOfType [bool]
+    }
+    It 'Anotar un detalle funciona sin la pantalla de avance' {
+        { Add-StDetail 'Prueba' } | Should -Not -Throw
+    }
+}

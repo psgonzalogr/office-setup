@@ -17,6 +17,8 @@ irm https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1 |
 
 Alternativa sin consola: descargar [`Instalar-Office-SafeTech.cmd`](https://github.com/psgonzalogr/office-setup/releases/latest/download/Instalar-Office-SafeTech.cmd) y abrirlo con doble clic. Muestra lo que está haciendo y, si algo falla (por ejemplo, sin Internet), deja el mensaje en pantalla.
 
+> **¿Windows dice «Windows protegió su PC» o tu antivirus avisa?** Es normal: el archivo no tiene una firma digital de pago. Pulsa **Más información → Ejecutar de todas formas**. [Aquí explicamos por qué pasa y cómo comprobar que el archivo es el original](docs/SI-WINDOWS-TE-AVISA.md) (huella SHA-256 en cada release y VirusTotal).
+
 Al abrirse aparece la bienvenida «Así funciona este instalador» (4 mensajes cortos: Office original, nada pirata, se activa con tu código, tus archivos no se tocan).
 
 ## Qué hace
@@ -69,6 +71,8 @@ Botón «Desinstalar Office por completo» en la pantalla de inicio (franja «¿
 5. Borra los restos: servicio `ClickToRunSvc`, tareas `\Microsoft\Office\`, accesos directos que apuntan a Office, carpetas (`Microsoft Office`, `microsoft shared\ClickToRun`, `OFFICE15/16`, `ProgramData\Microsoft\ClickToRun` y `\Office`), registro de máquina (`Office\ClickToRun`, `Office\15.0/16.0`, `AppVISV`, `OfficeSoftwareProtectionPlatform`) y, por usuario, solo licencias, identidad y registro de Office.
 6. Comprueba que no quedó nada. Si algo estaba en uso, pide reiniciar.
 
+En la pantalla de avance, «Ver detalle de lo que se está quitando» muestra en vivo cada carpeta, clave, tarea y servicio que se borra.
+
 **No toca nunca:** documentos, correos (`.pst`/`.ost`), la configuración personal de Office (plantillas, firmas, diccionario, autocorrección, perfiles de Outlook), OneDrive, Teams ni OneNote de la Tienda.
 
 ## Seguridad
@@ -81,7 +85,9 @@ Botón «Desinstalar Office por completo» en la pantalla de inicio (franja «¿
 ## Registros y soporte
 
 - Registros: `C:\ProgramData\SafeTech\Office\registros\<AAAAMMDD-hhmmss>\proceso.log`
-- Si algo falla, la pantalla de error tiene **Guardar informe para soporte en el Escritorio**: un ZIP con el registro, información del equipo, estado de licencias y los registros de Microsoft (ODT), listo para enviar por WhatsApp.
+- Si algo falla, la pantalla de error tiene **Guardar informe para soporte en el Escritorio**: un ZIP con el registro, información del equipo, estado de licencias y los registros de Microsoft (ODT), listo para enviar por WhatsApp. Antes de crearlo, el cliente ve qué incluye. El informe se **anonimiza**: además de la clave y el código ST, reemplaza el usuario de Windows, el nombre del equipo y los correos por `<usuario>`, `<equipo>` y `<correo>`.
+- **Cierres inesperados:** mientras la app está abierta deja una marca en `C:\ProgramData\SafeTech\Office\sesion-abierta.json`. Si al abrirla de nuevo la marca sigue ahí, distingue si se reinició el PC o se cerró el instalador, lo anota en el registro y en el informe y, si estaba trabajando, le explica al cliente cómo retomar.
+- **Pasos largos:** si un paso pasa más de un minuto sin cambios, la pantalla explica que sigue trabajando y que es normal; a los 5 minutos lo anota en el registro como paso lento.
 
 ## Desarrollo
 
@@ -101,9 +107,18 @@ Todo está en un solo archivo, [`office.ps1`](office.ps1) (Windows PowerShell 5.
 | [`assets/`](assets/) | Logo, imágenes del tutorial, sonidos y voces |
 | [`tests/`](tests/) | Pruebas Pester del motor |
 | [`.github/workflows/`](.github/workflows/) | Validación en Windows y publicación de releases |
+| [`docs/`](docs/) | Para clientes: [qué hacer si Windows o el antivirus avisan](docs/SI-WINDOWS-TE-AVISA.md) |
 | [`CHANGELOG.md`](CHANGELOG.md) | Historial de versiones |
 | [`CLAUDE.md`](CLAUDE.md) | Instrucciones para Claude Code (commits y versiones) |
 | [`PRODUCT.md`](PRODUCT.md), [`DESIGN.md`](DESIGN.md), [`.impeccable/`](.impeccable/) | Contexto de producto y sistema de diseño (colores, tipografía, componentes) |
+
+Para abrir el **modo demostración** en cualquier Windows:
+
+```powershell
+$env:SAFETECH_OFFICE_MODE = 'demo'; irm https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1 | iex
+```
+
+En equipos modestos (menos de 6 GB de RAM, 2 núcleos o disco mecánico) y cuando Windows tiene las animaciones apagadas, la app se usa sin animaciones.
 
 Variables de entorno útiles:
 
@@ -114,6 +129,7 @@ Variables de entorno útiles:
 | `SAFETECH_OFFICE_ASSETS` | Usar los recursos de una carpeta local en vez de descargarlos |
 | `SAFETECH_OFFICE_MODE=lib` | Solo carga funciones (pruebas) |
 | `SAFETECH_OFFICE_MODE=selftest` | Dibuja cada pantalla en PNG sin instalar nada (en `SAFETECH_OFFICE_OUT`) |
+| `SAFETECH_OFFICE_MODE=demo` | **Modo demostración**: la app completa con pasos simulados (instalar, activar, tutorial, desinstalar). No pide administrador ni cambia nada; sirve para probar cambios, grabar videos o mostrarla |
 
 GitHub Actions ([`validar.yml`](.github/workflows/validar.yml)) corre en Windows en cada push: sintaxis en PowerShell 5.1, PSScriptAnalyzer, pruebas Pester ([`tests/`](tests/)) y la autoprueba de la interfaz, que sube las capturas como artefacto.
 
@@ -121,7 +137,7 @@ Para publicar una versión: subir `Version` en `office.ps1` y anotarla en `CHANG
 
 ## Versión
 
-Versión actual: **1.6.3**. El historial completo está en [`CHANGELOG.md`](CHANGELOG.md).
+Versión actual: **1.7.0**. El historial completo está en [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 

@@ -65,8 +65,14 @@ jobs:
             echo 'irm https://raw.githubusercontent.com/psgonzalogr/office-setup/main/office.ps1 | iex'
             echo '```'
             echo
+            echo "### ¿Windows dice «Windows protegió su PC»?"
+            echo
+            echo "Es normal: el archivo no tiene una firma digital de pago. Pulsa **Más información → Ejecutar de todas formas**. Puedes comprobar que es el original comparando su huella con \`SHA256.txt\` (\`Get-FileHash .\\Instalar-Office-SafeTech.cmd\` en PowerShell) o en [VirusTotal](https://www.virustotal.com). [Por qué pasa](https://github.com/psgonzalogr/office-setup/blob/main/docs/SI-WINDOWS-TE-AVISA.md)."
+            echo
             echo "Historial completo: [CHANGELOG.md](https://github.com/psgonzalogr/office-setup/blob/main/CHANGELOG.md)"
           } > notas.md
+          sha256sum Instalar-Office-SafeTech.cmd | awk '{ print toupper($1) "  " $2 }' > SHA256.txt
+          cat SHA256.txt
           cat notas.md
 
       - name: Crear la release
@@ -75,5 +81,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="v${{ steps.ver.outputs.ver }}"
-          gh release create "$tag" Instalar-Office-SafeTech.cmd \
+          gh release create "$tag" Instalar-Office-SafeTech.cmd SHA256.txt \
             --target "$(git rev-parse HEAD)" --title "$tag" --notes-file notas.md --latest
